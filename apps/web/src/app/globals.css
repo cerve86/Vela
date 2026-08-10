@@ -1,0 +1,135 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens. These mirror packages/shared/src/tokens.ts — that file is the source
+ * of truth for the iOS app, this block is the same values expressed as CSS custom
+ * properties so Tailwind utilities and raw SVG can both reach them.
+ *
+ * Dark values are declared twice on purpose: the media query follows the OS setting,
+ * the [data-theme] scope lets an explicit toggle win in both directions.
+ */
+
+@theme {
+  --color-brand-50: #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-300: #5eead4;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0d9488;
+  --color-brand-700: #0f766e;
+  --color-brand-800: #115e59;
+  --color-brand-900: #134e4a;
+
+  --color-status-good: #0ca30c;
+  --color-status-warning: #fab219;
+  --color-status-serious: #ec835a;
+  --color-status-critical: #d03b3b;
+
+  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+:root {
+  color-scheme: light;
+
+  --surface: #ffffff;
+  --page: #f7f8f8;
+  --raised: #ffffff;
+  --ink-primary: #0b0b0b;
+  --ink-secondary: #52514e;
+  --ink-muted: #898781;
+  --grid: #e6e7e5;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+  --success-text: #006300;
+  --ghost: rgba(11, 11, 11, 0.04);
+
+  /* Categorical series — fixed order, never cycled */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) {
+    color-scheme: dark;
+
+    --surface: #16181a;
+    --page: #0c0e10;
+    --raised: #1e2124;
+    --ink-primary: #ffffff;
+    --ink-secondary: #c3c2b7;
+    --ink-muted: #898781;
+    --grid: #282b2e;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --success-text: #0ca30c;
+    --ghost: rgba(255, 255, 255, 0.06);
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --surface: #16181a;
+  --page: #0c0e10;
+  --raised: #1e2124;
+  --ink-primary: #ffffff;
+  --ink-secondary: #c3c2b7;
+  --ink-muted: #898781;
+  --grid: #282b2e;
+  --axis: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+  --success-text: #0ca30c;
+  --ghost: rgba(255, 255, 255, 0.06);
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background: var(--page);
+  color: var(--ink-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Utility shorthands used across the app */
+@utility surface {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+@utility ink-2 {
+  color: var(--ink-secondary);
+}
+
+@utility ink-3 {
+  color: var(--ink-muted);
+}
+
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+}

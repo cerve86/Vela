@@ -14,7 +14,15 @@
       "Bash(echo \"pnpm: $\\(pnpm -v || echo STILL_MISSING\\)\")",
       "Bash(git init *)",
       "Bash(git add *)",
-      "Bash(git -c user.email=dev@local -c user.name=dev commit -q -m \"chore: monorepo root scaffold\")"
+      "Bash(git -c user.email=dev@local -c user.name=dev commit -q -m \"chore: monorepo root scaffold\")",
+      "Bash(node scripts/validate_palette.js \"#2a78d6,#eb6834,#1baf7a,#eda100,#e87ba4,#008300,#4a3aa7,#e34948\" --mode light --surface \"#ffffff\")",
+      "Bash(node scripts/validate_palette.js \"#3987e5,#d95926,#199e70,#c98500,#d55181,#008300,#9085e9,#e66767\" --mode dark --surface \"#16181a\")",
+      "Bash(npx --yes create-next-app@latest apps/web --ts --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --skip-install --no-turbopack --disable-git)",
+      "Bash(npx --yes create-next-app@latest web --ts --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --skip-install --no-turbopack --disable-git --no-agents-md)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(python3 -)",
+      "Bash(git -c user.email=dev@local -c user.name=dev commit -q -m 'feat\\(web\\): coach portal prototype with shared domain package *)"
     ]
   }
 }
