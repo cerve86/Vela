@@ -82,8 +82,24 @@ Nothing here is a feature. It is the machine that ships features.
 >   client's phone. The invite email carries GoTrue's `token_hash` instead, and
 >   returning clients sign in with a 6-digit OTP.
 >
-> Still to do before this phase is fully closed: in-app account deletion and data
-> export are written as RPCs but not yet wired to Profile buttons.
+> **Closed out 2026-08-10.** Invitation now uses a six-digit code rather than a deep
+> link, which removed the token-in-metadata failure mode entirely — there is no secret
+> in the email to go stale. Acceptance is keyed on the caller's *verified* email, which
+> is the only thing the old token ever proved.
+>
+> Account deletion and data export are wired and verified on device: export writes a
+> JSON file and opens the iOS share sheet; deletion erases the auth user, client row
+> and consents, leaving an audit row that deliberately carries no subject identifier.
+>
+> Two further findings:
+> - A local Supabase email template is fetched by GoTrue over HTTP from Kong. Rewriting
+>   the template file replaces its inode and breaks the single-file bind mount, so Kong
+>   404s and GoTrue silently falls back to the default email. `supabase stop && start`
+>   re-establishes it — `db reset` alone does not.
+> - The delete confirmation was originally two stacked `Alert`s. Presenting an Alert from
+>   inside another Alert's handler races the first one's dismissal, and a single tap was
+>   observed deleting an account outright. Replaced with an inline typed challenge
+>   ("type DELETE"), which is deterministic and verified to stay disabled on wrong input.
 
 ---
 

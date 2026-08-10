@@ -62,8 +62,8 @@ export function InviteForm() {
           placeholder="client@example.com"
         />
         <p className="mt-1.5 text-xs ink-3">
-          They&apos;ll get a link that opens CoachApp on their iPhone. Clicking it verifies
-          their email address, so only the person who controls this inbox can accept.
+          They&apos;ll get a six-digit code by email. Entering it in CoachApp verifies
+          their address, so only the person who controls this inbox can accept.
         </p>
       </div>
 

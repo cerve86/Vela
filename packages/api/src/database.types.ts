@@ -286,7 +286,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      accept_client_invite: { Args: { p_token: string }; Returns: string }
+      accept_my_invite: { Args: never; Returns: string }
       create_client_invite: {
         Args: {
           p_condition?: string
@@ -305,15 +305,6 @@ export type Database = {
       has_health_consent: { Args: { p_client: string }; Returns: boolean }
       is_coach_of: { Args: { target_client: string }; Returns: boolean }
       is_the_client: { Args: { target_client: string }; Returns: boolean }
-      peek_client_invite: {
-        Args: { p_token: string }
-        Returns: {
-          coach_name: string
-          email: string
-          expired: boolean
-          practice_name: string
-        }[]
-      }
       record_consent: {
         Args: {
           p_types: Database["public"]["Enums"]["consent_type"][]

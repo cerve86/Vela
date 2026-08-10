@@ -7,13 +7,6 @@ export interface CreatedInvite {
   token: string;
 }
 
-export interface InvitePreview {
-  coachName: string;
-  practiceName: string;
-  email: string;
-  expired: boolean;
-}
-
 export interface PendingInvite {
   id: string;
   clientId: string;
@@ -54,39 +47,32 @@ export async function createInvite(
   };
 }
 
-/** Unauthenticated read so the app can say who invited you before you sign in. */
-export async function peekInvite(
-  supabase: CoachAppClient,
-  token: string,
-): Promise<{ preview: InvitePreview | null; error: string | null }> {
-  const { data, error } = await supabase.rpc('peek_client_invite', { p_token: token });
-  if (error) return { preview: null, error: error.message };
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!row) return { preview: null, error: 'Invite not found' };
-
-  return {
-    preview: {
-      coachName: row.coach_name ?? '',
-      practiceName: row.practice_name ?? '',
-      email: row.email ?? '',
-      expired: Boolean(row.expired),
-    },
-    error: null,
-  };
-}
-
 /**
- * Turns a token into a link between the signed-in account and the client row.
- * Fails unless the caller's verified email matches the invited address, so forwarding
- * an invite link to someone else achieves nothing.
+ * Redeems the pending invitation for the caller's verified email address.
+ *
+ * There is no token to pass: entering the six-digit code from the invitation email is
+ * what proves control of the mailbox, and that is the only thing the old token proved.
  */
-export async function acceptInvite(
+export async function acceptMyInvite(
   supabase: CoachAppClient,
-  token: string,
 ): Promise<{ clientId: string | null; error: string | null }> {
-  const { data, error } = await supabase.rpc('accept_client_invite', { p_token: token });
+  const { data, error } = await supabase.rpc('accept_my_invite');
   if (error) return { clientId: null, error: error.message };
   return { clientId: data as string, error: null };
+}
+
+/** Verifies the six-digit invitation code. Signs the user in and marks the email verified. */
+export async function verifyInviteCode(
+  supabase: CoachAppClient,
+  email: string,
+  code: string,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.auth.verifyOtp({
+    email: email.trim().toLowerCase(),
+    token: code.trim(),
+    type: 'invite',
+  });
+  return { error: error?.message ?? null };
 }
 
 export async function listInvites(supabase: CoachAppClient): Promise<PendingInvite[]> {

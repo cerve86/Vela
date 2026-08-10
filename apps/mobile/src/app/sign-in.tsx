@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRouter } from 'expo-router';
 import { ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { sendMagicLink, verifyEmailOtp } from '@coachapp/api';
@@ -16,6 +17,7 @@ import { useSession } from '@/lib/session';
  */
 export default function SignInScreen() {
   const t = useTheme();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { refresh } = useSession();
 
@@ -147,6 +149,12 @@ export default function SignInScreen() {
             onPress={send}
           />
         )}
+
+        <Button
+          label="I have an invitation"
+          variant="secondary"
+          onPress={() => router.replace('/invite')}
+        />
 
         <Body size={11} color={t.textMuted} style={{ textAlign: 'center', lineHeight: 16 }}>
           CoachApp supports your treatment — it is not a medical device and does not

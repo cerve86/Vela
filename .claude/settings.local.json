@@ -61,7 +61,15 @@
       "Bash(curl -s \"http://127.0.0.1:54324/api/v1/messages?limit=5\")",
       "Bash(curl -s \"http://127.0.0.1:54324/api/v1/message/66FYc0ZocpsrDq8FZ2OwHv\")",
       "Bash(git -c user.email=dev@local -c user.name=dev commit -q -m 'feat\\(cp1\\): invite flow with email verification, auth and RLS *)",
-      "Bash(curl -s -o /dev/null -w \"metro http: %{http_code}\\\\n\" http://127.0.0.1:8081/status)"
+      "Bash(curl -s -o /dev/null -w \"metro http: %{http_code}\\\\n\" http://127.0.0.1:8081/status)",
+      "Bash(echo \"PODS=$?\")",
+      "Bash(echo \"BUILD=$?\")",
+      "Bash(curl -s -X DELETE \"http://127.0.0.1:54324/api/v1/messages\" -o /dev/null -w \"mail cleared: %{http_code}\\\\n\")",
+      "Bash(docker restart *)",
+      "Bash(curl -s -o /dev/null -w \"\" \"http://127.0.0.1:54321/auth/v1/health\")",
+      "Bash(break)",
+      "Bash(curl -s \"http://127.0.0.1:54321/auth/v1/health\")",
+      "Bash(curl -s -X DELETE \"http://127.0.0.1:54324/api/v1/messages\" -o /dev/null -w \"mail cleared\\\\n\")"
     ]
   }
 }

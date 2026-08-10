@@ -31,7 +31,7 @@ export default async function InvitePage() {
       <header className="mt-3 mb-6">
         <h1 className="text-[30px] font-extrabold">Invite a client</h1>
         <p className="mt-0.5 text-sm ink-2">
-          They&apos;ll appear on your roster as soon as they accept and verify their email.
+          They&apos;ll appear on your roster as soon as they enter their code and verify their email.
         </p>
       </header>
 

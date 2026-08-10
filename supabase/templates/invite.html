@@ -1,13 +1,12 @@
 <!--
-  Client invite email.
+  Client invitation email.
 
-  The link deep-links straight into the iOS app carrying two things:
-    token_hash — GoTrue's one-time verifier. Exchanged with verifyOtp(), which needs no
-                 locally-stored PKCE verifier, so it works even though the coach started
-                 this flow in a browser on a different device. Clicking it is what sets
-                 email_confirmed_at — this link IS the email verification.
-    invite     — our own single-use invite token, which links the now-verified account to
-                 the client row the coach created.
+  A six-digit code rather than a link, on purpose. The coach starts this flow in a
+  browser and the client finishes it on their phone, and a tapped link cannot carry a
+  PKCE verifier across devices — it opens whichever browser the OS prefers and strands
+  the exchange. A typed code keeps the whole thing inside the app, on one device.
+
+  Entering this code is what sets email_confirmed_at: the code IS the verification.
 -->
 <h2>{{ .Data.coach_name }} has invited you to CoachApp</h2>
 
@@ -16,18 +15,17 @@
   training programme and to follow how you're getting on between sessions.
 </p>
 
-<p>
-  <a
-    href="coachapp://invite?token_hash={{ .TokenHash }}&type=invite&invite={{ .Data.invite_token }}"
-    style="display:inline-block;background:#008460;color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:999px;font-family:system-ui,sans-serif;font-weight:600"
-  >
-    Open CoachApp and get started
-  </a>
+<p>Open CoachApp on your iPhone, choose <strong>I have an invitation</strong>, and enter this code:</p>
+
+<p
+  style="font-family:system-ui,sans-serif;font-size:34px;font-weight:800;letter-spacing:10px;color:#008460;background:#eff8f3;padding:18px 24px;border-radius:16px;display:inline-block"
+>
+  {{ .Token }}
 </p>
 
 <p style="color:#5a625e;font-size:13px">
-  This link works once and expires in 24 hours. Open it on the iPhone where you've
-  installed CoachApp.
+  The code expires in one hour and can only be used once. If it has expired, ask
+  {{ .Data.coach_name }} to send you a new invitation.
 </p>
 
 <p style="color:#949b97;font-size:12px">
