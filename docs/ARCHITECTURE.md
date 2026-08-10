@@ -46,9 +46,9 @@ additive later; neither is needed to prove the product.
 ### 2.1 Stack — locked 2026-08-10
 
 ```
-apps/mobile   Expo (React Native) + TypeScript      → EAS Build → TestFlight
-apps/web      Next.js 15 App Router + TS + Tailwind + shadcn/ui
-packages/*    Shared TS types, Zod schemas, domain calculations
+apps/mobile   Expo SDK 57 (React Native 0.86) + TypeScript  → EAS Build → TestFlight
+apps/web      Next.js 16 App Router + React 19 + Tailwind v4
+packages/*    Shared TS types, Zod schemas, domain calculations, design tokens
 supabase/     Postgres + Auth + RLS + Storage + Realtime + Edge Functions (EU region)
 ```
 
@@ -74,7 +74,7 @@ roughly 3–4 extra weeks you don't need to spend yet.
 
 | Concern | Choice | Notes |
 |---|---|---|
-| Monorepo | pnpm workspaces + Turborepo | One `pnpm dev`, shared lint/tsconfig |
+| Monorepo | **npm workspaces** | Chosen over pnpm: Metro (React Native's bundler) has long-standing friction with pnpm's symlinked `node_modules`, and npm's hoisted layout is the safer foundation for an Expo monorepo. Also avoids a sudo install. |
 | Mobile state | TanStack Query + Zustand | Query = server cache, Zustand = active-workout UI state |
 | Offline | SQLite (`expo-sqlite`) + outbox queue | **Non-negotiable** — gyms and clinics have bad signal |
 | Web data | TanStack Query + Supabase JS | Server Components for the shell, client components for charts |

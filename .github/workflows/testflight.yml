@@ -1,0 +1,44 @@
+name: TestFlight
+
+# Every merge to main produces a TestFlight build, so distribution never rots.
+# Discovering a broken signing pipeline in week 12 is the classic way this kind of
+# project stalls; running it from week 1 makes that impossible.
+#
+# BLOCKED until the Apple Developer Program enrolment completes. Once it does:
+#   1. eas.json → fill in appleId, ascAppId, appleTeamId
+#   2. Add EXPO_TOKEN to the repository secrets (expo.dev → Access Tokens)
+#   3. Run `eas credentials` once locally so EAS holds the signing assets
+#   4. Delete the `if: false` guard below
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build & submit
+    runs-on: ubuntu-latest
+    if: false # ← remove once Apple enrolment is complete
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - run: npm ci
+
+      - name: Build iOS
+        working-directory: apps/mobile
+        run: eas build --platform ios --profile production --non-interactive --wait
+
+      - name: Submit to TestFlight
+        working-directory: apps/mobile
+        run: eas submit --platform ios --profile production --non-interactive --latest

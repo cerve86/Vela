@@ -22,7 +22,18 @@
       "Bash(npm install *)",
       "Bash(npx tsc *)",
       "Bash(python3 -)",
-      "Bash(git -c user.email=dev@local -c user.name=dev commit -q -m 'feat\\(web\\): coach portal prototype with shared domain package *)"
+      "Bash(git -c user.email=dev@local -c user.name=dev commit -q -m 'feat\\(web\\): coach portal prototype with shared domain package *)",
+      "Bash(npx --yes create-expo-app@latest mobile --template default --no-install)",
+      "Bash(rm -rf src/app src/components src/hooks LICENSE README.md AGENTS.md CLAUDE.md .claude scripts .vscode && mkdir -p src/app && ls)",
+      "Bash(xcrun simctl *)",
+      "Bash(open -a Simulator)",
+      "Bash(npx expo *)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(xcode-select -p)",
+      "Bash(echo \"xcode-select: $\\(xcode-select -p\\)\")",
+      "Bash(xcodebuild -showsdks)",
+      "Bash(awk '/-- iOS 18.5/{f=1;next} /^-- /{f=0} f')",
+      "Bash(git -c user.email=dev@local -c user.name=dev commit -q -m 'feat: iOS client app, Supabase schema with RLS, CI pipeline *)"
     ]
   }
 }

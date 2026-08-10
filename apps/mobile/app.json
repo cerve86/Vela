@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "CoachApp",
+    "slug": "coachapp",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "coachapp",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "io.coachapp.client",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "CoachApp reads body weight, heart rate, sleep and activity from Apple Health so your physiotherapist can see how training is affecting your recovery. Your health data is never used for advertising and is never shared with third parties.",
+        "NSHealthUpdateUsageDescription": "CoachApp writes completed workouts back to Apple Health so your activity rings stay accurate.",
+        "NSCameraUsageDescription": "Take progress photos and scan food barcodes.",
+        "NSPhotoLibraryUsageDescription": "Attach progress photos to your check-ins."
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0F766E",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
