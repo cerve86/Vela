@@ -45,7 +45,22 @@
       "Bash(pip3 install *)",
       "Bash(python3 -c \"import PIL; print\\('PIL available'\\)\")",
       "Bash(node scripts/validate_palette.js \"#12a37a,#8b78ee,#d95926,#3987e5,#c98500,#d55181\" --mode dark --surface \"#14171a\")",
-      "Bash(npx pod-install *)"
+      "Bash(npx pod-install *)",
+      "Bash(brew install *)",
+      "Bash(open -a OrbStack)",
+      "Bash(docker --version)",
+      "Bash(echo \"docker: $\\(docker --version || echo 'not ready'\\)\")",
+      "Bash(docker exec *)",
+      "Bash(lsof -ti:4310)",
+      "Bash(xargs kill -9)",
+      "Bash(lsof -ti:4320)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:4310/sign-in)",
+      "Bash(curl -s \"http://127.0.0.1:54324/api/v1/messages?limit=3\")",
+      "Bash(curl -s \"http://127.0.0.1:54324/api/v1/message/34LMmXOzJ1s0gb69LKbzoW\")",
+      "Bash(curl -s \"http://127.0.0.1:54324/api/v1/messages?limit=5\")",
+      "Bash(curl -s \"http://127.0.0.1:54324/api/v1/message/66FYc0ZocpsrDq8FZ2OwHv\")",
+      "Bash(git -c user.email=dev@local -c user.name=dev commit -q -m 'feat\\(cp1\\): invite flow with email verification, auth and RLS *)"
     ]
   }
 }

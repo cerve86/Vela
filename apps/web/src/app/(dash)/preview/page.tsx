@@ -11,7 +11,7 @@ import { adherenceStyle, palette } from '@coachapp/shared/tokens';
 import { Avatar, Card, PainDot, StatTile, StatusPill } from '@/components/ui';
 import { Meter, Sparkline } from '@/components/charts';
 
-export const metadata = { title: 'Clients — CoachApp' };
+export const metadata = { title: 'Design preview — CoachApp' };
 
 function pct(n: number) {
   return `${Math.round(n * 100)}%`;
@@ -62,17 +62,14 @@ export default function ClientsPage() {
     <div className="mx-auto max-w-6xl p-8">
       <header className="mb-6 flex items-end justify-between">
         <div>
-          <h1 className="text-[30px] font-extrabold">Clients</h1>
+          <h1 className="text-[30px] font-extrabold">Design preview</h1>
           <p className="mt-0.5 text-sm ink-2">
-            Monday 10 August 2026 · {rows.length} active
+            Seeded demo data — how the roster reads once Phase 3 is logging sessions
           </p>
         </div>
-        <button
-          className="display-face rounded-full px-4 py-2.5 text-sm font-semibold text-white"
-          style={{ background: palette.brand[700] }}
-        >
-          Invite client
-        </button>
+        <span className="rounded-full px-3 py-1.5 text-xs font-medium" style={{ background: 'var(--ghost)' }}>
+          Not live data
+        </span>
       </header>
 
       <div className="mb-6 grid grid-cols-4 gap-3">

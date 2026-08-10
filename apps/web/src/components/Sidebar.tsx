@@ -2,14 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { coach } from '@coachapp/shared';
 import { palette } from '@coachapp/shared/tokens';
+import { SignedInAs } from './SignedInAs';
 
 const NAV = [
   { href: '/clients', label: 'Clients', glyph: '◫' },
   { href: '/programs', label: 'Programs', glyph: '◳' },
   { href: '/library', label: 'Exercise library', glyph: '☰' },
   { href: '/messages', label: 'Messages', glyph: '✉' },
+  { href: '/preview', label: 'Design preview', glyph: '◈' },
 ];
 
 export function Sidebar() {
@@ -60,8 +61,7 @@ export function Sidebar() {
       </div>
 
       <div className="border-t pt-3">
-        <div className="px-2 text-sm font-medium">{coach.name}</div>
-        <div className="px-2 text-xs ink-3">{coach.practice}</div>
+        <SignedInAs />
       </div>
     </nav>
   );

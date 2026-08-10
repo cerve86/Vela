@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Outfit, Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
-import { Sidebar } from '@/components/Sidebar';
 
 // Outfit carries headlines (heavy, tight, geometric). Plus Jakarta Sans carries body and
 // data — it has true tabular figures, which the roster and vitals tables depend on.
@@ -27,12 +26,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${outfit.variable} ${jakarta.variable}`}>
-      <body className="min-h-screen">
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="flex-1 overflow-x-hidden">{children}</main>
-        </div>
-      </body>
+      <body className="min-h-screen">{children}</body>
     </html>
   );
 }

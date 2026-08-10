@@ -1,0 +1,22 @@
+{
+  "name": "@coachapp/api",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/database.types.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "gen:types": "supabase gen types typescript --local > src/database.types.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.48.1",
+    "@coachapp/shared": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
