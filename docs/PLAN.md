@@ -42,13 +42,14 @@ Nothing here is a feature. It is the machine that ships features.
 
 - `pnpm` needed root to install → switched to npm workspaces. Better for Expo regardless:
   Metro has long-standing friction with pnpm's symlinked `node_modules`.
-- Xcode 26.6 ships the **iOS 26.5 SDK**, but the installed simulators run **iOS 27.0** —
-  a runtime newer than the SDK is not a valid build destination. Building against the
-  iOS 18.5 runtime instead. Install the matching platform via Xcode → Settings → Components
-  when convenient.
-- CocoaPods requires a UTF-8 locale and this shell has no `LANG`. Add
-  `export LANG=en_US.UTF-8` to `~/.zshrc`.
-- The simulator control panel needs `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
+- ~~Xcode had no iOS platform component installed~~ — **resolved**. Xcode 26.6 ships the
+  iOS 26.5 SDK; until the matching platform was installed via Xcode → Settings →
+  Components, `xcodebuild` offered *zero* iOS destinations (device or simulator), even
+  though simulator runtimes existed. Build against an **iOS 26.5** simulator: a 27.0
+  runtime is newer than the SDK and is not a valid destination.
+- CocoaPods requires a UTF-8 locale and this shell has no `LANG`. Every build command
+  here is prefixed with `LANG=en_US.UTF-8`; make it permanent with
+  `echo 'export LANG=en_US.UTF-8' >> ~/.zshrc`.
 - Supabase CLI and Docker are not installed — needed before Phase 1 can apply migrations.
 
 ---

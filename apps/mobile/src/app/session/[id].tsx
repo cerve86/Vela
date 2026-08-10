@@ -45,7 +45,10 @@ const fieldBase = StyleSheet.create({
 export default function SessionScreen() {
   const t = useTheme();
   const router = useRouter();
+  // Presented as a sheet, which never reaches the status bar — adding the device's
+  // top inset here just opens a dead gap under the grabber.
   const insets = useSafeAreaInsets();
+  const topPad = Math.min(insets.top, 12);
 
   const [painBefore, setPainBefore] = useState<number | null>(2);
   const [painAfter, setPainAfter] = useState<number | null>(null);
@@ -83,7 +86,7 @@ export default function SessionScreen() {
         <ScrollView
           contentContainerStyle={{
             padding: t.space.lg,
-            paddingTop: insets.top + t.space.xl,
+            paddingTop: topPad + t.space.xl,
             gap: t.space.lg,
           }}
         >
@@ -106,7 +109,7 @@ export default function SessionScreen() {
     <Screen>
       <View
         style={{
-          paddingTop: insets.top + 10,
+          paddingTop: topPad + 10,
           paddingHorizontal: t.space.lg,
           paddingBottom: t.space.md,
           backgroundColor: t.surface,

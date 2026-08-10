@@ -44,7 +44,8 @@
       "Bash(python3 -c \"import PIL; print\\('PIL ok'\\)\")",
       "Bash(pip3 install *)",
       "Bash(python3 -c \"import PIL; print\\('PIL available'\\)\")",
-      "Bash(node scripts/validate_palette.js \"#12a37a,#8b78ee,#d95926,#3987e5,#c98500,#d55181\" --mode dark --surface \"#14171a\")"
+      "Bash(node scripts/validate_palette.js \"#12a37a,#8b78ee,#d95926,#3987e5,#c98500,#d55181\" --mode dark --surface \"#14171a\")",
+      "Bash(npx pod-install *)"
     ]
   }
 }
