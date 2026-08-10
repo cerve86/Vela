@@ -77,16 +77,43 @@ export async function inviteClient(formData: FormData): Promise<InviteResult> {
 
   const coachName = `${coach?.first_name ?? ''} ${coach?.last_name ?? ''}`.trim() || 'Your coach';
 
+  const metadata = {
+    invite_token: invite.token,
+    coach_name: coachName,
+    practice_name: coachRow?.practice_name ?? 'your practice',
+    first_name: firstName,
+    last_name: lastName,
+  };
+
+  /**
+   * Re-invites need care. inviteUserByEmail renders the email from the auth user's
+   * STORED metadata, not from the `data` passed on this call. So a second invite
+   * happily mails the PREVIOUS token — which create_client_invite has just revoked,
+   * leaving the client holding a link that can never be accepted.
+   *
+   * Overwriting the metadata first is what keeps the emailed token and the live invite
+   * row in step.
+   */
+  const { data: existing } = await admin.auth.admin.listUsers();
+  const priorUser = existing?.users.find((u) => u.email?.toLowerCase() === email);
+
+  if (priorUser) {
+    if (priorUser.email_confirmed_at) {
+      return {
+        ok: false,
+        error: 'That email already has a verified CoachApp account — ask them to sign in instead.',
+      };
+    }
+    const { error: updateError } = await admin.auth.admin.updateUserById(priorUser.id, {
+      user_metadata: metadata,
+    });
+    if (updateError) {
+      return { ok: false, error: `Could not refresh the invitation: ${updateError.message}` };
+    }
+  }
+
   const { error: mailError } = await admin.auth.admin.inviteUserByEmail(email, {
-    // Carried into the email template. invite_token is our own single-use token; the
-    // template pairs it with GoTrue's token_hash in one deep link.
-    data: {
-      invite_token: invite.token,
-      coach_name: coachName,
-      practice_name: coachRow?.practice_name ?? 'your practice',
-      first_name: firstName,
-      last_name: lastName,
-    },
+    data: metadata,
     redirectTo: 'coachapp://invite',
   });
 

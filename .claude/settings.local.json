@@ -60,7 +60,8 @@
       "Bash(curl -s \"http://127.0.0.1:54324/api/v1/message/34LMmXOzJ1s0gb69LKbzoW\")",
       "Bash(curl -s \"http://127.0.0.1:54324/api/v1/messages?limit=5\")",
       "Bash(curl -s \"http://127.0.0.1:54324/api/v1/message/66FYc0ZocpsrDq8FZ2OwHv\")",
-      "Bash(git -c user.email=dev@local -c user.name=dev commit -q -m 'feat\\(cp1\\): invite flow with email verification, auth and RLS *)"
+      "Bash(git -c user.email=dev@local -c user.name=dev commit -q -m 'feat\\(cp1\\): invite flow with email verification, auth and RLS *)",
+      "Bash(curl -s -o /dev/null -w \"metro http: %{http_code}\\\\n\" http://127.0.0.1:8081/status)"
     ]
   }
 }

@@ -64,10 +64,26 @@ Nothing here is a feature. It is the machine that ships features.
 - Consent capture screen (ToS, privacy, explicit health-data consent) writing to `consents`
 - In-app account deletion + data export Edge Function (do it now — Apple requires it, and retrofitting cascade deletes later is miserable)
 
-> ### ✅ CP1 — Two clients cannot see each other
-> You invite a client, they sign in on iOS. The RLS test suite is green. A deliberate
-> attempt to fetch another client's row from the app returns nothing. Account deletion
-> actually erases everything.
+> ### ✅ CP1 — Two clients cannot see each other — **MET 2026-08-10**
+> Verified end to end on the local stack:
+> coach signs in by magic link → invites Marta Rossi → real email arrives → deep link
+> opens the iOS app → tapping it verifies her address (`email_confirmed_at` set) →
+> invite redeemed → consent captured → she lands in the app, and the coach's roster
+> shows her as Active. 14 pgTAP assertions green.
+>
+> **Findings worth keeping:**
+> - RLS filters rows; GRANTs decide table access. Missing grants made every query
+>   return zero rows — which reads exactly like working isolation, and would have made
+>   a negative-only test suite pass for the wrong reason. Every negative assertion is
+>   now paired with a positive control.
+> - `inviteUserByEmail` renders from the auth user's *stored* metadata, so a re-invite
+>   mailed the previous (just-revoked) token. Metadata is now overwritten first.
+> - A magic link started in the coach's browser cannot complete a PKCE exchange on the
+>   client's phone. The invite email carries GoTrue's `token_hash` instead, and
+>   returning clients sign in with a 6-digit OTP.
+>
+> Still to do before this phase is fully closed: in-app account deletion and data
+> export are written as RPCs but not yet wired to Profile buttons.
 
 ---
 

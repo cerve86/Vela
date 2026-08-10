@@ -42,6 +42,11 @@ export default function InviteScreen() {
 
   useEffect(() => {
     (async () => {
+      // Expo Router reuses this screen when a second deep link arrives, so a failure
+      // message from a previous token would otherwise sit under a perfectly valid one.
+      setError(null);
+      setStage('checking');
+
       if (!inviteToken) {
         setError('This link is missing its invitation code.');
         setStage('error');
