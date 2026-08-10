@@ -14,12 +14,12 @@ export function Card({
 }) {
   return (
     <section
-      className={`surface rounded-xl p-4 ${className ?? ''}`}
+      className={`surface rounded-[20px] p-5 ${className ?? ''}`}
       style={{ background: 'var(--surface)' }}
     >
       {(title || action) && (
         <header className="mb-3 flex items-center justify-between">
-          {title && <h2 className="text-sm font-semibold">{title}</h2>}
+          {title && <h2 className="display-face text-[15px] font-semibold">{title}</h2>}
           {action}
         </header>
       )}
@@ -45,10 +45,10 @@ export function StatTile({
   hint?: string;
 }) {
   return (
-    <div className="surface rounded-xl p-4" style={{ background: 'var(--surface)' }}>
+    <div className="surface rounded-[20px] p-5" style={{ background: 'var(--surface)' }}>
       <div className="text-xs ink-2">{label}</div>
       <div className="mt-1 flex items-baseline gap-1">
-        <span className="text-2xl font-semibold">{value}</span>
+        <span className="display-face text-[26px] font-bold">{value}</span>
         {unit && <span className="text-sm ink-3">{unit}</span>}
       </div>
       {delta && (
@@ -136,7 +136,7 @@ export function PainDot({ score }: { score: number | null }) {
 
 export function EmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="surface rounded-xl p-10 text-center" style={{ background: 'var(--surface)' }}>
+    <div className="surface rounded-[20px] p-10 text-center" style={{ background: 'var(--surface)' }}>
       <h3 className="text-sm font-semibold">{title}</h3>
       <p className="mx-auto mt-1 max-w-md text-sm ink-2">{body}</p>
     </div>

@@ -53,6 +53,9 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
         color: `var(--series-${i + 1})`,
         kind: 'line' as const,
         points,
+        // An exercise is trained a few days a week, not daily — join consecutive
+        // sessions rather than drawing orphaned two-point stubs.
+        connectGaps: true,
       };
     }),
   };

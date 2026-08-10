@@ -62,13 +62,13 @@ export default function ClientsPage() {
     <div className="mx-auto max-w-6xl p-8">
       <header className="mb-6 flex items-end justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Clients</h1>
+          <h1 className="text-[30px] font-extrabold">Clients</h1>
           <p className="mt-0.5 text-sm ink-2">
             Monday 10 August 2026 · {rows.length} active
           </p>
         </div>
         <button
-          className="rounded-lg px-3.5 py-2 text-sm font-medium text-white"
+          className="display-face rounded-full px-4 py-2.5 text-sm font-semibold text-white"
           style={{ background: palette.brand[700] }}
         >
           Invite client
@@ -101,7 +101,7 @@ export default function ClientsPage() {
               <li key={client.id}>
                 <Link
                   href={`/clients/${client.id}`}
-                  className="flex items-center gap-4 rounded-lg p-3 transition-colors hover:bg-[var(--ghost)]"
+                  className="flex items-center gap-4 rounded-[16px] p-3.5 transition-colors hover:bg-[var(--ghost)]"
                 >
                   <Avatar name={`${client.firstName} ${client.lastName}`} />
                   <div className="min-w-0 flex-1">

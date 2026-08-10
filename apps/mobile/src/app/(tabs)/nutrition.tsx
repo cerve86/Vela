@@ -14,9 +14,9 @@ export default function NutritionScreen() {
   const onTarget = isDayOnTarget(actual, target);
 
   const macros = [
-    { label: 'Protein', a: actual.proteinG, tg: target.proteinG, c: t.series[2]! },
-    { label: 'Carbs', a: actual.carbsG, tg: target.carbsG, c: t.series[3]! },
-    { label: 'Fat', a: actual.fatG, tg: target.fatG, c: t.series[4]! },
+    { label: 'Protein', a: actual.proteinG, tg: target.proteinG, c: t.series[0]! },
+    { label: 'Carbs', a: actual.carbsG, tg: target.carbsG, c: t.series[1]! },
+    { label: 'Fat', a: actual.fatG, tg: target.fatG, c: t.series[2]! },
   ];
 
   return (
@@ -29,21 +29,22 @@ export default function NutritionScreen() {
           gap: t.space.md,
         }}
       >
-        <Text style={{ color: t.textPrimary, fontSize: 28, fontWeight: '700' }}>Nutrition</Text>
+        <Text style={{ color: t.textPrimary, fontSize: 30, fontFamily: t.font.display, letterSpacing: -0.8 }}>Nutrition</Text>
 
         <Card>
           <View style={{ alignItems: 'center', paddingVertical: t.space.sm }}>
             <Text
               style={{
                 color: t.textPrimary,
-                fontSize: 40,
-                fontWeight: '700',
+                fontSize: 44,
+                fontFamily: t.font.display,
+                letterSpacing: -1.4,
                 fontVariant: ['tabular-nums'],
               }}
             >
               {Math.round(actual.kcal)}
             </Text>
-            <Text style={{ color: t.textSecondary, fontSize: 14 }}>
+            <Text style={{ color: t.textSecondary, fontSize: 14, fontFamily: t.font.regular }}>
               of {target.kcal} kcal · {Math.max(0, target.kcal - Math.round(actual.kcal))} left
             </Text>
             <View style={{ marginTop: 10 }}>
@@ -59,8 +60,8 @@ export default function NutritionScreen() {
                 <View
                   style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}
                 >
-                  <Text style={{ color: t.textSecondary, fontSize: 13 }}>{m.label}</Text>
-                  <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '600' }}>
+                  <Text style={{ color: t.textSecondary, fontSize: 13, fontFamily: t.font.regular }}>{m.label}</Text>
+                  <Text style={{ color: t.textPrimary, fontSize: 13, fontFamily: t.font.semibold }}>
                     {Math.round(m.a)} / {m.tg} g
                   </Text>
                 </View>
@@ -86,13 +87,13 @@ export default function NutritionScreen() {
               key={meal}
               title={meal.charAt(0).toUpperCase() + meal.slice(1)}
               right={
-                <Text style={{ color: t.textMuted, fontSize: 12 }}>
+                <Text style={{ color: t.textMuted, fontSize: 12, fontFamily: t.font.regular }}>
                   {items.reduce((n, i) => n + i.macros.kcal, 0)} kcal
                 </Text>
               }
             >
               {items.length === 0 ? (
-                <Text style={{ color: t.textMuted, fontSize: 13 }}>Nothing logged yet</Text>
+                <Text style={{ color: t.textMuted, fontSize: 13, fontFamily: t.font.regular }}>Nothing logged yet</Text>
               ) : (
                 <View style={{ gap: 10 }}>
                   {items.map((i) => (
@@ -101,8 +102,8 @@ export default function NutritionScreen() {
                       style={{ flexDirection: 'row', justifyContent: 'space-between' }}
                     >
                       <View style={{ flex: 1 }}>
-                        <Text style={{ color: t.textPrimary, fontSize: 14 }}>{i.foodName}</Text>
-                        <Text style={{ color: t.textMuted, fontSize: 12 }}>
+                        <Text style={{ color: t.textPrimary, fontSize: 14, fontFamily: t.font.regular }}>{i.foodName}</Text>
+                        <Text style={{ color: t.textMuted, fontSize: 12, fontFamily: t.font.regular }}>
                           {i.quantityG} g · P {i.macros.proteinG} · C {i.macros.carbsG} · F{' '}
                           {i.macros.fatG}
                         </Text>
@@ -111,6 +112,7 @@ export default function NutritionScreen() {
                         style={{
                           color: t.textSecondary,
                           fontSize: 14,
+                          fontFamily: t.font.medium,
                           fontVariant: ['tabular-nums'],
                         }}
                       >

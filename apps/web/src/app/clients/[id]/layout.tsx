@@ -25,7 +25,7 @@ export default async function ClientLayout({
       <header className="mt-3 mb-5 flex items-start gap-4">
         <Avatar name={`${client.firstName} ${client.lastName}`} size={52} />
         <div className="flex-1">
-          <h1 className="text-2xl font-semibold">
+          <h1 className="text-[30px] font-extrabold">
             {client.firstName} {client.lastName}
           </h1>
           <p className="mt-0.5 text-sm ink-2">{client.condition}</p>

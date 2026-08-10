@@ -1,108 +1,127 @@
 @import 'tailwindcss';
 
 /*
- * Design tokens. These mirror packages/shared/src/tokens.ts — that file is the source
- * of truth for the iOS app, this block is the same values expressed as CSS custom
- * properties so Tailwind utilities and raw SVG can both reach them.
+ * Design tokens. These mirror packages/shared/src/tokens.ts — that file is the source of
+ * truth for the iOS app, this block is the same values as CSS custom properties so
+ * Tailwind utilities and raw SVG can both reach them.
  *
- * Dark values are declared twice on purpose: the media query follows the OS setting,
- * the [data-theme] scope lets an explicit toggle win in both directions.
+ * Visual direction follows the fitness-coaching reference: deep spearmint green on white,
+ * violet secondary, very round corners, heavy tight display type over light body text.
+ *
+ * Dark values are declared twice on purpose: the media query follows the OS setting, the
+ * [data-theme] scope lets an explicit toggle win in both directions.
  */
 
 @theme {
-  --color-brand-50: #f0fdfa;
-  --color-brand-100: #ccfbf1;
-  --color-brand-300: #5eead4;
-  --color-brand-500: #14b8a6;
-  --color-brand-600: #0d9488;
-  --color-brand-700: #0f766e;
-  --color-brand-800: #115e59;
-  --color-brand-900: #134e4a;
+  --color-brand-50: #edf8f4;
+  --color-brand-100: #d2efe5;
+  --color-brand-200: #a5dfcb;
+  --color-brand-300: #63c7a7;
+  --color-brand-400: #26a87f;
+  --color-brand-500: #00966d;
+  --color-brand-600: #008460;
+  --color-brand-700: #026e51;
+  --color-brand-800: #065842;
+  --color-brand-900: #074635;
+
+  --color-accent-100: #e7e2fb;
+  --color-accent-500: #5838c8;
+  --color-accent-700: #432aa0;
 
   --color-status-good: #0ca30c;
   --color-status-warning: #fab219;
   --color-status-serious: #ec835a;
   --color-status-critical: #d03b3b;
 
-  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: var(--font-outfit), system-ui, sans-serif;
+  --font-sans: var(--font-jakarta), system-ui, sans-serif;
+
+  --radius-card: 20px;
+  --radius-chip: 14px;
 }
 
 :root {
   color-scheme: light;
 
   --surface: #ffffff;
-  --page: #f7f8f8;
+  --page: #f4f6f5;
   --raised: #ffffff;
-  --ink-primary: #0b0b0b;
-  --ink-secondary: #52514e;
-  --ink-muted: #898781;
-  --grid: #e6e7e5;
-  --axis: #c3c2b7;
-  --border: rgba(11, 11, 11, 0.1);
-  --success-text: #006300;
-  --ghost: rgba(11, 11, 11, 0.04);
+  --ink-primary: #0b0f0d;
+  --ink-secondary: #5a625e;
+  --ink-muted: #949b97;
+  --grid: #e8ebe9;
+  --axis: #c6ccc9;
+  --border: rgba(11, 15, 13, 0.08);
+  --success-text: #026e51;
+  --ghost: #f5f6f5;
+
+  --tint-cream: #fffbed;
+  --tint-mint: #eff8f3;
+  --tint-lilac: #f2effc;
 
   /* Categorical series — fixed order, never cycled */
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #1baf7a;
-  --series-4: #eda100;
-  --series-5: #e87ba4;
-  --series-6: #008300;
-  --series-7: #4a3aa7;
-  --series-8: #e34948;
+  --series-1: #008460;
+  --series-2: #5838c8;
+  --series-3: #eb6834;
+  --series-4: #2a78d6;
+  --series-5: #eda100;
+  --series-6: #e87ba4;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme='light'])) {
     color-scheme: dark;
 
-    --surface: #16181a;
-    --page: #0c0e10;
-    --raised: #1e2124;
+    --surface: #14171a;
+    --page: #0a0c0e;
+    --raised: #1c2024;
     --ink-primary: #ffffff;
-    --ink-secondary: #c3c2b7;
-    --ink-muted: #898781;
-    --grid: #282b2e;
-    --axis: #383835;
-    --border: rgba(255, 255, 255, 0.1);
-    --success-text: #0ca30c;
+    --ink-secondary: #b9c0bc;
+    --ink-muted: #868e8a;
+    --grid: #262b2e;
+    --axis: #39403d;
+    --border: rgba(255, 255, 255, 0.09);
+    --success-text: #12a37a;
     --ghost: rgba(255, 255, 255, 0.06);
 
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --series-3: #199e70;
-    --series-4: #c98500;
-    --series-5: #d55181;
-    --series-6: #008300;
-    --series-7: #9085e9;
-    --series-8: #e66767;
+    --tint-cream: rgba(255, 255, 255, 0.05);
+    --tint-mint: rgba(18, 163, 122, 0.12);
+    --tint-lilac: rgba(139, 120, 238, 0.12);
+
+    --series-1: #12a37a;
+    --series-2: #8b78ee;
+    --series-3: #d95926;
+    --series-4: #3987e5;
+    --series-5: #c98500;
+    --series-6: #d55181;
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --surface: #16181a;
-  --page: #0c0e10;
-  --raised: #1e2124;
+  --surface: #14171a;
+  --page: #0a0c0e;
+  --raised: #1c2024;
   --ink-primary: #ffffff;
-  --ink-secondary: #c3c2b7;
-  --ink-muted: #898781;
-  --grid: #282b2e;
-  --axis: #383835;
-  --border: rgba(255, 255, 255, 0.1);
-  --success-text: #0ca30c;
+  --ink-secondary: #b9c0bc;
+  --ink-muted: #868e8a;
+  --grid: #262b2e;
+  --axis: #39403d;
+  --border: rgba(255, 255, 255, 0.09);
+  --success-text: #12a37a;
   --ghost: rgba(255, 255, 255, 0.06);
 
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --series-3: #199e70;
-  --series-4: #c98500;
-  --series-5: #d55181;
-  --series-6: #008300;
-  --series-7: #9085e9;
-  --series-8: #e66767;
+  --tint-cream: rgba(255, 255, 255, 0.05);
+  --tint-mint: rgba(18, 163, 122, 0.12);
+  --tint-lilac: rgba(139, 120, 238, 0.12);
+
+  --series-1: #12a37a;
+  --series-2: #8b78ee;
+  --series-3: #d95926;
+  --series-4: #3987e5;
+  --series-5: #c98500;
+  --series-6: #d55181;
 }
 
 * {
@@ -116,7 +135,14 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Utility shorthands used across the app */
+/* Headlines take the display face, set tight — the reference's signature. */
+h1,
+h2,
+.display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
 @utility surface {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -132,4 +158,9 @@ body {
 
 @utility tnum {
   font-variant-numeric: tabular-nums;
+}
+
+@utility display-face {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
 }

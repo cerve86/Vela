@@ -30,7 +30,7 @@ export default function ProgressScreen() {
           gap: t.space.md,
         }}
       >
-        <Text style={{ color: t.textPrimary, fontSize: 28, fontWeight: '700' }}>Progress</Text>
+        <Text style={{ color: t.textPrimary, fontSize: 30, fontFamily: t.font.display, letterSpacing: -0.8 }}>Progress</Text>
 
         <Card title="Last 7 days">
           <StatRow
@@ -72,8 +72,8 @@ export default function ProgressScreen() {
                   style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
                 >
                   <View>
-                    <Text style={{ color: t.textPrimary, fontSize: 15 }}>{meta.label}</Text>
-                    <Text style={{ color: t.textMuted, fontSize: 12 }}>
+                    <Text style={{ color: t.textPrimary, fontSize: 15, fontFamily: t.font.regular }}>{meta.label}</Text>
+                    <Text style={{ color: t.textMuted, fontSize: 12, fontFamily: t.font.regular }}>
                       {m
                         ? m.source === 'healthkit'
                           ? 'Apple Health'
@@ -85,12 +85,12 @@ export default function ProgressScreen() {
                     style={{
                       color: t.textPrimary,
                       fontSize: 18,
-                      fontWeight: '600',
+                      fontFamily: t.font.displaySemi,
                       fontVariant: ['tabular-nums'],
                     }}
                   >
                     {m ? m.value.toFixed(meta.decimals) : '—'}
-                    <Text style={{ color: t.textMuted, fontSize: 12, fontWeight: '400' }}>
+                    <Text style={{ color: t.textMuted, fontSize: 12, fontFamily: t.font.regular }}>
                       {' '}
                       {meta.unit}
                     </Text>
@@ -120,8 +120,8 @@ export default function ProgressScreen() {
                     }}
                   />
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: t.textPrimary, fontSize: 15 }}>{s.title}</Text>
-                    <Text style={{ color: t.textMuted, fontSize: 12 }}>
+                    <Text style={{ color: t.textPrimary, fontSize: 15, fontFamily: t.font.regular }}>{s.title}</Text>
+                    <Text style={{ color: t.textMuted, fontSize: 12, fontFamily: t.font.regular }}>
                       {daysBetween(s.scheduledDate, TODAY)} days ago ·{' '}
                       {Math.round(volumeLoad(sl)).toLocaleString('en-GB')} kg
                     </Text>
@@ -130,6 +130,7 @@ export default function ProgressScreen() {
                     style={{
                       color: t.textSecondary,
                       fontSize: 14,
+                      fontFamily: t.font.medium,
                       fontVariant: ['tabular-nums'],
                     }}
                   >

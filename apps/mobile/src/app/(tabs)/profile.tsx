@@ -37,7 +37,7 @@ export default function ProfileScreen() {
           gap: t.space.md,
         }}
       >
-        <Text style={{ color: t.textPrimary, fontSize: 28, fontWeight: '700' }}>Profile</Text>
+        <Text style={{ color: t.textPrimary, fontSize: 30, fontFamily: t.font.display, letterSpacing: -0.8 }}>Profile</Text>
 
         <Card>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.lg }}>
@@ -51,16 +51,16 @@ export default function ProfileScreen() {
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ color: t.brand[800], fontSize: 20, fontWeight: '700' }}>
+              <Text style={{ color: t.brand[800], fontSize: 20, fontFamily: t.font.displayBold }}>
                 {me.firstName[0]}
                 {me.lastName[0]}
               </Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '600' }}>
+              <Text style={{ color: t.textPrimary, fontSize: 18, fontFamily: t.font.displaySemi }}>
                 {me.firstName} {me.lastName}
               </Text>
-              <Text style={{ color: t.textSecondary, fontSize: 13 }}>{me.email}</Text>
+              <Text style={{ color: t.textSecondary, fontSize: 13, fontFamily: t.font.regular }}>{me.email}</Text>
             </View>
           </View>
         </Card>
@@ -69,9 +69,9 @@ export default function ProfileScreen() {
           <View style={{ gap: 10 }}>
             {rows.map((r) => (
               <View key={r.label} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Text style={{ color: t.textSecondary, fontSize: 13 }}>{r.label}</Text>
+                <Text style={{ color: t.textSecondary, fontSize: 13, fontFamily: t.font.regular }}>{r.label}</Text>
                 <Text
-                  style={{ color: t.textPrimary, fontSize: 13, flex: 1, textAlign: 'right' }}
+                  style={{ color: t.textPrimary, fontSize: 13, flex: 1, textAlign: 'right', fontFamily: t.font.medium }}
                   numberOfLines={2}
                 >
                   {r.value}
@@ -80,11 +80,11 @@ export default function ProfileScreen() {
             ))}
           </View>
           <View style={{ marginTop: t.space.lg, borderTopWidth: 1, borderTopColor: t.border, paddingTop: t.space.md }}>
-            <Text style={{ color: t.textSecondary, fontSize: 13 }}>Your physiotherapist</Text>
-            <Text style={{ color: t.textPrimary, fontSize: 15, fontWeight: '600', marginTop: 2 }}>
+            <Text style={{ color: t.textSecondary, fontSize: 13, fontFamily: t.font.regular }}>Your physiotherapist</Text>
+            <Text style={{ color: t.textPrimary, fontSize: 15, fontFamily: t.font.semibold, marginTop: 2 }}>
               {coach.name}
             </Text>
-            <Text style={{ color: t.textMuted, fontSize: 12 }}>{coach.practice}</Text>
+            <Text style={{ color: t.textMuted, fontSize: 12, fontFamily: t.font.regular }}>{coach.practice}</Text>
           </View>
         </Card>
 
@@ -95,7 +95,7 @@ export default function ProfileScreen() {
                 key={s.label}
                 style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
               >
-                <Text style={{ color: t.textPrimary, fontSize: 14 }}>{s.label}</Text>
+                <Text style={{ color: t.textPrimary, fontSize: 14, fontFamily: t.font.regular }}>{s.label}</Text>
                 <Pill tone={s.tone}>{s.value}</Pill>
               </View>
             ))}
@@ -105,21 +105,21 @@ export default function ProfileScreen() {
         <Card title="Your data">
           <View style={{ gap: t.space.md }}>
             <View>
-              <Text style={{ color: t.textPrimary, fontSize: 14 }}>Export my data</Text>
-              <Text style={{ color: t.textMuted, fontSize: 12, marginTop: 2 }}>
+              <Text style={{ color: t.textPrimary, fontSize: 14, fontFamily: t.font.regular }}>Export my data</Text>
+              <Text style={{ color: t.textMuted, fontSize: 12, marginTop: 2, fontFamily: t.font.regular }}>
                 Download everything recorded about you as JSON and CSV.
               </Text>
             </View>
             <View>
-              <Text style={{ color: t.status.critical, fontSize: 14 }}>Delete my account</Text>
-              <Text style={{ color: t.textMuted, fontSize: 12, marginTop: 2 }}>
+              <Text style={{ color: t.status.critical, fontSize: 14, fontFamily: t.font.semibold }}>Delete my account</Text>
+              <Text style={{ color: t.textMuted, fontSize: 12, marginTop: 2, fontFamily: t.font.regular }}>
                 Permanently erases your account and all training, nutrition and health data.
               </Text>
             </View>
           </View>
         </Card>
 
-        <Text style={{ color: t.textMuted, fontSize: 11, textAlign: 'center', lineHeight: 16 }}>
+        <Text style={{ color: t.textMuted, fontSize: 11, textAlign: 'center', lineHeight: 16, fontFamily: t.font.regular }}>
           CoachApp supports your treatment — it is not a medical device and does not provide
           diagnosis. Always follow the guidance of your physiotherapist.
         </Text>

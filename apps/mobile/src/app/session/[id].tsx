@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { estimateOneRepMax } from '@coachapp/shared';
-import { Button, Card, PainScale, Pill, Screen } from '@/components/kit';
+import { Body, Button, Card, Display, PainScale, Pill, Screen } from '@/components/kit';
 import { useTheme } from '@/theme';
 import { todayPlan } from '@/lib/today';
 
@@ -22,13 +22,13 @@ function defaultReps(prescription: string): string {
  * `minWidth: 0` matters: a text input's intrinsic min-content width otherwise refuses to
  * shrink below roughly 20 characters, which pushes the DONE column off the right edge.
  */
-const field = StyleSheet.create({
+const fieldBase = StyleSheet.create({
   input: {
     flex: 1,
     minWidth: 0,
-    borderRadius: 6,
-    paddingVertical: 11,
-    paddingHorizontal: 12,
+    borderRadius: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
     fontSize: 16,
     fontVariant: ['tabular-nums'] as const,
   },
@@ -38,7 +38,7 @@ const field = StyleSheet.create({
  * Active session logging.
  *
  * Design intent: the client is mid-set, standing, phone in one hand. Every control is a
- * large tap target, the previous session's numbers are pre-filled so the common case is
+ * large tap target, the prescription's numbers are pre-filled so the common case is
  * "tap done", and nothing here requires a network round-trip — Phase 3 writes straight
  * to SQLite and syncs later.
  */
@@ -48,6 +48,7 @@ export default function SessionScreen() {
   const insets = useSafeAreaInsets();
 
   const [painBefore, setPainBefore] = useState<number | null>(2);
+  const [painAfter, setPainAfter] = useState<number | null>(null);
   const [started, setStarted] = useState(false);
   const [sets, setSets] = useState<Record<string, LoggedSet[]>>(() =>
     Object.fromEntries(
@@ -63,10 +64,7 @@ export default function SessionScreen() {
     ),
   );
 
-  const completed = useMemo(
-    () => Object.values(sets).flat().filter((s) => s.done).length,
-    [sets],
-  );
+  const completed = useMemo(() => Object.values(sets).flat().filter((s) => s.done).length, [sets]);
   const total = useMemo(() => Object.values(sets).flat().length, [sets]);
 
   function update(itemId: string, index: number, patch: Partial<LoggedSet>) {
@@ -85,19 +83,17 @@ export default function SessionScreen() {
         <ScrollView
           contentContainerStyle={{
             padding: t.space.lg,
-            paddingTop: insets.top + t.space.lg,
+            paddingTop: insets.top + t.space.xl,
             gap: t.space.lg,
           }}
         >
-          <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '700' }}>
-            Before you start
-          </Text>
+          <Display size={30}>Before you start</Display>
           <Card title="How is your knee right now?">
             <PainScale value={painBefore} onChange={setPainBefore} />
-            <Text style={{ color: t.textMuted, fontSize: 12, marginTop: 12 }}>
+            <Body size={12} color={t.textMuted} style={{ marginTop: 14 }}>
               We ask before and after every session. The comparison is what tells your
               physiotherapist whether the current load is right for you.
-            </Text>
+            </Body>
           </Card>
           <Button label="Begin session" onPress={() => setStarted(true)} />
           <Button label="Cancel" variant="secondary" onPress={() => router.back()} />
@@ -110,66 +106,76 @@ export default function SessionScreen() {
     <Screen>
       <View
         style={{
-          paddingTop: insets.top + 8,
+          paddingTop: insets.top + 10,
           paddingHorizontal: t.space.lg,
           paddingBottom: t.space.md,
           backgroundColor: t.surface,
-          borderBottomWidth: 1,
+          borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: t.border,
         }}
       >
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View>
-            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700' }}>
-              Lower body + core
-            </Text>
-            <Text style={{ color: t.textSecondary, fontSize: 13 }}>
+          <View style={{ flex: 1 }}>
+            <Display size={19}>Lower body + core</Display>
+            <Body size={13} color={t.textSecondary}>
               {completed} of {total} sets · pain before {painBefore}/10
-            </Text>
+            </Body>
           </View>
-          <Pill tone="warning">Offline — will sync</Pill>
+          <Pill tone="warning">Offline</Pill>
         </View>
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: t.space.lg, paddingBottom: t.space.xxl, gap: t.space.md }}
+        contentContainerStyle={{ padding: t.space.lg, paddingBottom: t.space.xxl * 2, gap: t.space.md }}
+        showsVerticalScrollIndicator={false}
       >
         {todayPlan.map((item) => (
           <Card key={item.id}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: t.textPrimary, fontSize: 17, fontWeight: '600' }}>
-                  {item.name}
-                </Text>
-                <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 2 }}>
+                <Display size={18}>{item.name}</Display>
+                <Body size={13} color={t.textSecondary} style={{ marginTop: 2 }}>
                   {item.sets} × {item.reps}
                   {item.targetRpe ? ` @ RPE ${item.targetRpe}` : ''}
                   {item.tempo ? ` · tempo ${item.tempo}` : ''}
-                </Text>
+                </Body>
               </View>
-              <Text style={{ color: t.textMuted, fontSize: 12 }}>{item.restSec}s rest</Text>
+              <Body size={12} color={t.textMuted}>
+                {item.restSec}s rest
+              </Body>
             </View>
 
             {item.cues[0] && (
-              <Text style={{ color: t.textMuted, fontSize: 12, marginTop: 8, fontStyle: 'italic' }}>
+              <Body size={12} color={t.textMuted} style={{ marginTop: 8, fontStyle: 'italic' }}>
                 {item.cues[0]}
-              </Text>
+              </Body>
             )}
 
             <View style={{ marginTop: t.space.lg, gap: 8 }}>
               <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 2 }}>
-                <Text style={{ width: 28, color: t.textMuted, fontSize: 11 }}>SET</Text>
-                <Text style={{ flex: 1, color: t.textMuted, fontSize: 11 }}>KG</Text>
-                <Text style={{ flex: 1, color: t.textMuted, fontSize: 11 }}>REPS</Text>
-                <Text style={{ width: 52, color: t.textMuted, fontSize: 11, textAlign: 'center' }}>
+                <Body size={11} weight="bold" color={t.textMuted} style={{ width: 28 }}>
+                  SET
+                </Body>
+                <Body size={11} weight="bold" color={t.textMuted} style={{ flex: 1 }}>
+                  KG
+                </Body>
+                <Body size={11} weight="bold" color={t.textMuted} style={{ flex: 1 }}>
+                  REPS
+                </Body>
+                <Body size={11} weight="bold" color={t.textMuted} style={{ width: 52, textAlign: 'center' }}>
                   DONE
-                </Text>
+                </Body>
               </View>
 
               {(sets[item.id] ?? []).map((s, i) => (
                 <View key={i} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                   <Text
-                    style={{ width: 28, color: t.textSecondary, fontSize: 15, fontWeight: '600' }}
+                    style={{
+                      width: 28,
+                      fontFamily: t.font.displayBold,
+                      fontSize: 15,
+                      color: t.textSecondary,
+                    }}
                   >
                     {i + 1}
                   </Text>
@@ -180,14 +186,20 @@ export default function SessionScreen() {
                     placeholder={item.targetLoadKg ? undefined : 'BW'}
                     placeholderTextColor={t.textMuted}
                     accessibilityLabel={`Set ${i + 1} weight in kilograms`}
-                    style={[field, { backgroundColor: t.dark ? '#26292c' : '#f2f3f2', color: t.textPrimary }]}
+                    style={[
+                      fieldBase,
+                      { backgroundColor: t.inputFill, color: t.textPrimary, fontFamily: t.font.medium },
+                    ]}
                   />
                   <TextInput
                     value={s.reps}
                     onChangeText={(v) => update(item.id, i, { reps: v })}
                     keyboardType="number-pad"
                     accessibilityLabel={`Set ${i + 1} repetitions`}
-                    style={[field, { backgroundColor: t.dark ? '#26292c' : '#f2f3f2', color: t.textPrimary }]}
+                    style={[
+                      fieldBase,
+                      { backgroundColor: t.inputFill, color: t.textPrimary, fontFamily: t.font.medium },
+                    ]}
                   />
                   <Pressable
                     onPress={() => update(item.id, i, { done: !s.done })}
@@ -196,11 +208,11 @@ export default function SessionScreen() {
                     accessibilityLabel={`Set ${i + 1} complete`}
                     style={{
                       width: 52,
-                      height: 42,
-                      borderRadius: t.radius.sm,
+                      height: 46,
+                      borderRadius: 14,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      backgroundColor: s.done ? t.status.good : t.dark ? '#26292c' : '#f2f3f2',
+                      backgroundColor: s.done ? t.brand[600] : t.inputFill,
                     }}
                   >
                     <Text style={{ color: s.done ? '#fff' : t.textMuted, fontSize: 17 }}>✓</Text>
@@ -216,19 +228,19 @@ export default function SessionScreen() {
                 .filter((n): n is number => n !== null);
               if (best.length === 0) return null;
               return (
-                <Text style={{ color: t.textMuted, fontSize: 12, marginTop: 10 }}>
+                <Body size={12} color={t.textMuted} style={{ marginTop: 12 }}>
                   Estimated 1RM this session: {Math.max(...best).toFixed(1)} kg
-                </Text>
+                </Body>
               );
             })()}
           </Card>
         ))}
 
         <Card title="Finish session">
-          <Text style={{ color: t.textSecondary, fontSize: 13, marginBottom: 12 }}>
+          <Body size={13} color={t.textSecondary} style={{ marginBottom: 14 }}>
             How is the knee now, after the session?
-          </Text>
-          <PainScale value={null} onChange={() => {}} />
+          </Body>
+          <PainScale value={painAfter} onChange={setPainAfter} />
           <View style={{ marginTop: t.space.xl }}>
             <Button
               label={`Save session (${completed}/${total} sets)`}

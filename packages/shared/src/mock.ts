@@ -523,11 +523,13 @@ function buildNutrition(c: ClientProfile): NutritionLog[] {
         meal: m.meal,
         foodName: m.name,
         quantityG: m.g,
+        // Roughly 26% protein / 42% carbs / 32% fat by energy, which keeps a logged day
+        // landing near the prescribed targets instead of overshooting protein by 40%.
         macros: {
           kcal: round(kcal, 0),
-          proteinG: round(kcal * 0.09, 0),
-          carbsG: round(kcal * 0.1, 0),
-          fatG: round(kcal * 0.035, 0),
+          proteinG: round((kcal * 0.26) / 4, 0),
+          carbsG: round((kcal * 0.42) / 4, 0),
+          fatG: round((kcal * 0.32) / 9, 0),
         },
       });
     }
