@@ -1,0 +1,38 @@
+node_modules/
+.DS_Store
+*.log
+npm-debug.log*
+
+# builds
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# expo / native
+.expo/
+.expo-shared/
+apps/mobile/ios/
+apps/mobile/android/
+*.ipa
+*.app
+
+# env & secrets — never commit
+.env
+.env.*
+!.env.example
+*.p8
+*.p12
+*.mobileprovision
+google-services.json
+GoogleService-Info.plist
+
+# supabase local
+supabase/.branches/
+supabase/.temp/
+
+# editors
+.idea/
+.vscode/*
+!.vscode/extensions.json

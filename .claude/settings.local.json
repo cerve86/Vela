@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:everfit.io)",
+      "Bash(pnpm -v)",
+      "Bash(echo \"pnpm: $\\(pnpm -v || echo MISSING\\)\")",
+      "Bash(corepack -v)",
+      "Bash(echo \"corepack: $\\(corepack -v || echo none\\)\")",
+      "Bash(npx -v)",
+      "Bash(corepack enable *)",
+      "Bash(corepack prepare *)",
+      "Bash(echo \"pnpm now: $\\(pnpm -v || echo STILL_MISSING\\)\")",
+      "Bash(npm i *)",
+      "Bash(echo \"pnpm: $\\(pnpm -v || echo STILL_MISSING\\)\")",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git -c user.email=dev@local -c user.name=dev commit -q -m \"chore: monorepo root scaffold\")"
+    ]
+  }
+}
