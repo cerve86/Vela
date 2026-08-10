@@ -27,6 +27,30 @@ Nothing here is a feature. It is the machine that ships features.
 > and the portal is live at a URL. **Do not proceed until this works.** Everything after
 > is easier; this is the part that surprises people.
 
+### Phase 0 progress — 2026-08-10
+
+| Item | State |
+|---|---|
+| Monorepo (npm workspaces), TypeScript, shared domain package | ✅ Done |
+| Coach portal — roster, client deep-dive, chart kit | ✅ Running on seed data |
+| iOS app — Today, session logging, progress, nutrition, profile | ✅ Written, builds locally |
+| Supabase schema + default-deny RLS + pgTAP CP1 tests | ✅ Written, not yet applied |
+| CI — typecheck, lint, build, RLS tests | ✅ Written |
+| TestFlight pipeline | ⛔ Blocked on Apple enrolment |
+
+**Environment findings on this Mac**
+
+- `pnpm` needed root to install → switched to npm workspaces. Better for Expo regardless:
+  Metro has long-standing friction with pnpm's symlinked `node_modules`.
+- Xcode 26.6 ships the **iOS 26.5 SDK**, but the installed simulators run **iOS 27.0** —
+  a runtime newer than the SDK is not a valid build destination. Building against the
+  iOS 18.5 runtime instead. Install the matching platform via Xcode → Settings → Components
+  when convenient.
+- CocoaPods requires a UTF-8 locale and this shell has no `LANG`. Add
+  `export LANG=en_US.UTF-8` to `~/.zshrc`.
+- The simulator control panel needs `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
+- Supabase CLI and Docker are not installed — needed before Phase 1 can apply migrations.
+
 ---
 
 ## Phase 1 — Identity, tenancy & security · ~1.5 weeks

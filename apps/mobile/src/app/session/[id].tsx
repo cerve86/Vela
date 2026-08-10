@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { estimateOneRepMax } from '@coachapp/shared';
 import { Button, Card, PainScale, Pill, Screen } from '@/components/kit';
@@ -12,6 +12,27 @@ interface LoggedSet {
   weight: string;
   done: boolean;
 }
+
+/** "8-10" → "8", "8 each side" → "8", "AMRAP" → "". Prescriptions are free text; the input is not. */
+function defaultReps(prescription: string): string {
+  return /^\d+/.exec(prescription)?.[0] ?? '';
+}
+
+/**
+ * `minWidth: 0` matters: a text input's intrinsic min-content width otherwise refuses to
+ * shrink below roughly 20 characters, which pushes the DONE column off the right edge.
+ */
+const field = StyleSheet.create({
+  input: {
+    flex: 1,
+    minWidth: 0,
+    borderRadius: 6,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    fontVariant: ['tabular-nums'] as const,
+  },
+}).input;
 
 /**
  * Active session logging.
@@ -33,8 +54,9 @@ export default function SessionScreen() {
       todayPlan.map((item) => [
         item.id,
         Array.from({ length: item.sets }, () => ({
-          reps: item.reps.split('-')[0] ?? '8',
-          weight: item.targetLoadKg ? String(item.targetLoadKg) : '0',
+          reps: defaultReps(item.reps),
+          // Bodyweight work has no load to log — an empty string, not a misleading 0.
+          weight: item.targetLoadKg ? String(item.targetLoadKg) : '',
           done: false,
         })),
       ]),
@@ -155,31 +177,17 @@ export default function SessionScreen() {
                     value={s.weight}
                     onChangeText={(v) => update(item.id, i, { weight: v })}
                     keyboardType="decimal-pad"
-                    style={{
-                      flex: 1,
-                      backgroundColor: t.dark ? '#26292c' : '#f2f3f2',
-                      borderRadius: t.radius.sm,
-                      paddingVertical: 11,
-                      paddingHorizontal: 12,
-                      color: t.textPrimary,
-                      fontSize: 16,
-                      fontVariant: ['tabular-nums'],
-                    }}
+                    placeholder={item.targetLoadKg ? undefined : 'BW'}
+                    placeholderTextColor={t.textMuted}
+                    accessibilityLabel={`Set ${i + 1} weight in kilograms`}
+                    style={[field, { backgroundColor: t.dark ? '#26292c' : '#f2f3f2', color: t.textPrimary }]}
                   />
                   <TextInput
                     value={s.reps}
                     onChangeText={(v) => update(item.id, i, { reps: v })}
                     keyboardType="number-pad"
-                    style={{
-                      flex: 1,
-                      backgroundColor: t.dark ? '#26292c' : '#f2f3f2',
-                      borderRadius: t.radius.sm,
-                      paddingVertical: 11,
-                      paddingHorizontal: 12,
-                      color: t.textPrimary,
-                      fontSize: 16,
-                      fontVariant: ['tabular-nums'],
-                    }}
+                    accessibilityLabel={`Set ${i + 1} repetitions`}
+                    style={[field, { backgroundColor: t.dark ? '#26292c' : '#f2f3f2', color: t.textPrimary }]}
                   />
                   <Pressable
                     onPress={() => update(item.id, i, { done: !s.done })}

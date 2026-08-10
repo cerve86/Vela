@@ -33,7 +33,11 @@
       "Bash(echo \"xcode-select: $\\(xcode-select -p\\)\")",
       "Bash(xcodebuild -showsdks)",
       "Bash(awk '/-- iOS 18.5/{f=1;next} /^-- /{f=0} f')",
-      "Bash(git -c user.email=dev@local -c user.name=dev commit -q -m 'feat: iOS client app, Supabase schema with RLS, CI pipeline *)"
+      "Bash(git -c user.email=dev@local -c user.name=dev commit -q -m 'feat: iOS client app, Supabase schema with RLS, CI pipeline *)",
+      "Bash(LANG=en_US.UTF-8 xcodebuild -workspace CoachApp.xcworkspace -scheme CoachApp -showdestinations)",
+      "Bash(python3 -c ' *)",
+      "Read(//Applications/Xcode.app/Contents/Developer/Platforms/**)",
+      "Bash(LANG=en_US.UTF-8 xcodebuild -workspace CoachApp.xcworkspace -scheme CoachApp -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5' -showBuildSettings)"
     ]
   }
 }

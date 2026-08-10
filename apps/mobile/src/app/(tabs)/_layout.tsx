@@ -1,12 +1,12 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { Text, type ColorValue } from 'react-native';
 import { useTheme } from '@/theme';
 
 /**
  * Four tabs, no more. The client opens this app to do one thing — today's session —
  * so everything else stays one tap away but visually secondary.
  */
-function Icon({ glyph, color }: { glyph: string; color: string }) {
+function Icon({ glyph, color }: { glyph: string; color: ColorValue }) {
   return <Text style={{ fontSize: 20, color }}>{glyph}</Text>;
 }
 
