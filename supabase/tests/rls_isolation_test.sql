@@ -164,12 +164,17 @@ select throws_ok (
 
 
 -- Exercise library ---------------------------------------------------------
+-- Back to the owner role to seed fixtures: the previous block left us as `anon`, and
+-- as `authenticated` the WITH CHECK would rightly refuse a row owned by another coach.
+reset role;
+
 insert into
   public.exercises (coach_id, name, category, equipment)
 values
   ('00000000-0000-4000-8000-0000000000a1', 'A-only Exercise', 'strength', 'Barbell'),
   ('00000000-0000-4000-8000-0000000000a2', 'B-only Exercise', 'strength', 'Barbell');
 
+set local role authenticated;
 set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
 
 select is (
