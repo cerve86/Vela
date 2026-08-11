@@ -245,6 +245,59 @@ export type Database = {
           },
         ]
       }
+      exercises: {
+        Row: {
+          archived_at: string | null
+          category: Database["public"]["Enums"]["exercise_category"]
+          coach_id: string | null
+          created_at: string
+          cues: string[]
+          equipment: string
+          id: string
+          muscle_groups: string[]
+          name: string
+          notes: string | null
+          updated_at: string
+          video_path: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          category?: Database["public"]["Enums"]["exercise_category"]
+          coach_id?: string | null
+          created_at?: string
+          cues?: string[]
+          equipment?: string
+          id?: string
+          muscle_groups?: string[]
+          name: string
+          notes?: string | null
+          updated_at?: string
+          video_path?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          category?: Database["public"]["Enums"]["exercise_category"]
+          coach_id?: string | null
+          created_at?: string
+          cues?: string[]
+          equipment?: string
+          id?: string
+          muscle_groups?: string[]
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          video_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercises_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_path: string | null
@@ -316,6 +369,12 @@ export type Database = {
     Enums: {
       client_status: "invited" | "active" | "paused" | "archived"
       consent_type: "tos" | "privacy" | "health_data_processing"
+      exercise_category:
+        | "pelvic_floor"
+        | "strength"
+        | "plyometric"
+        | "running"
+        | "mobility"
       user_role: "coach" | "client"
     }
     CompositeTypes: {
@@ -449,6 +508,13 @@ export const Constants = {
     Enums: {
       client_status: ["invited", "active", "paused", "archived"],
       consent_type: ["tos", "privacy", "health_data_processing"],
+      exercise_category: [
+        "pelvic_floor",
+        "strength",
+        "plyometric",
+        "running",
+        "mobility",
+      ],
       user_role: ["coach", "client"],
     },
   },

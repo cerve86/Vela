@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (14);
+  plan (18);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -160,6 +160,40 @@ select throws_ok (
   '42501',
   null,
   'anonymous is denied outright, not merely filtered to zero rows'
+);
+
+
+-- Exercise library ---------------------------------------------------------
+insert into
+  public.exercises (coach_id, name, category, equipment)
+values
+  ('00000000-0000-4000-8000-0000000000a1', 'A-only Exercise', 'strength', 'Barbell'),
+  ('00000000-0000-4000-8000-0000000000a2', 'B-only Exercise', 'strength', 'Barbell');
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select count(*) from public.exercises where name = 'A-only Exercise'),
+  1::bigint,
+  'coach A CAN see their own custom exercise (positive control)'
+);
+
+select is (
+  (select count(*) from public.exercises where name = 'B-only Exercise'),
+  0::bigint,
+  'coach A cannot see coach B custom exercise'
+);
+
+select isnt (
+  (select count(*) from public.exercises where coach_id is null),
+  0::bigint,
+  'the shipped library is visible to a coach'
+);
+
+select is (
+  (select count(*) from public.exercises where coach_id = '00000000-0000-4000-8000-0000000000a2'),
+  0::bigint,
+  'coach A sees no rows owned by coach B at all'
 );
 
 select * from finish ();

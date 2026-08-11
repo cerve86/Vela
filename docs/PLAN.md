@@ -111,6 +111,26 @@ Nothing here is a feature. It is the machine that ships features.
 - Save as reusable template; duplicate week; assign to client with a start date → generates `sessions`
 - iOS: calendar/agenda view of assigned sessions, session detail with video playback
 
+### Phase 2 progress — exercise library shipped 2026-08-11
+>
+> Library is live on real data: 16 shipped exercises across pelvic floor, strength,
+> impact, running and mobility, plus coach-owned custom exercises. Filter by category,
+> search across name/muscle group/equipment, "mine only" toggle.
+>
+> Design decisions worth keeping:
+> - One table for shipped and custom exercises, so a programme item has a single foreign
+>   key even when a day mixes both.
+> - Shipped rows are read-only; "Duplicate to edit" is how a coach customises one. That
+>   keeps everyone's library upgradeable when Vela adds exercises.
+> - Archive, never delete. A programme written months ago still points at the row, and
+>   hard-deleting would silently rewrite a client's training history.
+> - Case-insensitive uniqueness per owner, so no coach ends up with two identically
+>   named exercises and no way to tell which a programme references.
+> - 4 further pgTAP assertions: a coach sees the shipped library and her own exercises,
+>   and none of another coach's.
+>
+> Still to do for CP2: the programme builder (weeks/days/blocks, assign to client).
+
 > ### ✅ CP2 — A real 4-week rehab program, end to end
 > You build a genuine 4-week program for a real client in the portal, assign it, and see
 > the correct days appear on the correct dates in the iOS app with videos playing.
