@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { acceptMyInvite, verifyInviteCode } from '@coachapp/api';
+import { acceptMyInvite, verifyInviteCode } from '@vela/api';
 import { Body, Button, Card, Display, Pill, Screen } from '@/components/kit';
 import { useTheme } from '@/theme';
 import { supabase } from '@/lib/supabase';
@@ -146,7 +146,7 @@ export default function InviteScreen() {
         <Button label="Back to sign in" variant="secondary" onPress={() => router.replace('/sign-in')} />
 
         <Body size={11} color={t.textMuted} style={{ textAlign: 'center', lineHeight: 16 }}>
-          CoachApp supports your treatment — it is not a medical device and does not
+          Vela supports your treatment — it is not a medical device and does not
           provide diagnosis.
         </Body>
       </ScrollView>

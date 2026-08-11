@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { sendMagicLink, verifyEmailOtp } from '@coachapp/api';
+import { sendMagicLink, verifyEmailOtp } from '@vela/api';
 import { Body, Button, Card, Display, Screen } from '@/components/kit';
 import { useTheme } from '@/theme';
 import { supabase } from '@/lib/supabase';
@@ -32,7 +32,7 @@ export default function SignInScreen() {
     // shouldCreateUser: false — an account only ever comes into being by accepting an
     // invitation, never by typing an address into this screen.
     const { error: err } = await sendMagicLink(supabase, email, {
-      redirectTo: 'coachapp://auth-callback',
+      redirectTo: 'vela://auth-callback',
       shouldCreateUser: false,
     });
     if (err) {
@@ -157,7 +157,7 @@ export default function SignInScreen() {
         />
 
         <Body size={11} color={t.textMuted} style={{ textAlign: 'center', lineHeight: 16 }}>
-          CoachApp supports your treatment — it is not a medical device and does not
+          Vela supports your treatment — it is not a medical device and does not
           provide diagnosis.
         </Body>
       </ScrollView>

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { sendMagicLink } from '@coachapp/api';
-import { palette } from '@coachapp/shared/tokens';
+import { sendMagicLink } from '@vela/api';
+import { palette } from '@vela/shared/tokens';
 import { getBrowserSupabase } from '@/lib/supabase/browser';
 
 export default function SignInPage() {
@@ -41,7 +41,7 @@ export default function SignInPage() {
           >
             C
           </span>
-          <span className="display-face text-lg font-bold">CoachApp</span>
+          <span className="display-face text-lg font-bold">Vela</span>
         </div>
 
         {state === 'sent' ? (

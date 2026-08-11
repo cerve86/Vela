@@ -69,7 +69,14 @@
       "Bash(curl -s -o /dev/null -w \"\" \"http://127.0.0.1:54321/auth/v1/health\")",
       "Bash(break)",
       "Bash(curl -s \"http://127.0.0.1:54321/auth/v1/health\")",
-      "Bash(curl -s -X DELETE \"http://127.0.0.1:54324/api/v1/messages\" -o /dev/null -w \"mail cleared\\\\n\")"
+      "Bash(curl -s -X DELETE \"http://127.0.0.1:54324/api/v1/messages\" -o /dev/null -w \"mail cleared\\\\n\")",
+      "WebSearch",
+      "WebFetch(domain:screensdesign.com)",
+      "WebFetch(domain:www.physio-pedia.com)",
+      "WebFetch(domain:www.absolute.physio)",
+      "Bash(node -e \"console.log\\(Object.keys\\(require\\('./package.json'\\).scripts\\).join\\(', '\\)\\)\")",
+      "Bash(echo \"PREBUILD=$?\")",
+      "Bash(docker volume *)"
     ]
   }
 }

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
-import { clientById, isDayOnTarget, rollupByClient } from '@coachapp/shared';
-import { palette } from '@coachapp/shared/tokens';
+import { clientById, isDayOnTarget, rollupByClient } from '@vela/shared';
+import { palette } from '@vela/shared/tokens';
 import { Card, StatTile } from '@/components/ui';
 import { Meter, TimeSeriesPanels } from '@/components/charts';
 import { nutritionPanels, todayMacros } from '@/lib/series';

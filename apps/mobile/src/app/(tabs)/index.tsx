@@ -1,7 +1,7 @@
 import { Link } from 'expo-router';
-import { ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { adherenceBand, adherenceStyle } from '@coachapp/shared';
+import { adherenceBand, adherenceStyle } from '@vela/shared';
 import {
   Avatar,
   Body,
@@ -101,7 +101,9 @@ export default function TodayScreen() {
             </Text>
           </Text>
           <Body size={14} color={t.textSecondary} style={{ marginTop: 2 }}>
-            Keep it up — one session to go today
+            {me.weeksPostpartum !== null
+              ? `Week ${me.weeksPostpartum} postpartum · one session today`
+              : 'One session today'}
           </Body>
         </View>
 
@@ -134,27 +136,41 @@ export default function TodayScreen() {
           })}
         </View>
 
-        {/* Tinted promo card, straight from the reference */}
-        <Card fill={t.dark ? 'rgba(255,255,255,0.05)' : t.tint.cream} style={{ marginTop: t.space.sm }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.lg }}>
-            <Text style={{ fontSize: 30 }}>🩺</Text>
-            <View style={{ flex: 1 }}>
-              <Text
-                style={{
-                  fontFamily: t.font.displayBold,
-                  fontSize: 15,
-                  letterSpacing: -0.3,
-                  color: t.textPrimary,
-                }}
-              >
-                Weekly check-in is due
-              </Text>
-              <Body size={12} color={t.textSecondary} style={{ marginTop: 2 }}>
-                Two minutes — how the knee felt this week
-              </Body>
-            </View>
-          </View>
-        </Card>
+        {/*
+          The pathway card. For a postpartum client the single most useful thing the app
+          can surface is where she is on the return-to-running pathway — so it sits above
+          today's session rather than buried in a menu.
+        */}
+        {me.weeksPostpartum !== null && (
+          <Link href="/readiness" asChild>
+            <Pressable>
+              <Card fill={t.dark ? 'rgba(255,255,255,0.05)' : t.tint.cream} style={{ marginTop: t.space.sm }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.lg }}>
+                  <Text style={{ fontSize: 28 }}>🏃‍♀️</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        fontFamily: t.font.displayBold,
+                        fontSize: 15,
+                        letterSpacing: -0.3,
+                        color: t.textPrimary,
+                      }}
+                    >
+                      {me.weeksPostpartum >= 12
+                        ? 'Ready to check your return to running?'
+                        : `Return-to-running check from week 12`}
+                    </Text>
+                    <Body size={12} color={t.textSecondary} style={{ marginTop: 2 }}>
+                      {me.weeksPostpartum >= 12
+                        ? 'Seven load tests and four strength tests, with Andrea'
+                        : `You're at week ${me.weeksPostpartum} — we'll build the base first`}
+                    </Body>
+                  </View>
+                </View>
+              </Card>
+            </Pressable>
+          </Link>
+        )}
 
         <Card
           title="Today's session"

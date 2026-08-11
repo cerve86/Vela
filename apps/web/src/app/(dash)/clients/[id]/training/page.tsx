@@ -6,7 +6,7 @@ import {
   sessionsByClient,
   setLogsByClient,
   volumeLoad,
-} from '@coachapp/shared';
+} from '@vela/shared';
 import { Card, PainDot, StatusPill } from '@/components/ui';
 import { TimeSeriesPanels } from '@/components/charts';
 import { dateWindow } from '@/lib/series';

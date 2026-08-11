@@ -3,7 +3,7 @@ import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { deleteMyAccount, exportMyData, signOut } from '@coachapp/api';
+import { deleteMyAccount, exportMyData, signOut } from '@vela/api';
 import { Body, Card, Display, Pill, Screen } from '@/components/kit';
 import { useTheme } from '@/theme';
 import { supabase } from '@/lib/supabase';
@@ -32,14 +32,14 @@ export default function ProfileScreen() {
     setExporting(true);
     try {
       const data = await exportMyData(supabase);
-      const file = new File(Paths.cache, `coachapp-export-${Date.now()}.json`);
+      const file = new File(Paths.cache, `vela-export-${Date.now()}.json`);
       file.create({ overwrite: true });
       file.write(JSON.stringify(data, null, 2));
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(file.uri, {
           mimeType: 'application/json',
-          dialogTitle: 'Your CoachApp data',
+          dialogTitle: 'Your Vela data',
           UTI: 'public.json',
         });
       } else {
@@ -256,7 +256,7 @@ export default function ProfileScreen() {
         </Card>
 
         <Body size={11} color={t.textMuted} style={{ textAlign: 'center', lineHeight: 16 }}>
-          CoachApp supports your treatment — it is not a medical device and does not
+          Vela supports your treatment — it is not a medical device and does not
           provide diagnosis. Always follow the guidance of your physiotherapist.
         </Body>
       </ScrollView>

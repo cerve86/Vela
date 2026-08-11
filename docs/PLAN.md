@@ -1,4 +1,4 @@
-# CoachApp — Plan of Approach
+# Vela — Plan of Approach
 
 Companion to [ARCHITECTURE.md](./ARCHITECTURE.md). This file is the build order.
 
@@ -14,7 +14,7 @@ Timings assume ~15–20 focused hours/week alongside your practice. Halve them f
 
 Nothing here is a feature. It is the machine that ships features.
 
-- Enrol in the Apple Developer Program; create App ID, bundle IDs (`io.<you>.coachapp`), App Store Connect record
+- Enrol in the Apple Developer Program; create App ID, bundle IDs (`io.<you>.vela`), App Store Connect record
 - Scaffold monorepo (pnpm + Turborepo), TypeScript config, ESLint/Prettier, Git
 - Supabase project in **EU (Frankfurt)**, migrations dir, local dev via Supabase CLI
 - Expo app with a custom dev client (needed for HealthKit later — do not build on Expo Go)

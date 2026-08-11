@@ -1,7 +1,7 @@
 'use client';
 
 import { createBrowserClient } from '@supabase/ssr';
-import type { Database } from '@coachapp/api/types';
+import type { Database } from '@vela/api/types';
 
 let cached: ReturnType<typeof createBrowserClient<Database>> | null = null;
 

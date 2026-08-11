@@ -1,4 +1,4 @@
--- CoachApp — initial identity and tenancy schema
+-- Vela — initial identity and tenancy schema
 --
 -- Phase 1 foundation. Three principles enforced here and never relaxed later:
 --   1. RLS is enabled on every table with NO permissive default. A table without a

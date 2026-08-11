@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { palette } from '@coachapp/shared/tokens';
+import { palette } from '@vela/shared/tokens';
 import { SignedInAs } from './SignedInAs';
 
 const NAV = [
@@ -31,7 +31,7 @@ export function Sidebar() {
           >
             C
           </span>
-          <span className="text-sm font-semibold">CoachApp</span>
+          <span className="text-sm font-semibold">Vela</span>
         </div>
 
         <ul className="space-y-0.5">

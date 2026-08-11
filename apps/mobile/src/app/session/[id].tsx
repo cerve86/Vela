@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { estimateOneRepMax } from '@coachapp/shared';
+import { estimateOneRepMax } from '@vela/shared';
 import { Body, Button, Card, Display, PainScale, Pill, Screen } from '@/components/kit';
 import { useTheme } from '@/theme';
 import { todayPlan } from '@/lib/today';

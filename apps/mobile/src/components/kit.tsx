@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native';
-import { painColor, painLabel } from '@coachapp/shared/tokens';
+import { painColor, painLabel } from '@vela/shared/tokens';
 import { useTheme } from '@/theme';
 
 /**

@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
-export type CoachAppClient = SupabaseClient<Database>;
+export type VelaClient = SupabaseClient<Database>;
 
 export interface ClientOptions {
   url: string;
@@ -24,7 +24,7 @@ export interface ClientOptions {
  * compiled into the shipped app by design, and every table it can reach is guarded by
  * row level security. The service_role key must never appear in either app.
  */
-export function createCoachAppClient(opts: ClientOptions): CoachAppClient {
+export function createVelaClient(opts: ClientOptions): VelaClient {
   return createClient<Database>(opts.url, opts.anonKey, {
     auth: {
       storage: opts.storage,

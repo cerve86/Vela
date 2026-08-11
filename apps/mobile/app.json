@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "CoachApp",
-    "slug": "coachapp",
+    "name": "Vela",
+    "slug": "vela",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "coachapp",
+    "scheme": "vela",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "io.coachapp.client",
+      "bundleIdentifier": "io.vela.app",
       "infoPlist": {
-        "NSHealthShareUsageDescription": "CoachApp reads body weight, heart rate, sleep and activity from Apple Health so your physiotherapist can see how training is affecting your recovery. Your health data is never used for advertising and is never shared with third parties.",
-        "NSHealthUpdateUsageDescription": "CoachApp writes completed workouts back to Apple Health so your activity rings stay accurate.",
+        "NSHealthShareUsageDescription": "Vela reads body weight, heart rate, sleep and activity from Apple Health so your physiotherapist can see how training is affecting your recovery. Your health data is never used for advertising and is never shared with third parties.",
+        "NSHealthUpdateUsageDescription": "Vela writes completed workouts back to Apple Health so your activity rings stay accurate.",
         "NSCameraUsageDescription": "Take progress photos and scan food barcodes.",
         "NSPhotoLibraryUsageDescription": "Attach progress photos to your check-ins."
       },

@@ -1,6 +1,6 @@
 import { EmptyState } from '@/components/ui';
 
-export const metadata = { title: 'Messages — CoachApp' };
+export const metadata = { title: 'Messages — Vela' };
 
 export default function MessagesPage() {
   return (

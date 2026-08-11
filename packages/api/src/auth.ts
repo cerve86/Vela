@@ -1,4 +1,4 @@
-import type { CoachAppClient } from './client';
+import type { VelaClient } from './client';
 
 export type Role = 'coach' | 'client';
 
@@ -20,7 +20,7 @@ export interface SessionUser {
  * able to create the invited person's account on first use.
  */
 export async function sendMagicLink(
-  supabase: CoachAppClient,
+  supabase: VelaClient,
   email: string,
   opts: { redirectTo: string; shouldCreateUser: boolean },
 ): Promise<{ error: string | null }> {
@@ -34,7 +34,7 @@ export async function sendMagicLink(
 /** Verifies a 6-digit code instead of a link — the reliable path on a phone, where a
  *  tapped link can open the wrong browser and lose the app's PKCE verifier. */
 export async function verifyEmailOtp(
-  supabase: CoachAppClient,
+  supabase: VelaClient,
   email: string,
   token: string,
 ): Promise<{ error: string | null }> {
@@ -46,7 +46,7 @@ export async function verifyEmailOtp(
   return { error: error?.message ?? null };
 }
 
-export async function getSessionUser(supabase: CoachAppClient): Promise<SessionUser | null> {
+export async function getSessionUser(supabase: VelaClient): Promise<SessionUser | null> {
   const { data: auth } = await supabase.auth.getUser();
   const user = auth.user;
   if (!user) return null;
@@ -67,20 +67,20 @@ export async function getSessionUser(supabase: CoachAppClient): Promise<SessionU
   };
 }
 
-export async function signOut(supabase: CoachAppClient): Promise<void> {
+export async function signOut(supabase: VelaClient): Promise<void> {
   await supabase.auth.signOut();
 }
 
 /** GDPR Article 17. Hard delete, cascading, executed as the caller. */
 export async function deleteMyAccount(
-  supabase: CoachAppClient,
+  supabase: VelaClient,
 ): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('delete_my_account');
   return { error: error?.message ?? null };
 }
 
 /** GDPR Article 15/20 — everything held about the signed-in client, as one object. */
-export async function exportMyData(supabase: CoachAppClient): Promise<Record<string, unknown>> {
+export async function exportMyData(supabase: VelaClient): Promise<Record<string, unknown>> {
   const { data: client } = await supabase.from('clients').select('*').maybeSingle();
   const { data: profile } = await supabase.from('profiles').select('*').maybeSingle();
   const { data: consents } = await supabase.from('consents').select('*');

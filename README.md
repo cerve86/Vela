@@ -1,4 +1,4 @@
-# CoachApp
+# Vela
 
 Physiotherapy coaching platform — an iOS app for clients and a web portal for the coach.
 

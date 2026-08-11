@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { palette } from '@coachapp/shared/tokens';
+import { palette } from '@vela/shared/tokens';
 import { Avatar, Card, EmptyState, StatTile, StatusPill } from '@/components/ui';
 import { createServerSupabase } from '@/lib/supabase/server';
 
-export const metadata = { title: 'Clients — CoachApp' };
+export const metadata = { title: 'Clients — Vela' };
 
 /**
  * Live roster, read as the signed-in coach. Every row here came back through row level

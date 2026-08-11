@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { palette } from '@coachapp/shared/tokens';
+import { palette } from '@vela/shared/tokens';
 
 export function Card({
   title,

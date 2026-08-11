@@ -1,5 +1,5 @@
 import { useColorScheme } from 'react-native';
-import { palette, radius, space, typography } from '@coachapp/shared/tokens';
+import { palette, radius, space, typography } from '@vela/shared/tokens';
 
 /**
  * The iOS side of the same token set the portal uses. Both read from

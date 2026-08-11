@@ -1,7 +1,7 @@
 import { ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { METRIC_META, TODAY, daysBetween, sessionsByClient, volumeLoad, setLogsByClient } from '@coachapp/shared';
-import { painColor } from '@coachapp/shared/tokens';
+import { METRIC_META, TODAY, daysBetween, sessionsByClient, volumeLoad, setLogsByClient } from '@vela/shared';
+import { painColor } from '@vela/shared/tokens';
 import { Card, Pill, Screen, StatRow } from '@/components/kit';
 import { useTheme } from '@/theme';
 import { CURRENT_CLIENT_ID, latestMetricValue, myRollup } from '@/lib/today';

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import type { Database } from '@coachapp/api/types';
+import type { Database } from '@vela/api/types';
 
 /**
  * Server-side client. Reads the session from cookies so Server Components and Route

@@ -1,5 +1,5 @@
 {
-  "name": "@coachapp/mobile",
+  "name": "@vela/mobile",
   "main": "expo-router/entry",
   "version": "0.1.0",
   "private": true,
@@ -10,8 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@coachapp/api": "^0.1.0",
-    "@coachapp/shared": "*",
+    "@vela/api": "^0.1.0",
+    "@vela/shared": "*",
     "@expo-google-fonts/outfit": "^0.4.3",
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@react-native-async-storage/async-storage": "^3.1.1",

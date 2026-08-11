@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { recordConsent, type ConsentType } from '@coachapp/api';
+import { recordConsent, type ConsentType } from '@vela/api';
 import { Body, Button, Card, Display, Screen } from '@/components/kit';
 import { useTheme } from '@/theme';
 import { supabase } from '@/lib/supabase';
@@ -16,7 +16,7 @@ const ITEMS: { type: ConsentType; title: string; body: string; required: boolean
   {
     type: 'health_data_processing',
     title: 'Processing my health data',
-    body: 'I agree that CoachApp may store the pain scores, training logs, body measurements and Apple Health readings I record, and share them with my physiotherapist so they can adjust my treatment.',
+    body: 'I agree that Vela may store the pain scores, training logs, body measurements and Apple Health readings I record, and share them with my physiotherapist so they can adjust my treatment.',
     required: true,
   },
   {
@@ -28,7 +28,7 @@ const ITEMS: { type: ConsentType; title: string; body: string; required: boolean
   {
     type: 'tos',
     title: 'Terms of use',
-    body: 'I understand CoachApp supports my treatment and is not a medical device, and does not provide diagnosis.',
+    body: 'I understand Vela supports my treatment and is not a medical device, and does not provide diagnosis.',
     required: true,
   },
 ];

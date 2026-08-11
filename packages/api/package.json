@@ -1,5 +1,5 @@
 {
-  "name": "@coachapp/api",
+  "name": "@vela/api",
   "version": "0.1.0",
   "private": true,
   "main": "./src/index.ts",
@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.48.1",
-    "@coachapp/shared": "*"
+    "@vela/shared": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.3"

@@ -1,6 +1,6 @@
 import { ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { isDayOnTarget } from '@coachapp/shared';
+import { isDayOnTarget } from '@vela/shared';
 import { Button, Card, Pill, ProgressBar, Screen } from '@/components/kit';
 import { useTheme } from '@/theme';
 import { todayNutrition } from '@/lib/today';

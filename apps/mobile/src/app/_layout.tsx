@@ -13,7 +13,7 @@ import {
   PlusJakartaSans_700Bold,
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { SessionProvider, useSession } from '@/lib/session';
-import { palette } from '@coachapp/shared/tokens';
+import { palette } from '@vela/shared/tokens';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -73,6 +73,7 @@ function Gate() {
       <Stack.Screen name="sign-in" />
       <Stack.Screen name="invite" />
       <Stack.Screen name="consent" />
+        <Stack.Screen name="readiness" options={{ presentation: 'modal' }} />
       <Stack.Screen name="session/[id]" options={{ presentation: 'modal' }} />
     </Stack>
   );

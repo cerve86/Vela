@@ -9,8 +9,8 @@ import {
   metricsByClient,
   rollupByClient,
   sessionsByClient,
-} from '@coachapp/shared';
-import { adherenceStyle, palette } from '@coachapp/shared/tokens';
+} from '@vela/shared';
+import { adherenceStyle, palette } from '@vela/shared/tokens';
 import { Card, PainDot, StatTile, StatusPill } from '@/components/ui';
 import { Meter, TimeSeriesPanels } from '@/components/charts';
 import { painLoadPanels } from '@/lib/series';

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { palette } from '@coachapp/shared/tokens';
+import { palette } from '@vela/shared/tokens';
 import { inviteClient } from './actions';
 
 const field =
@@ -62,7 +62,7 @@ export function InviteForm() {
           placeholder="client@example.com"
         />
         <p className="mt-1.5 text-xs ink-3">
-          They&apos;ll get a six-digit code by email. Entering it in CoachApp verifies
+          They&apos;ll get a six-digit code by email. Entering it in Vela verifies
           their address, so only the person who controls this inbox can accept.
         </p>
       </div>

@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { METRIC_META, clientById, latestMetric, metricsByClient } from '@coachapp/shared';
+import { METRIC_META, clientById, latestMetric, metricsByClient } from '@vela/shared';
 import { Card } from '@/components/ui';
 import { TimeSeriesPanels } from '@/components/charts';
 import { metricPanel } from '@/lib/series';

@@ -19,7 +19,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'CoachApp — Coach Portal',
+  title: 'Vela — Coach Portal',
   description: 'Monitor client exercise, nutrition and health vitals.',
 };
 

@@ -1,8 +1,21 @@
-# CoachApp — Architecture
+# Vela — Architecture
 
-> Physiotherapy coaching platform: iOS client app (TestFlight) + coach web portal.
-> Everfit-inspired, but narrowed to what a solo physio-coach actually needs, with
-> rehab-specific concepts (pain, ROM, load tolerance) that generic fitness apps lack.
+> **Vela** — coaching platform for women returning to running and strength, with a
+> postpartum focus. iOS client app (TestFlight) + coach web portal.
+>
+> Positioning: coach-led 1:1, physio-authored. The defensible core is the
+> **return-to-running readiness screen**, implementing the load/impact and strength
+> battery from Goom, Donnelly & Brockwell (2019). No general fitness app has this.
+>
+> UI/UX conventions were drawn from the strongest apps in the category — Ladder
+> (Apple Editors' Choice; "open it and hit play"), Runna (deep personalisation quiz,
+> adaptive plans), and Expecting & Empowered (postpartum running evaluation gating a
+> return-to-run programme). Patterns only: no cloned visual identity, which would be
+> trade-dress risk and App Review friction.
+>
+> Language rule: never "bounce back", "get your body back" or "pre-baby body". The
+> audience and the clinicians serving it have turned against that framing. Vela frames
+> forward.
 
 ---
 
@@ -90,7 +103,7 @@ roughly 3–4 extra weeks you don't need to spend yet.
 ### 2.3 Repository layout
 
 ```
-CoachApp/
+Vela/
 ├─ apps/
 │  ├─ mobile/            Expo app (client)
 │  │  ├─ app/            expo-router: (auth) (tabs) workout/ nutrition/ checkin/

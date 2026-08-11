@@ -1,5 +1,5 @@
 {
-  "name": "@coachapp/web",
+  "name": "@vela/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,8 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@coachapp/api": "^0.1.0",
-    "@coachapp/shared": "*",
+    "@vela/api": "^0.1.0",
+    "@vela/shared": "*",
     "@supabase/ssr": "^0.12.4",
     "next": "^16.3.0",
     "react": "19.2.8",

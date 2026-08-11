@@ -37,7 +37,7 @@ values
     '00000000-0000-0000-0000-000000000000',
     'authenticated',
     'authenticated',
-    'coach@coachapp.test',
+    'coach@vela.test',
     crypt ('not-used-magic-link-only', gen_salt ('bf')),
     now(),
     now(),
@@ -73,7 +73,7 @@ values
     '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-000000000001',
     'email',
-    '{"sub":"00000000-0000-4000-8000-000000000001","email":"coach@coachapp.test","email_verified":true,"phone_verified":false}',
+    '{"sub":"00000000-0000-4000-8000-000000000001","email":"coach@vela.test","email_verified":true,"phone_verified":false}',
     now(),
     now(),
     now()

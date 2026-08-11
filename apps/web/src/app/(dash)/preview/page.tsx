@@ -6,12 +6,12 @@ import {
   daysBetween,
   rollupByClient,
   sessionsByClient,
-} from '@coachapp/shared';
-import { adherenceStyle, palette } from '@coachapp/shared/tokens';
+} from '@vela/shared';
+import { adherenceStyle, palette } from '@vela/shared/tokens';
 import { Avatar, Card, PainDot, StatTile, StatusPill } from '@/components/ui';
 import { Meter, Sparkline } from '@/components/charts';
 
-export const metadata = { title: 'Design preview — CoachApp' };
+export const metadata = { title: 'Design preview — Vela' };
 
 function pct(n: number) {
   return `${Math.round(n * 100)}%`;

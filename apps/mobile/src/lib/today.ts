@@ -8,8 +8,8 @@ import {
   rollupByClient,
   sessionsByClient,
   sumMacros,
-} from '@coachapp/shared';
-import type { Metric, MetricType } from '@coachapp/shared';
+} from '@vela/shared';
+import type { Metric, MetricType } from '@vela/shared';
 
 /**
  * The signed-in client. Phase 1 replaces this with the Supabase session; every screen

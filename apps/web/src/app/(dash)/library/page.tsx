@@ -1,7 +1,7 @@
-import { exercises } from '@coachapp/shared';
+import { exercises } from '@vela/shared';
 import { Card, StatusPill } from '@/components/ui';
 
-export const metadata = { title: 'Exercise library — CoachApp' };
+export const metadata = { title: 'Exercise library — Vela' };
 
 export default function LibraryPage() {
   return (

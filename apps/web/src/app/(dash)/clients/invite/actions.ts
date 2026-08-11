@@ -1,8 +1,8 @@
 'use server';
 
 import { createClient } from '@supabase/supabase-js';
-import { createInvite } from '@coachapp/api';
-import type { Database } from '@coachapp/api/types';
+import { createInvite } from '@vela/api';
+import type { Database } from '@vela/api/types';
 import { createServerSupabase } from '@/lib/supabase/server';
 
 export interface InviteResult {
@@ -98,7 +98,7 @@ export async function inviteClient(formData: FormData): Promise<InviteResult> {
     if (priorUser.email_confirmed_at) {
       return {
         ok: false,
-        error: 'That email already has a verified CoachApp account — ask them to sign in instead.',
+        error: 'That email already has a verified Vela account — ask them to sign in instead.',
       };
     }
     const { error: updateError } = await admin.auth.admin.updateUserById(priorUser.id, {

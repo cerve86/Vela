@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSessionUser, signOut, type SessionUser } from '@coachapp/api';
+import { getSessionUser, signOut, type SessionUser } from '@vela/api';
 import { getBrowserSupabase } from '@/lib/supabase/browser';
 
 export function SignedInAs() {

@@ -26,7 +26,16 @@ export const clientSchema = z.object({
   dateOfBirth: z.string(), // ISO date
   sex: z.enum(['female', 'male', 'other', 'undisclosed']),
   heightCm: z.number().positive().nullable(),
-  /** Primary presenting condition — physio context, e.g. "L4/L5 disc herniation" */
+  /**
+   * Postpartum context. This is the spine of the product: almost every clinical
+   * decision — impact readiness, load progression, pelvic floor work — keys off how
+   * the birth went and how long ago it was.
+   */
+  deliveryType: z.enum(['vaginal', 'assisted_vaginal', 'caesarean', 'not_applicable']),
+  /** Null when not postpartum; the app then hides the return-to-running pathway. */
+  weeksPostpartum: z.number().int().nonnegative().nullable(),
+  breastfeeding: z.boolean(),
+  /** Primary presenting concern, e.g. "Return to running, 14 weeks postpartum" */
   condition: z.string(),
   goal: z.string(),
   status: clientStatusSchema,
@@ -134,9 +143,13 @@ export const setLogSchema = z.object({
 });
 export type SetLog = z.infer<typeof setLogSchema>;
 
+export const disciplineSchema = z.enum(['strength', 'run', 'mobility', 'rehab']);
+export type Discipline = z.infer<typeof disciplineSchema>;
+
 export const sessionSchema = z.object({
   id: z.string(),
   clientId: z.string(),
+  discipline: disciplineSchema.default('strength'),
   programDayId: z.string().nullable(),
   title: z.string(),
   scheduledDate: z.string(),

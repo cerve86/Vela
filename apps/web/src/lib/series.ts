@@ -8,8 +8,8 @@ import {
   setLogsByClient,
   sumMacros,
   volumeLoad,
-} from '@coachapp/shared';
-import type { MetricType } from '@coachapp/shared';
+} from '@vela/shared';
+import type { MetricType } from '@vela/shared';
 import type { Panel, Point } from '@/components/charts';
 
 /** Ordered list of ISO dates covering the last `days` days, oldest first. */

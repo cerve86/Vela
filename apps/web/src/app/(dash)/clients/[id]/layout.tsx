@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { clientById, rollupByClient } from '@coachapp/shared';
+import { clientById, rollupByClient } from '@vela/shared';
 import { Avatar, StatusPill } from '@/components/ui';
 import { ClientTabs } from '@/components/ClientTabs';
 

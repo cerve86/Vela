@@ -2,7 +2,7 @@
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
 # working directory name when running `supabase init`.
-project_id = "CoachApp"
+project_id = "Vela"
 
 [api]
 enabled = true
@@ -160,7 +160,7 @@ site_url = "http://localhost:4310"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["http://localhost:4310", "http://localhost:4310/auth/callback", "coachapp://auth-callback", "coachapp://invite"]
+additional_redirect_urls = ["http://localhost:4310", "http://localhost:4310/auth/callback", "vela://auth-callback", "vela://invite"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -247,7 +247,7 @@ otp_expiry = 3600
 
 # Uncomment to customize email template
 [auth.email.template.invite]
-subject = "You've been invited to CoachApp"
+subject = "You've been invited to Vela"
 content_path = "./supabase/templates/invite.html"
 
 # Uncomment to customize notification email template
@@ -388,7 +388,9 @@ deno_version = 2
 # secret_key = "env(SECRET_VALUE)"
 
 [analytics]
-enabled = true
+# Disabled locally: the analytics + vector pair fails its healthcheck on this setup
+# and it contributes nothing to development. Hosted projects have it regardless.
+enabled = false
 port = 54327
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"

@@ -1,11 +1,11 @@
 import Link from 'next/link';
-import { listInvites } from '@coachapp/api';
+import { listInvites } from '@vela/api';
 import { Card, StatusPill } from '@/components/ui';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { InviteForm } from './InviteForm';
 import { RevokeButton } from './RevokeButton';
 
-export const metadata = { title: 'Invite a client — CoachApp' };
+export const metadata = { title: 'Invite a client — Vela' };
 
 function inviteState(i: {
   acceptedAt: string | null;

@@ -1,6 +1,6 @@
 import { EmptyState } from '@/components/ui';
 
-export const metadata = { title: 'Programs — CoachApp' };
+export const metadata = { title: 'Programs — Vela' };
 
 export default function ProgramsPage() {
   return (

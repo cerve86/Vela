@@ -1,4 +1,4 @@
-import type { CoachAppClient } from './client';
+import type { VelaClient } from './client';
 
 export interface CreatedInvite {
   inviteId: string;
@@ -18,7 +18,7 @@ export interface PendingInvite {
 }
 
 export async function createInvite(
-  supabase: CoachAppClient,
+  supabase: VelaClient,
   input: {
     email: string;
     firstName: string;
@@ -54,7 +54,7 @@ export async function createInvite(
  * what proves control of the mailbox, and that is the only thing the old token proved.
  */
 export async function acceptMyInvite(
-  supabase: CoachAppClient,
+  supabase: VelaClient,
 ): Promise<{ clientId: string | null; error: string | null }> {
   const { data, error } = await supabase.rpc('accept_my_invite');
   if (error) return { clientId: null, error: error.message };
@@ -63,7 +63,7 @@ export async function acceptMyInvite(
 
 /** Verifies the six-digit invitation code. Signs the user in and marks the email verified. */
 export async function verifyInviteCode(
-  supabase: CoachAppClient,
+  supabase: VelaClient,
   email: string,
   code: string,
 ): Promise<{ error: string | null }> {
@@ -75,7 +75,7 @@ export async function verifyInviteCode(
   return { error: error?.message ?? null };
 }
 
-export async function listInvites(supabase: CoachAppClient): Promise<PendingInvite[]> {
+export async function listInvites(supabase: VelaClient): Promise<PendingInvite[]> {
   const { data } = await supabase
     .from('client_invites')
     .select('id, client_id, email, expires_at, created_at, accepted_at, revoked_at')
@@ -93,7 +93,7 @@ export async function listInvites(supabase: CoachAppClient): Promise<PendingInvi
 }
 
 export async function revokeInvite(
-  supabase: CoachAppClient,
+  supabase: VelaClient,
   inviteId: string,
 ): Promise<{ error: string | null }> {
   const { error } = await supabase
@@ -106,7 +106,7 @@ export async function revokeInvite(
 export type ConsentType = 'tos' | 'privacy' | 'health_data_processing';
 
 export async function recordConsent(
-  supabase: CoachAppClient,
+  supabase: VelaClient,
   types: ConsentType[],
   policyVersion: string,
 ): Promise<{ error: string | null }> {
