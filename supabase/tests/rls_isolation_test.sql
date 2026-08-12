@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (18);
+  plan (22);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -199,6 +199,50 @@ select is (
   (select count(*) from public.exercises where coach_id = '00000000-0000-4000-8000-0000000000a2'),
   0::bigint,
   'coach A sees no rows owned by coach B at all'
+);
+
+
+-- Programmes and sessions --------------------------------------------------
+reset role;
+
+insert into public.programs (id, coach_id, name, duration_weeks)
+values
+  ('00000000-0000-4000-8000-00000000d0a1', '00000000-0000-4000-8000-0000000000a1', 'A Programme', 2),
+  ('00000000-0000-4000-8000-00000000d0a2', '00000000-0000-4000-8000-0000000000a2', 'B Programme', 2);
+
+insert into public.sessions (client_id, title, scheduled_date)
+values
+  ('00000000-0000-4000-8000-0000000000f1', 'A client session', current_date),
+  ('00000000-0000-4000-8000-0000000000f2', 'B client session', current_date);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select count(*) from public.programs),
+  1::bigint,
+  'coach A sees only their own programme (positive control included)'
+);
+
+select is (
+  (select count(*) from public.sessions),
+  1::bigint,
+  'coach A sees sessions for their client only'
+);
+
+-- The client herself -------------------------------------------------------
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select count(*) from public.sessions),
+  1::bigint,
+  'client one CAN see her own sessions'
+);
+
+select is (
+  (select count(*) from public.programs),
+  0::bigint,
+  'a client cannot read programmes at all — she reads sessions, not prescriptions'
 );
 
 select * from finish ();

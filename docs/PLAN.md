@@ -129,7 +129,24 @@ Nothing here is a feature. It is the machine that ships features.
 > - 4 further pgTAP assertions: a coach sees the shipped library and her own exercises,
 >   and none of another coach's.
 >
-> Still to do for CP2: the programme builder (weeks/days/blocks, assign to client).
+> **Programme builder shipped 2026-08-12.** Programmes → weeks → days → items, with an
+> exercise picker drawing on the library, inline editing of sets/reps/load/RPE/rest, and
+> assignment to a client with a start date.
+>
+> - The programme is the PRESCRIPTION; sessions are dated INSTANCES generated on assign.
+>   Keeping them apart is what stops editing next week's plan from rewriting last week's
+>   history — the thing that makes progress analysis trustworthy in Phase 3.
+> - `day_no` is the nth training day of the week, not a weekday. The start date decides
+>   the calendar, so one programme fits any schedule.
+> - Re-assigning cancels the live assignment and clears only *future* scheduled sessions.
+>   Completed and past sessions stay.
+> - Clients cannot read programmes at all — they read sessions. Narrower surface, and it
+>   keeps template work private. Asserted in the tests.
+> - Verified: a 6-week block assigned from Mon 17 Aug generated Mon/Wed/Fri in week 1 and
+>   the following Mon/Wed/Fri in week 2, exactly as designed.
+>
+> Still to do for CP2: surfacing the assigned sessions on the iOS calendar (the app still
+> reads seed data for Today) and video upload on exercises.
 
 > ### ✅ CP2 — A real 4-week rehab program, end to end
 > You build a genuine 4-week program for a real client in the portal, assign it, and see

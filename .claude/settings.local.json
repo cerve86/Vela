@@ -76,7 +76,8 @@
       "WebFetch(domain:www.absolute.physio)",
       "Bash(node -e \"console.log\\(Object.keys\\(require\\('./package.json'\\).scripts\\).join\\(', '\\)\\)\")",
       "Bash(echo \"PREBUILD=$?\")",
-      "Bash(docker volume *)"
+      "Bash(docker volume *)",
+      "Bash(docker stats *)"
     ]
   }
 }

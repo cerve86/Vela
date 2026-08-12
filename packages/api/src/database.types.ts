@@ -34,6 +34,58 @@ export type Database = {
   }
   public: {
     Tables: {
+      assignments: {
+        Row: {
+          client_id: string
+          coach_id: string
+          created_at: string
+          id: string
+          program_id: string
+          start_date: string
+          status: string
+        }
+        Insert: {
+          client_id: string
+          coach_id: string
+          created_at?: string
+          id?: string
+          program_id: string
+          start_date: string
+          status?: string
+        }
+        Update: {
+          client_id?: string
+          coach_id?: string
+          created_at?: string
+          id?: string
+          program_id?: string
+          start_date?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -117,10 +169,12 @@ export type Database = {
       }
       clients: {
         Row: {
+          breastfeeding: boolean
           coach_id: string
           condition: string | null
           created_at: string
           date_of_birth: string | null
+          delivery_type: Database["public"]["Enums"]["delivery_type"]
           email: string
           first_name_hint: string | null
           goal: string | null
@@ -132,12 +186,15 @@ export type Database = {
           started_on: string
           status: Database["public"]["Enums"]["client_status"]
           updated_at: string
+          weeks_postpartum: number | null
         }
         Insert: {
+          breastfeeding?: boolean
           coach_id: string
           condition?: string | null
           created_at?: string
           date_of_birth?: string | null
+          delivery_type?: Database["public"]["Enums"]["delivery_type"]
           email: string
           first_name_hint?: string | null
           goal?: string | null
@@ -149,12 +206,15 @@ export type Database = {
           started_on?: string
           status?: Database["public"]["Enums"]["client_status"]
           updated_at?: string
+          weeks_postpartum?: number | null
         }
         Update: {
+          breastfeeding?: boolean
           coach_id?: string
           condition?: string | null
           created_at?: string
           date_of_birth?: string | null
+          delivery_type?: Database["public"]["Enums"]["delivery_type"]
           email?: string
           first_name_hint?: string | null
           goal?: string | null
@@ -166,6 +226,7 @@ export type Database = {
           started_on?: string
           status?: Database["public"]["Enums"]["client_status"]
           updated_at?: string
+          weeks_postpartum?: number | null
         }
         Relationships: [
           {
@@ -334,26 +395,279 @@ export type Database = {
         }
         Relationships: []
       }
+      program_days: {
+        Row: {
+          day_no: number
+          discipline: string
+          id: string
+          notes: string | null
+          program_id: string
+          title: string
+          week_no: number
+        }
+        Insert: {
+          day_no: number
+          discipline?: string
+          id?: string
+          notes?: string | null
+          program_id: string
+          title: string
+          week_no: number
+        }
+        Update: {
+          day_no?: number
+          discipline?: string
+          id?: string
+          notes?: string | null
+          program_id?: string
+          title?: string
+          week_no?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_days_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      program_items: {
+        Row: {
+          block: string
+          exercise_id: string
+          id: string
+          notes: string | null
+          order_index: number
+          program_day_id: string
+          reps: string
+          rest_sec: number
+          sets: number
+          target_load_kg: number | null
+          target_rpe: number | null
+          tempo: string | null
+        }
+        Insert: {
+          block?: string
+          exercise_id: string
+          id?: string
+          notes?: string | null
+          order_index?: number
+          program_day_id: string
+          reps?: string
+          rest_sec?: number
+          sets?: number
+          target_load_kg?: number | null
+          target_rpe?: number | null
+          tempo?: string | null
+        }
+        Update: {
+          block?: string
+          exercise_id?: string
+          id?: string
+          notes?: string | null
+          order_index?: number
+          program_day_id?: string
+          reps?: string
+          rest_sec?: number
+          sets?: number
+          target_load_kg?: number | null
+          target_rpe?: number | null
+          tempo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_items_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_items_program_day_id_fkey"
+            columns: ["program_day_id"]
+            isOneToOne: false
+            referencedRelation: "program_days"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      programs: {
+        Row: {
+          archived_at: string | null
+          coach_id: string
+          created_at: string
+          description: string | null
+          duration_weeks: number
+          id: string
+          is_template: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          coach_id: string
+          created_at?: string
+          description?: string | null
+          duration_weeks?: number
+          id?: string
+          is_template?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          coach_id?: string
+          created_at?: string
+          description?: string | null
+          duration_weeks?: number
+          id?: string
+          is_template?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "programs_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessions: {
+        Row: {
+          assignment_id: string | null
+          client_id: string
+          client_notes: string | null
+          coach_feedback: string | null
+          completed_at: string | null
+          created_at: string
+          discipline: string
+          duration_sec: number | null
+          id: string
+          pain_after: number | null
+          pain_before: number | null
+          program_day_id: string | null
+          scheduled_date: string
+          session_rpe: number | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["session_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assignment_id?: string | null
+          client_id: string
+          client_notes?: string | null
+          coach_feedback?: string | null
+          completed_at?: string | null
+          created_at?: string
+          discipline?: string
+          duration_sec?: number | null
+          id?: string
+          pain_after?: number | null
+          pain_before?: number | null
+          program_day_id?: string | null
+          scheduled_date: string
+          session_rpe?: number | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["session_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assignment_id?: string | null
+          client_id?: string
+          client_notes?: string | null
+          coach_feedback?: string | null
+          completed_at?: string | null
+          created_at?: string
+          discipline?: string
+          duration_sec?: number | null
+          id?: string
+          pain_after?: number | null
+          pain_before?: number | null
+          program_day_id?: string | null
+          scheduled_date?: string
+          session_rpe?: number | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["session_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_program_day_id_fkey"
+            columns: ["program_day_id"]
+            isOneToOne: false
+            referencedRelation: "program_days"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       accept_my_invite: { Args: never; Returns: string }
-      create_client_invite: {
+      assign_program: {
         Args: {
-          p_condition?: string
-          p_email: string
-          p_first_name: string
-          p_goal?: string
-          p_last_name: string
+          p_client_id: string
+          p_program_id: string
+          p_start_date: string
         }
-        Returns: {
-          client_id: string
-          invite_id: string
-          token: string
-        }[]
+        Returns: string
       }
+      create_client_invite:
+        | {
+            Args: {
+              p_condition?: string
+              p_email: string
+              p_first_name: string
+              p_goal?: string
+              p_last_name: string
+            }
+            Returns: {
+              client_id: string
+              invite_id: string
+              token: string
+            }[]
+          }
+        | {
+            Args: {
+              p_breastfeeding?: boolean
+              p_condition?: string
+              p_delivery_type?: Database["public"]["Enums"]["delivery_type"]
+              p_email: string
+              p_first_name: string
+              p_goal?: string
+              p_last_name: string
+              p_weeks_postpartum?: number
+            }
+            Returns: {
+              client_id: string
+              invite_id: string
+              token: string
+            }[]
+          }
       delete_my_account: { Args: never; Returns: undefined }
       has_health_consent: { Args: { p_client: string }; Returns: boolean }
       is_coach_of: { Args: { target_client: string }; Returns: boolean }
@@ -369,12 +683,18 @@ export type Database = {
     Enums: {
       client_status: "invited" | "active" | "paused" | "archived"
       consent_type: "tos" | "privacy" | "health_data_processing"
+      delivery_type:
+        | "vaginal"
+        | "assisted_vaginal"
+        | "caesarean"
+        | "not_applicable"
       exercise_category:
         | "pelvic_floor"
         | "strength"
         | "plyometric"
         | "running"
         | "mobility"
+      session_status: "scheduled" | "in_progress" | "completed" | "skipped"
       user_role: "coach" | "client"
     }
     CompositeTypes: {
@@ -508,6 +828,12 @@ export const Constants = {
     Enums: {
       client_status: ["invited", "active", "paused", "archived"],
       consent_type: ["tos", "privacy", "health_data_processing"],
+      delivery_type: [
+        "vaginal",
+        "assisted_vaginal",
+        "caesarean",
+        "not_applicable",
+      ],
       exercise_category: [
         "pelvic_floor",
         "strength",
@@ -515,6 +841,7 @@ export const Constants = {
         "running",
         "mobility",
       ],
+      session_status: ["scheduled", "in_progress", "completed", "skipped"],
       user_role: ["coach", "client"],
     },
   },
