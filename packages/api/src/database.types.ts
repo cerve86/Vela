@@ -359,6 +359,47 @@ export type Database = {
           },
         ]
       }
+      metrics: {
+        Row: {
+          client_id: string
+          created_at: string
+          external_id: string | null
+          id: string
+          recorded_at: string
+          source: Database["public"]["Enums"]["metric_source"]
+          type: Database["public"]["Enums"]["metric_type"]
+          value: number
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          recorded_at: string
+          source?: Database["public"]["Enums"]["metric_source"]
+          type: Database["public"]["Enums"]["metric_type"]
+          value: number
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          recorded_at?: string
+          source?: Database["public"]["Enums"]["metric_source"]
+          type?: Database["public"]["Enums"]["metric_type"]
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metrics_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_path: string | null
@@ -669,7 +710,25 @@ export type Database = {
             }[]
           }
       delete_my_account: { Args: never; Returns: undefined }
+      get_session_plan: {
+        Args: { p_session_id: string }
+        Returns: {
+          block: string
+          cues: string[]
+          exercise_id: string
+          exercise_name: string
+          item_id: string
+          notes: string
+          reps: string
+          rest_sec: number
+          sets: number
+          target_load_kg: number
+          target_rpe: number
+          tempo: string
+        }[]
+      }
       has_health_consent: { Args: { p_client: string }; Returns: boolean }
+      import_health_metrics: { Args: { p_samples: Json }; Returns: number }
       is_coach_of: { Args: { target_client: string }; Returns: boolean }
       is_the_client: { Args: { target_client: string }; Returns: boolean }
       record_consent: {
@@ -694,6 +753,19 @@ export type Database = {
         | "plyometric"
         | "running"
         | "mobility"
+      metric_source: "manual" | "healthkit" | "coach"
+      metric_type:
+        | "weight_kg"
+        | "body_fat_pct"
+        | "waist_cm"
+        | "resting_hr"
+        | "hrv_ms"
+        | "bp_systolic"
+        | "bp_diastolic"
+        | "spo2_pct"
+        | "sleep_min"
+        | "steps"
+        | "vo2max"
       session_status: "scheduled" | "in_progress" | "completed" | "skipped"
       user_role: "coach" | "client"
     }
@@ -840,6 +912,20 @@ export const Constants = {
         "plyometric",
         "running",
         "mobility",
+      ],
+      metric_source: ["manual", "healthkit", "coach"],
+      metric_type: [
+        "weight_kg",
+        "body_fat_pct",
+        "waist_cm",
+        "resting_hr",
+        "hrv_ms",
+        "bp_systolic",
+        "bp_diastolic",
+        "spo2_pct",
+        "sleep_min",
+        "steps",
+        "vo2max",
       ],
       session_status: ["scheduled", "in_progress", "completed", "skipped"],
       user_role: ["coach", "client"],

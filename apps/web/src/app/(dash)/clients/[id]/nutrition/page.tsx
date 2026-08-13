@@ -1,100 +1,50 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { clientById, isDayOnTarget, rollupByClient } from '@vela/shared';
-import { palette } from '@vela/shared/tokens';
-import { Card, StatTile } from '@/components/ui';
-import { Meter, TimeSeriesPanels } from '@/components/charts';
-import { nutritionPanels, todayMacros } from '@/lib/series';
+import { Card, EmptyState } from '@/components/ui';
+import { createServerSupabase } from '@/lib/supabase/server';
 
+/**
+ * Nutrition has no store yet — food logging is Phase 5. Rather than keep rendering the
+ * mock dataset's macros under a real client's name, this says so plainly. A coach
+ * mistaking seeded numbers for her client's intake is a worse failure than an empty tab.
+ */
 export default async function NutritionTab({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!clientById.get(id)) notFound();
+  const supabase = await createServerSupabase();
 
-  const rollup = rollupByClient.get(id)!;
-  const { xLabels, panels } = nutritionPanels(id, 28);
-  const { actual, target, entries } = todayMacros(id);
-  const onTarget = isDayOnTarget(actual, target);
-
-  const macroRows = [
-    { key: 'kcal', label: 'Calories', actual: actual.kcal, target: target.kcal, unit: 'kcal', color: 'var(--series-1)' },
-    { key: 'protein', label: 'Protein', actual: actual.proteinG, target: target.proteinG, unit: 'g', color: 'var(--series-3)' },
-    { key: 'carbs', label: 'Carbs', actual: actual.carbsG, target: target.carbsG, unit: 'g', color: 'var(--series-4)' },
-    { key: 'fat', label: 'Fat', actual: actual.fatG, target: target.fatG, unit: 'g', color: 'var(--series-5)' },
-  ];
+  const { data: client } = await supabase
+    .from('clients')
+    .select('id, breastfeeding')
+    .eq('id', id)
+    .maybeSingle();
+  if (!client) notFound();
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-4 gap-3">
-        <StatTile
-          label="Days logged · 7 days"
-          value={`${Math.round((rollup.nutritionAdherence7d ?? 0) * 7)}/7`}
-        />
-        <StatTile label="Calorie target" value={target.kcal.toLocaleString('en-GB')} unit="kcal" />
-        <StatTile label="Protein target" value={String(target.proteinG)} unit="g" />
-        <StatTile
-          label="Today"
-          value={entries.length === 0 ? 'Not logged' : onTarget ? 'On target' : 'Off target'}
-          hint={entries.length === 0 ? 'No entries yet' : `${entries.length} entries`}
-        />
-      </div>
+      <EmptyState
+        title="Nutrition logging arrives in Phase 5"
+        body="Food logging, macro targets and the barcode scanner are not built yet. Nothing is recorded for this client, so nothing is shown here."
+      />
 
-      <Card title="Today against target">
-        <div className="grid grid-cols-4 gap-5">
-          {macroRows.map((m) => (
-            <Meter
-              key={m.key}
-              value={m.actual}
-              max={m.target}
-              color={
-                m.target > 0 && Math.abs(m.actual - m.target) / m.target <= 0.1
-                  ? palette.status.good
-                  : m.color
-              }
-              label={m.label}
-              valueLabel={`${Math.round(m.actual)} / ${m.target} ${m.unit}`}
-            />
-          ))}
-        </div>
-      </Card>
-
-      <Card title="Intake over time" action={<span className="text-xs ink-3">Last 28 days</span>}>
-        <TimeSeriesPanels xLabels={xLabels} panels={panels} />
-        <p className="mt-2 text-xs ink-3">
-          Gaps are days with no entries — an unlogged day is not a zero-calorie day, so it is
-          drawn as absent rather than as a bar at nought.
-        </p>
-      </Card>
-
-      <Card title="Today's entries">
-        {entries.length === 0 ? (
-          <p className="text-sm ink-2">Nothing logged today yet.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs ink-3">
-                <th className="pb-2 font-medium">Meal</th>
-                <th className="pb-2 font-medium">Food</th>
-                <th className="pb-2 font-medium">Amount</th>
-                <th className="pb-2 font-medium">kcal</th>
-                <th className="pb-2 font-medium">P</th>
-                <th className="pb-2 font-medium">C</th>
-                <th className="pb-2 font-medium">F</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((e) => (
-                <tr key={e.id} className="border-b last:border-0">
-                  <td className="py-2 capitalize ink-2">{e.meal}</td>
-                  <td className="py-2 font-medium">{e.foodName}</td>
-                  <td className="tnum py-2">{e.quantityG} g</td>
-                  <td className="tnum py-2">{e.macros.kcal}</td>
-                  <td className="tnum py-2">{e.macros.proteinG}</td>
-                  <td className="tnum py-2">{e.macros.carbsG}</td>
-                  <td className="tnum py-2">{e.macros.fatG}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <Card title="What this tab will show">
+        <ul className="space-y-1.5 text-sm ink-2">
+          <li>· Calories and protein logged each day against her standing target</li>
+          <li>· Days logged per week, so you can see engagement before you read intake</li>
+          <li>· Today&apos;s meals as she entered them, with the source of each item</li>
+        </ul>
+        {client.breastfeeding && (
+          <p className="mt-3 text-sm ink-2">
+            She is breastfeeding, so targets here will account for the extra energy
+            requirement rather than treating a deficit as progress.
+          </p>
         )}
+        <p className="mt-3 text-xs ink-3">
+          The{' '}
+          <Link href="/preview" className="underline">
+            design preview
+          </Link>{' '}
+          shows the intended layout against sample data.
+        </p>
       </Card>
     </div>
   );

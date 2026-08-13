@@ -183,6 +183,48 @@ This is the highest-usage screen in the product. It deserves the most care.
 > Weight logged in Apple Health appears in the portal within minutes. Re-running the sync
 > creates zero duplicate rows. Manual and HealthKit values are visually distinguishable.
 
+### Phase 4 progress — real sessions and Apple Health wired 2026-08-13
+
+**Shipped**
+
+- `metrics` table with `metric_type` / `metric_source` enums, plus the partial unique index
+  `(client_id, type, external_id) where external_id is not null` — HealthKit imports
+  deduplicate on the sample UUID, manual entries (no external id) never collide.
+- `import_health_metrics(jsonb)` requires health consent, inserts `on conflict do nothing`,
+  and returns the count of genuinely new rows so the UI reports what landed rather than
+  what was offered.
+- `get_session_plan(session_id)` — SECURITY DEFINER, returns items only to the client
+  herself or her coach.
+- iOS: Today, session logging, progress and `/health` all read live data. Finishing a
+  session writes `status`, `completed_at` and both pain scores back through RLS.
+- Portal: client deep dive (overview, training, vitals) runs on real rows; the roster links
+  into it. Nutrition says plainly that it is Phase 5 rather than rendering mock macros.
+
+**Verified end to end** — invite code accepted on the simulator, consent recorded, Today
+showed the real Wednesday session (3 exercises, 9 sets, loads from the programme builder),
+three sets logged, session saved, and both the app and the portal then reported 1 of 2 —
+the same number from the same rule. 27 pgTAP assertions pass.
+
+**Found and fixed while verifying**
+
+- `requestAuthorization` takes **one** argument in `@kingstinct/react-native-healthkit` v14
+  (`{ toRead }`), not `(share, read)`. The two-argument call threw at the native bridge, so
+  the permission sheet never appeared. Units are now requested explicitly per identifier —
+  HealthKit will answer body mass in pounds on a US-locale phone otherwise.
+- `NSHealthUpdateUsageDescription` claimed Vela writes workouts back. It does not, and the
+  app promises it does not — removed, so Apple's sheet no longer says "and update".
+- `weekAdherence` treated "nothing resolved yet" as 100%, painting a full bar above
+  "0 of 3". Adherence now counts only sessions that have already come due.
+- Today did not refetch on focus, so a finished session still offered "Start session".
+- The portal's `dateWindow` was anchored to the frozen mock date, ending every real chart
+  two days in the past.
+- The client deep-dive shell still looked clients up in the mock map, so every real client
+  id 404'd — the vitals tab built for CP4 was unreachable.
+
+**Not done** — progress photos, background delivery, and the pain-vs-load overlay (load
+needs set-by-set logs from Phase 3). HealthKit itself cannot be fully proven on the
+Simulator, which holds no samples; a real iPhone is needed to confirm import volume.
+
 ---
 
 ## Phase 5 — Nutrition · ~2 weeks

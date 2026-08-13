@@ -12,8 +12,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "io.vela.app",
       "infoPlist": {
-        "NSHealthShareUsageDescription": "Vela reads body weight, heart rate, sleep and activity from Apple Health so your physiotherapist can see how training is affecting your recovery. Your health data is never used for advertising and is never shared with third parties.",
-        "NSHealthUpdateUsageDescription": "Vela writes completed workouts back to Apple Health so your activity rings stay accurate.",
+        "NSHealthShareUsageDescription": "Vela reads body weight, body fat percentage, resting heart rate, heart rate variability, steps and VO₂ max from Apple Health so your physiotherapist can see how training is affecting your recovery. Your health data is never used for advertising and is never shared with third parties.",
         "NSCameraUsageDescription": "Take progress photos and scan food barcodes.",
         "NSPhotoLibraryUsageDescription": "Attach progress photos to your check-ins."
       },

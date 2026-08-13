@@ -21,6 +21,12 @@ export default async function ClientsPage() {
   const active = rows.filter((c) => c.status === 'active');
   const invited = rows.filter((c) => c.status === 'invited');
 
+  // head:true means the rows never travel — only the count, which is all this tile needs.
+  const { count: logged } = await supabase
+    .from('sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'completed');
+
   return (
     <div className="mx-auto max-w-6xl p-8">
       <header className="mb-6 flex items-end justify-between">
@@ -46,7 +52,11 @@ export default async function ClientsPage() {
           value={String(invited.length)}
           hint="Invited, email not yet verified"
         />
-        <StatTile label="Sessions logged" value="—" hint="Arrives with Phase 3" />
+        <StatTile
+          label="Sessions logged"
+          value={String(logged ?? 0)}
+          hint="Completed in the app, all time"
+        />
       </div>
 
       {rows.length === 0 ? (
@@ -72,10 +82,22 @@ export default async function ClientsPage() {
                 return (
                   <tr key={c.id} className="border-b last:border-0">
                     <td className="py-3">
-                      <span className="flex items-center gap-2.5">
-                        <Avatar name={name} size={28} />
-                        <span className="font-medium">{name}</span>
-                      </span>
+                      {/* Invited clients have no data to show yet, so the deep dive only
+                          becomes reachable once they have accepted. */}
+                      {c.status === 'invited' ? (
+                        <span className="flex items-center gap-2.5">
+                          <Avatar name={name} size={28} />
+                          <span className="font-medium">{name}</span>
+                        </span>
+                      ) : (
+                        <Link
+                          href={`/clients/${c.id}`}
+                          className="flex items-center gap-2.5 hover:underline"
+                        >
+                          <Avatar name={name} size={28} />
+                          <span className="font-medium">{name}</span>
+                        </Link>
+                      )}
                     </td>
                     <td className="py-3 ink-2">{c.email}</td>
                     <td className="py-3 ink-2">{c.condition ?? '—'}</td>
@@ -104,11 +126,12 @@ export default async function ClientsPage() {
       )}
 
       <p className="mt-6 text-xs ink-3">
-        Adherence, pain trends and vitals arrive in Phases 3 and 4. See the{' '}
+        Open a client for her training, vitals and nutrition. Roster-level adherence and
+        pain columns arrive with the offline sync in Phase 3 — see the{' '}
         <Link href="/preview" className="underline">
           design preview
         </Link>{' '}
-        for how this roster reads once sessions are being logged.
+        for how they read.
       </p>
     </div>
   );

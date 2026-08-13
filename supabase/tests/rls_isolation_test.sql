@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (22);
+  plan (27);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -210,10 +210,13 @@ values
   ('00000000-0000-4000-8000-00000000d0a1', '00000000-0000-4000-8000-0000000000a1', 'A Programme', 2),
   ('00000000-0000-4000-8000-00000000d0a2', '00000000-0000-4000-8000-0000000000a2', 'B Programme', 2);
 
-insert into public.sessions (client_id, title, scheduled_date)
+-- Explicit ids: a later test needs to name client one's session while acting AS client
+-- two, and a subquery would be filtered by RLS to NULL — which would make the function
+-- raise 'session not found' and the test pass for entirely the wrong reason.
+insert into public.sessions (id, client_id, title, scheduled_date)
 values
-  ('00000000-0000-4000-8000-0000000000f1', 'A client session', current_date),
-  ('00000000-0000-4000-8000-0000000000f2', 'B client session', current_date);
+  ('00000000-0000-4000-8000-0000000000e1', '00000000-0000-4000-8000-0000000000f1', 'A client session', current_date),
+  ('00000000-0000-4000-8000-0000000000e2', '00000000-0000-4000-8000-0000000000f2', 'B client session', current_date);
 
 set local role authenticated;
 set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
@@ -243,6 +246,63 @@ select is (
   (select count(*) from public.programs),
   0::bigint,
   'a client cannot read programmes at all — she reads sessions, not prescriptions'
+);
+
+
+-- Metrics and health import -------------------------------------------------
+reset role;
+
+insert into public.metrics (client_id, recorded_at, type, value, source, external_id)
+values
+  ('00000000-0000-4000-8000-0000000000f1', now(), 'weight_kg', 66.4, 'healthkit', 'hk-a-1'),
+  ('00000000-0000-4000-8000-0000000000f2', now(), 'weight_kg', 71.2, 'healthkit', 'hk-b-1');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select count(*) from public.metrics),
+  1::bigint,
+  'client one sees only her own readings (positive control)'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select count(*) from public.metrics),
+  1::bigint,
+  'coach A sees readings for her own client only'
+);
+
+-- Idempotency: the same HealthKit sample uuid must never land twice. This is the whole
+-- reason the import re-reads overlapping windows instead of tracking a watermark.
+reset role;
+
+select throws_ok (
+  $$insert into public.metrics (client_id, recorded_at, type, value, source, external_id)
+    values ('00000000-0000-4000-8000-0000000000f1', now(), 'weight_kg', 66.4, 'healthkit', 'hk-a-1')$$,
+  '23505',
+  null,
+  'a repeated HealthKit sample uuid is rejected by the unique index'
+);
+
+-- Manual entries carry no external id, so two on one day must both be allowed.
+select lives_ok (
+  $$insert into public.metrics (client_id, recorded_at, type, value, source)
+    values ('00000000-0000-4000-8000-0000000000f1', now(), 'weight_kg', 66.2, 'manual'),
+           ('00000000-0000-4000-8000-0000000000f1', now(), 'weight_kg', 66.9, 'manual')$$,
+  'two manual readings on the same day are both kept'
+);
+
+-- A client must not be able to read another client's session plan.
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c2';
+
+select throws_ok (
+  $$select * from public.get_session_plan('00000000-0000-4000-8000-0000000000e1')$$,
+  '42501',
+  null,
+  'client two cannot read the session plan of client one'
 );
 
 select * from finish ();

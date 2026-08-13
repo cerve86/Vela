@@ -1,91 +1,155 @@
 import { notFound } from 'next/navigation';
-import { METRIC_META, clientById, latestMetric, metricsByClient } from '@vela/shared';
-import { Card } from '@/components/ui';
-import { TimeSeriesPanels } from '@/components/charts';
-import { metricPanel } from '@/lib/series';
+import { METRIC_META, listMetrics, type Metric, type MetricType } from '@vela/api';
+import { Card, EmptyState, StatTile } from '@/components/ui';
+import { TimeSeriesPanels, type Panel } from '@/components/charts';
+import { createServerSupabase } from '@/lib/supabase/server';
+import { dateWindow } from '@/lib/series';
+
+const TRACKED: MetricType[] = ['weight_kg', 'resting_hr', 'hrv_ms', 'steps'];
+
+/** Full timestamp `n` days back, UTC, for `recorded_at` comparisons. */
+function sinceTimestamp(n: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString();
+}
+
+const SERIES_COLOR: Record<MetricType, string> = {
+  weight_kg: 'var(--series-1)',
+  resting_hr: 'var(--series-2)',
+  hrv_ms: 'var(--series-3)',
+  steps: 'var(--series-4)',
+  body_fat_pct: 'var(--series-5)',
+  waist_cm: 'var(--series-6)',
+  bp_systolic: 'var(--series-2)',
+  bp_diastolic: 'var(--series-3)',
+  spo2_pct: 'var(--series-4)',
+  sleep_min: 'var(--series-3)',
+  vo2max: 'var(--series-5)',
+};
+
+function panelFor(type: MetricType, metrics: Metric[], days: number): { xLabels: string[]; panels: Panel[] } {
+  const xLabels = dateWindow(days);
+  const meta = METRIC_META[type];
+
+  // One reading per day: the latest wins. A day with three weigh-ins is still one point,
+  // and picking the last avoids a mid-morning spike dragging the line around.
+  const byDate = new Map<string, number>();
+  for (const m of metrics.filter((m) => m.type === type)) {
+    byDate.set(m.recordedAt.slice(0, 10), m.value);
+  }
+
+  return {
+    xLabels,
+    panels: [
+      {
+        id: type,
+        label: `${meta.label}${meta.unit ? ` (${meta.unit})` : ''}`,
+        height: 170,
+        format: { style: 'fixed', decimals: meta.decimals },
+        series: [
+          {
+            id: type,
+            label: meta.label,
+            color: SERIES_COLOR[type],
+            kind: type === 'steps' ? 'bar' : 'line',
+            points: xLabels.map((d) => ({ x: d, y: byDate.get(d) ?? null })),
+            // Vitals are sampled, not continuous — weight lands every other day, HRV
+            // weekly. Without this every segment is orphaned and the line vanishes.
+            connectGaps: true,
+          },
+        ],
+      },
+    ],
+  };
+}
 
 export default async function VitalsTab({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!clientById.get(id)) notFound();
+  const supabase = await createServerSupabase();
 
-  const metrics = metricsByClient.get(id) ?? [];
-  const weight = metricPanel(id, 'weight_kg', {
-    label: 'Weight (kg)',
-    color: 'var(--series-1)',
-    days: 56,
-    decimals: 1,
+  const { data: client } = await supabase
+    .from('clients')
+    .select('id, weeks_postpartum, breastfeeding')
+    .eq('id', id)
+    .maybeSingle();
+  if (!client) notFound();
+
+  const metrics = await listMetrics(supabase, {
+    clientId: id,
+    types: TRACKED,
+    since: sinceTimestamp(90),
   });
-  const hr = metricPanel(id, 'resting_hr', {
-    label: 'Resting heart rate (bpm)',
-    color: 'var(--series-2)',
-    days: 28,
-  });
-  const sleep = metricPanel(id, 'sleep_min', {
-    label: 'Sleep (minutes)',
-    color: 'var(--series-3)',
-    days: 28,
-    kind: 'bar',
-  });
-  const steps = metricPanel(id, 'steps', {
-    label: 'Steps',
-    color: 'var(--series-7)',
-    days: 28,
-    kind: 'bar',
-  });
+
+  const latest = (type: MetricType) => {
+    const of = metrics.filter((m) => m.type === type);
+    return of.length ? of[of.length - 1]! : null;
+  };
 
   const sources = new Set(metrics.map((m) => m.source));
 
+  if (metrics.length === 0) {
+    return (
+      <EmptyState
+        title="No readings yet"
+        body="Once she connects Apple Health in the app, weight, resting heart rate, HRV and steps appear here — each labelled with where it came from."
+      />
+    );
+  }
+
   return (
     <div className="space-y-4">
-      <Card title="Latest readings">
-        <div className="grid grid-cols-6 gap-3">
-          {(['weight_kg', 'resting_hr', 'hrv_ms', 'sleep_min', 'steps', 'body_fat_pct'] as const).map(
-            (t) => {
-              const m = latestMetric(metrics, t);
-              const meta = METRIC_META[t];
-              return (
-                <div key={t}>
-                  <div className="text-xs ink-2">{meta.label}</div>
-                  <div className="tnum mt-0.5 text-lg font-semibold">
-                    {m ? m.value.toLocaleString('en-GB', { minimumFractionDigits: meta.decimals, maximumFractionDigits: meta.decimals }) : '—'}
-                    {meta.unit && (
-                      <span className="ml-1 text-xs font-normal ink-3">{meta.unit}</span>
-                    )}
-                  </div>
-                  <div className="mt-0.5 text-xs ink-3">
-                    {m
-                      ? m.source === 'healthkit'
-                        ? 'Apple Health'
-                        : m.source === 'manual'
-                          ? 'Manual'
-                          : 'Coach'
-                      : 'No data'}
-                  </div>
-                </div>
-              );
-            },
-          )}
-        </div>
-        <p className="mt-3 border-t pt-3 text-xs ink-3">
-          Sources present in this window: {[...sources].join(', ')}. Every reading keeps its
-          origin so an Apple Health import is never mistaken for something the client typed.
-        </p>
-      </Card>
+      <div className="grid grid-cols-4 gap-3">
+        {TRACKED.map((type) => {
+          const m = latest(type);
+          const meta = METRIC_META[type];
+          return (
+            <StatTile
+              key={type}
+              label={meta.label}
+              value={m ? m.value.toLocaleString('en-GB', {
+                minimumFractionDigits: meta.decimals,
+                maximumFractionDigits: meta.decimals,
+              }) : '—'}
+              unit={meta.unit || undefined}
+              hint={
+                m
+                  ? m.source === 'healthkit'
+                    ? 'Apple Health'
+                    : m.source === 'manual'
+                      ? 'Entered manually'
+                      : 'Recorded in clinic'
+                  : 'No data'
+              }
+            />
+          );
+        })}
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <Card title="Body weight">
-          <TimeSeriesPanels xLabels={weight.xLabels} panels={weight.panels} />
-        </Card>
-        <Card title="Resting heart rate">
-          <TimeSeriesPanels xLabels={hr.xLabels} panels={hr.panels} />
-        </Card>
-        <Card title="Sleep">
-          <TimeSeriesPanels xLabels={sleep.xLabels} panels={sleep.panels} />
-        </Card>
-        <Card title="Daily steps">
-          <TimeSeriesPanels xLabels={steps.xLabels} panels={steps.panels} />
-        </Card>
+        {TRACKED.map((type) => {
+          const { xLabels, panels } = panelFor(type, metrics, 56);
+          return (
+            <Card key={type} title={METRIC_META[type].label}>
+              <TimeSeriesPanels xLabels={xLabels} panels={panels} />
+            </Card>
+          );
+        })}
       </div>
+
+      <Card title="Provenance">
+        <p className="text-sm ink-2">
+          {metrics.length} readings in the last 90 days from: {[...sources].join(', ')}. Every
+          reading keeps its origin, so an Apple Health import is never mistaken for
+          something she typed — or for something you measured in clinic.
+        </p>
+        {client.breastfeeding && (
+          <p className="mt-2 text-sm ink-2">
+            She is breastfeeding. Worth reading weight trend alongside energy availability
+            rather than as a goal in itself.
+          </p>
+        )}
+      </Card>
     </div>
   );
 }

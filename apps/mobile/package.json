@@ -10,11 +10,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@vela/api": "^0.1.0",
-    "@vela/shared": "*",
     "@expo-google-fonts/outfit": "^0.4.3",
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
+    "@kingstinct/react-native-healthkit": "^14.0.2",
     "@react-native-async-storage/async-storage": "^3.1.1",
+    "@vela/api": "^0.1.0",
+    "@vela/shared": "*",
     "expo": "~57.0.11",
     "expo-constants": "~57.0.9",
     "expo-file-system": "^57.0.2",

@@ -1,11 +1,14 @@
-import { useMemo, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { estimateOneRepMax } from '@vela/shared';
+import { DISCIPLINE_LABEL } from '@vela/api';
+import { ActivityIndicator } from 'react-native';
 import { Body, Button, Card, Display, PainScale, Pill, Screen } from '@/components/kit';
 import { useTheme } from '@/theme';
-import { todayPlan } from '@/lib/today';
+import { useSessionMeta, useSessionPlan } from '@/lib/data';
+import { supabase } from '@/lib/supabase';
 
 interface LoggedSet {
   reps: string;
@@ -38,9 +41,9 @@ const fieldBase = StyleSheet.create({
  * Active session logging.
  *
  * Design intent: the client is mid-set, standing, phone in one hand. Every control is a
- * large tap target, the prescription's numbers are pre-filled so the common case is
- * "tap done", and nothing here requires a network round-trip — Phase 3 writes straight
- * to SQLite and syncs later.
+ * large tap target and the prescription's numbers are pre-filled, so the common case is
+ * "tap done". Logging itself is all local state; only finishing writes to the server.
+ * Phase 3 moves that write behind an offline outbox.
  */
 export default function SessionScreen() {
   const t = useTheme();
@@ -50,25 +53,59 @@ export default function SessionScreen() {
   const insets = useSafeAreaInsets();
   const topPad = Math.min(insets.top, 12);
 
+  const { id: sessionId } = useLocalSearchParams<{ id: string }>();
+  const plan = useSessionPlan(sessionId ?? null);
+  const meta = useSessionMeta(sessionId ?? null);
+  const todayPlan = plan.data;
+
   const [painBefore, setPainBefore] = useState<number | null>(2);
   const [painAfter, setPainAfter] = useState<number | null>(null);
   const [started, setStarted] = useState(false);
-  const [sets, setSets] = useState<Record<string, LoggedSet[]>>(() =>
-    Object.fromEntries(
-      todayPlan.map((item) => [
-        item.id,
-        Array.from({ length: item.sets }, () => ({
+  const [sets, setSets] = useState<Record<string, LoggedSet[]>>({});
+
+  // Seed the log grid once the prescription arrives. Keyed on item id so a plan that
+  // loads late does not wipe anything the client has already typed.
+  useEffect(() => {
+    setSets((prev) => {
+      const next = { ...prev };
+      for (const item of todayPlan) {
+        if (next[item.itemId]) continue;
+        next[item.itemId] = Array.from({ length: item.sets }, () => ({
           reps: defaultReps(item.reps),
           // Bodyweight work has no load to log — an empty string, not a misleading 0.
           weight: item.targetLoadKg ? String(item.targetLoadKg) : '',
           done: false,
-        })),
-      ]),
-    ),
-  );
+        }));
+      }
+      return next;
+    });
+  }, [todayPlan]);
 
   const completed = useMemo(() => Object.values(sets).flat().filter((s) => s.done).length, [sets]);
   const total = useMemo(() => Object.values(sets).flat().length, [sets]);
+
+  const [saving, setSaving] = useState(false);
+
+  /**
+   * Marks the session complete with the before/after pain scores. Set-by-set logs land
+   * in Phase 3 with the offline outbox; writing the session outcome now means the
+   * coach's adherence and pain trend are real rather than seeded.
+   */
+  async function save() {
+    if (!sessionId) return;
+    setSaving(true);
+    await supabase
+      .from('sessions')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        pain_before: painBefore,
+        pain_after: painAfter,
+      })
+      .eq('id', sessionId);
+    setSaving(false);
+    router.back();
+  }
 
   function update(itemId: string, index: number, patch: Partial<LoggedSet>) {
     setSets((prev) => {
@@ -78,6 +115,16 @@ export default function SessionScreen() {
       list[index] = { ...current, ...patch };
       return { ...prev, [itemId]: list };
     });
+  }
+
+  if (plan.loading && todayPlan.length === 0) {
+    return (
+      <Screen>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={t.brand[600]} />
+        </View>
+      </Screen>
+    );
   }
 
   if (!started) {
@@ -91,11 +138,12 @@ export default function SessionScreen() {
           }}
         >
           <Display size={30}>Before you start</Display>
-          <Card title="How is your knee right now?">
+          <Card title="How are you feeling right now?">
             <PainScale value={painBefore} onChange={setPainBefore} />
             <Body size={12} color={t.textMuted} style={{ marginTop: 14 }}>
-              We ask before and after every session. The comparison is what tells your
-              physiotherapist whether the current load is right for you.
+              Score the strongest of pain, heaviness, dragging or leaking. We ask before
+              and after every session — the comparison is what tells your physiotherapist
+              whether the current load is right for you.
             </Body>
           </Card>
           <Button label="Begin session" onPress={() => setStarted(true)} />
@@ -119,12 +167,12 @@ export default function SessionScreen() {
       >
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
-            <Display size={19}>Lower body + core</Display>
+            <Display size={19}>{meta.data?.title ?? 'Session'}</Display>
             <Body size={13} color={t.textSecondary}>
               {completed} of {total} sets · pain before {painBefore}/10
             </Body>
           </View>
-          <Pill tone="warning">Offline</Pill>
+          {meta.data && <Pill tone="brand">{DISCIPLINE_LABEL[meta.data.discipline]}</Pill>}
         </View>
       </View>
 
@@ -133,10 +181,10 @@ export default function SessionScreen() {
         showsVerticalScrollIndicator={false}
       >
         {todayPlan.map((item) => (
-          <Card key={item.id}>
+          <Card key={item.itemId}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <View style={{ flex: 1 }}>
-                <Display size={18}>{item.name}</Display>
+                <Display size={18}>{item.exerciseName}</Display>
                 <Body size={13} color={t.textSecondary} style={{ marginTop: 2 }}>
                   {item.sets} × {item.reps}
                   {item.targetRpe ? ` @ RPE ${item.targetRpe}` : ''}
@@ -170,7 +218,7 @@ export default function SessionScreen() {
                 </Body>
               </View>
 
-              {(sets[item.id] ?? []).map((s, i) => (
+              {(sets[item.itemId] ?? []).map((s, i) => (
                 <View key={i} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                   <Text
                     style={{
@@ -184,7 +232,7 @@ export default function SessionScreen() {
                   </Text>
                   <TextInput
                     value={s.weight}
-                    onChangeText={(v) => update(item.id, i, { weight: v })}
+                    onChangeText={(v) => update(item.itemId, i, { weight: v })}
                     keyboardType="decimal-pad"
                     placeholder={item.targetLoadKg ? undefined : 'BW'}
                     placeholderTextColor={t.textMuted}
@@ -196,7 +244,7 @@ export default function SessionScreen() {
                   />
                   <TextInput
                     value={s.reps}
-                    onChangeText={(v) => update(item.id, i, { reps: v })}
+                    onChangeText={(v) => update(item.itemId, i, { reps: v })}
                     keyboardType="number-pad"
                     accessibilityLabel={`Set ${i + 1} repetitions`}
                     style={[
@@ -205,7 +253,7 @@ export default function SessionScreen() {
                     ]}
                   />
                   <Pressable
-                    onPress={() => update(item.id, i, { done: !s.done })}
+                    onPress={() => update(item.itemId, i, { done: !s.done })}
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: s.done }}
                     accessibilityLabel={`Set ${i + 1} complete`}
@@ -225,7 +273,7 @@ export default function SessionScreen() {
             </View>
 
             {(() => {
-              const best = (sets[item.id] ?? [])
+              const best = (sets[item.itemId] ?? [])
                 .filter((s) => s.done)
                 .map((s) => estimateOneRepMax(Number(s.weight), Number(s.reps)))
                 .filter((n): n is number => n !== null);
@@ -241,13 +289,14 @@ export default function SessionScreen() {
 
         <Card title="Finish session">
           <Body size={13} color={t.textSecondary} style={{ marginBottom: 14 }}>
-            How is the knee now, after the session?
+            How are you feeling now, after the session?
           </Body>
           <PainScale value={painAfter} onChange={setPainAfter} />
           <View style={{ marginTop: t.space.xl }}>
             <Button
-              label={`Save session (${completed}/${total} sets)`}
-              onPress={() => router.back()}
+              label={saving ? 'Saving…' : `Save session (${completed}/${total} sets)`}
+              disabled={saving}
+              onPress={save}
             />
           </View>
         </Card>

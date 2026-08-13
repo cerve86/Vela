@@ -8,6 +8,10 @@ export interface ClientRecord {
   condition: string | null;
   goal: string | null;
   status: string;
+  /** Null when not postpartum; the app hides the return-to-running pathway then. */
+  weeksPostpartum: number | null;
+  deliveryType: string;
+  breastfeeding: boolean;
 }
 
 interface SessionState {
@@ -49,10 +53,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // what makes a bug here harmless.
     const { data: row } = await supabase
       .from('clients')
-      .select('id, email, condition, goal, status')
+      .select('id, email, condition, goal, status, weeks_postpartum, delivery_type, breastfeeding')
       .maybeSingle();
 
-    setClient(row ?? null);
+    setClient(
+      row
+        ? {
+            id: row.id,
+            email: row.email,
+            condition: row.condition,
+            goal: row.goal,
+            status: row.status,
+            weeksPostpartum: row.weeks_postpartum,
+            deliveryType: row.delivery_type,
+            breastfeeding: row.breastfeeding,
+          }
+        : null,
+    );
 
     if (row) {
       const { data: consents } = await supabase

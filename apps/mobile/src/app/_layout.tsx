@@ -74,6 +74,7 @@ function Gate() {
       <Stack.Screen name="invite" />
       <Stack.Screen name="consent" />
         <Stack.Screen name="readiness" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="health" options={{ presentation: 'modal' }} />
       <Stack.Screen name="session/[id]" options={{ presentation: 'modal' }} />
     </Stack>
   );

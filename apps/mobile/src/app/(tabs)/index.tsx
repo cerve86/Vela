@@ -1,7 +1,9 @@
-import { Link } from 'expo-router';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback } from 'react';
+import { Link, useFocusEffect } from 'expo-router';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { adherenceBand, adherenceStyle } from '@vela/shared';
+import type { ScheduledSession } from '@vela/api';
 import {
   Avatar,
   Body,
@@ -12,30 +14,56 @@ import {
   Pill,
   ProgressBar,
   Screen,
-  StatRow,
 } from '@/components/kit';
 import { useTheme } from '@/theme';
+import { useSession } from '@/lib/session';
 import {
-  currentStreak,
-  estimatedMinutes,
-  latestMetricValue,
-  me,
-  myRollup,
-  todayNutrition,
-  todayPlan,
-} from '@/lib/today';
+  addDays,
+  latestOf,
+  today,
+  useMetrics,
+  useSessionPlan,
+  useUpcoming,
+  useWeek,
+  weekAdherence,
+} from '@/lib/data';
 
-const WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-/** Monday 10 August 2026 is index 1; days before today are done, today is active. */
-const TODAY_INDEX = 1;
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function TodayScreen() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
-  const weight = latestMetricValue('weight_kg');
-  const { actual, target } = todayNutrition();
-  const band = adherenceBand(myRollup.adherence7d);
-  const blocks = [...new Set(todayPlan.map((i) => i.block))];
+  const { client } = useSession();
+
+  const week = useWeek();
+  const upcoming = useUpcoming(3);
+  const metrics = useMetrics(['weight_kg', 'resting_hr', 'steps'], 30);
+
+  const plan = useSessionPlan(week.todaySession?.id ?? null);
+
+  // Coming back from a finished session must not leave "Start session" on screen. The
+  // logging screen writes the outcome and pops, so this tab has to refetch on focus
+  // rather than trusting the data it loaded on mount.
+  useFocusEffect(
+    useCallback(() => {
+      week.reload();
+      metrics.reload();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
+  );
+
+  const adherence = weekAdherence(week.data);
+  const band = adherenceBand(adherence.ratio);
+  const weight = latestOf(metrics.data, 'weight_kg');
+
+  const firstName = client?.email.split('@')[0]?.split('.')[0] ?? 'there';
+  const name = firstName.charAt(0).toUpperCase() + firstName.slice(1);
+  const todayIso = today();
+
+  const blocks = [...new Set(plan.data.map((i) => i.block))];
+  const estMinutes = Math.round(
+    plan.data.reduce((n, i) => n + i.sets * 45 + i.sets * i.restSec, 0) / 60,
+  );
 
   return (
     <Screen>
@@ -48,9 +76,8 @@ export default function TodayScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header — avatar left, notification bell right, as in the reference */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Avatar name={`${me.firstName} ${me.lastName}`} size={44} />
+          <Avatar name={name} size={44} />
           <View
             style={{
               width: 44,
@@ -62,89 +89,31 @@ export default function TodayScreen() {
             }}
           >
             <Text style={{ fontSize: 18 }}>🔔</Text>
-            <View
-              style={{
-                position: 'absolute',
-                top: 11,
-                right: 12,
-                width: 7,
-                height: 7,
-                borderRadius: 4,
-                backgroundColor: t.status.critical,
-              }}
-            />
           </View>
         </View>
 
-        {/* The reference's signature headline: light greeting, heavy name */}
         <View style={{ marginTop: t.space.sm }}>
           <Text>
-            <Text
-              style={{
-                fontFamily: t.font.display,
-                fontSize: 34,
-                letterSpacing: -1,
-                color: t.textMuted,
-              }}
-            >
+            <Text style={{ fontFamily: t.font.display, fontSize: 34, letterSpacing: -1, color: t.textMuted }}>
               Hello!{' '}
             </Text>
-            <Text
-              style={{
-                fontFamily: t.font.display,
-                fontSize: 34,
-                letterSpacing: -1,
-                color: t.textPrimary,
-              }}
-            >
-              {me.firstName}
+            <Text style={{ fontFamily: t.font.display, fontSize: 34, letterSpacing: -1, color: t.textPrimary }}>
+              {name}
             </Text>
           </Text>
           <Body size={14} color={t.textSecondary} style={{ marginTop: 2 }}>
-            {me.weeksPostpartum !== null
-              ? `Week ${me.weeksPostpartum} postpartum · one session today`
-              : 'One session today'}
+            {client?.weeksPostpartum != null
+              ? `Week ${client.weeksPostpartum} postpartum`
+              : client?.goal || 'Welcome back'}
           </Body>
         </View>
 
-        {/* Week ring strip */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: t.space.sm }}>
-          {WEEK.map((d, i) => {
-            const done = i < TODAY_INDEX;
-            const active = i === TODAY_INDEX;
-            return (
-              <View key={d} style={{ alignItems: 'center', gap: 6 }}>
-                <View
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 19,
-                    borderWidth: active ? 3 : 2,
-                    borderColor: done ? t.brand[600] : active ? t.accent[500] : t.grid,
-                    backgroundColor: done ? t.brand[600] : 'transparent',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {done && <Text style={{ color: '#fff', fontSize: 14 }}>✓</Text>}
-                </View>
-                <Body size={11} color={active ? t.textPrimary : t.textMuted} weight={active ? 'semibold' : 'regular'}>
-                  {d}
-                </Body>
-              </View>
-            );
-          })}
-        </View>
+        <WeekStrip sessions={week.data} weekStart={week.weekStart} todayIso={todayIso} />
 
-        {/*
-          The pathway card. For a postpartum client the single most useful thing the app
-          can surface is where she is on the return-to-running pathway — so it sits above
-          today's session rather than buried in a menu.
-        */}
-        {me.weeksPostpartum !== null && (
+        {client?.weeksPostpartum != null && (
           <Link href="/readiness" asChild>
             <Pressable>
-              <Card fill={t.dark ? 'rgba(255,255,255,0.05)' : t.tint.cream} style={{ marginTop: t.space.sm }}>
+              <Card fill={t.dark ? 'rgba(255,255,255,0.05)' : t.tint.cream}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.lg }}>
                   <Text style={{ fontSize: 28 }}>🏃‍♀️</Text>
                   <View style={{ flex: 1 }}>
@@ -156,14 +125,14 @@ export default function TodayScreen() {
                         color: t.textPrimary,
                       }}
                     >
-                      {me.weeksPostpartum >= 12
+                      {client.weeksPostpartum >= 12
                         ? 'Ready to check your return to running?'
-                        : `Return-to-running check from week 12`}
+                        : 'Return-to-running check from week 12'}
                     </Text>
                     <Body size={12} color={t.textSecondary} style={{ marginTop: 2 }}>
-                      {me.weeksPostpartum >= 12
-                        ? 'Seven load tests and four strength tests, with Andrea'
-                        : `You're at week ${me.weeksPostpartum} — we'll build the base first`}
+                      {client.weeksPostpartum >= 12
+                        ? 'Seven load tests and four strength tests, with your physio'
+                        : `You're at week ${client.weeksPostpartum} — we'll build the base first`}
                     </Body>
                   </View>
                 </View>
@@ -172,119 +141,243 @@ export default function TodayScreen() {
           </Link>
         )}
 
-        <Card
-          title="Today's session"
-          right={<Body size={12} color={t.textMuted}>~{estimatedMinutes()} min</Body>}
-        >
-          <Display size={24}>Lower body + core</Display>
-          <Body size={13} color={t.textSecondary} style={{ marginTop: 3 }}>
-            Week 4 · {todayPlan.length} exercises · {todayPlan.reduce((n, i) => n + i.sets, 0)} sets
-          </Body>
-
-          <View style={{ marginTop: t.space.lg, gap: t.space.md }}>
-            {blocks.map((b) => (
-              <View key={b} style={{ gap: 6 }}>
-                <Body size={11} weight="bold" color={t.textMuted}>
-                  BLOCK {b}
+        {week.loading ? (
+          <Card>
+            <ActivityIndicator color={t.brand[600]} />
+          </Card>
+        ) : week.todaySession ? (
+          <Card
+            title="Today's session"
+            right={
+              estMinutes > 0 ? (
+                <Body size={12} color={t.textMuted}>
+                  ~{estMinutes} min
                 </Body>
-                {todayPlan
-                  .filter((i) => i.block === b)
-                  .map((i) => (
-                    <ChipRow key={i.id}>
-                      <View
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: 4,
-                          backgroundColor: t.brand[400],
-                        }}
-                      />
-                      <Body size={14} weight="medium" style={{ flex: 1 }}>
-                        {i.name}
-                      </Body>
-                      <Body size={13} color={t.textSecondary}>
-                        {i.sets} × {i.reps}
-                        {i.targetLoadKg ? ` · ${i.targetLoadKg} kg` : ''}
-                      </Body>
-                    </ChipRow>
-                  ))}
-              </View>
-            ))}
-          </View>
+              ) : undefined
+            }
+          >
+            <Display size={24}>{week.todaySession.title}</Display>
+            <Body size={13} color={t.textSecondary} style={{ marginTop: 3 }}>
+              {plan.data.length} exercises · {plan.data.reduce((n, i) => n + i.sets, 0)} sets
+            </Body>
 
-          <View style={{ marginTop: t.space.xl }}>
-            <Link href="/session/today" asChild>
-              <Button label="Start session" />
-            </Link>
-          </View>
-        </Card>
+            <View style={{ marginTop: t.space.lg, gap: t.space.md }}>
+              {blocks.map((b) => (
+                <View key={b} style={{ gap: 6 }}>
+                  <Body size={11} weight="bold" color={t.textMuted}>
+                    BLOCK {b}
+                  </Body>
+                  {plan.data
+                    .filter((i) => i.block === b)
+                    .map((i) => (
+                      <ChipRow key={i.itemId}>
+                        <View
+                          style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: t.brand[400] }}
+                        />
+                        <Body size={14} weight="medium" style={{ flex: 1 }}>
+                          {i.exerciseName}
+                        </Body>
+                        <Body size={13} color={t.textSecondary}>
+                          {i.sets} × {i.reps}
+                          {i.targetLoadKg ? ` · ${i.targetLoadKg} kg` : ''}
+                        </Body>
+                      </ChipRow>
+                    ))}
+                </View>
+              ))}
+            </View>
+
+            <View style={{ marginTop: t.space.xl }}>
+              {week.todaySession.status === 'completed' ? (
+                <View style={{ alignItems: 'flex-start', gap: t.space.md }}>
+                  <Pill tone="good">Done today</Pill>
+                  <Body size={13} color={t.textSecondary}>
+                    Logged and sent to your physio. Nothing else needed today.
+                  </Body>
+                </View>
+              ) : (
+                <Link href={`/session/${week.todaySession.id}`} asChild>
+                  <Button
+                    label={
+                      week.todaySession.status === 'in_progress'
+                        ? 'Resume session'
+                        : 'Start session'
+                    }
+                  />
+                </Link>
+              )}
+            </View>
+          </Card>
+        ) : (
+          <Card title="Rest day">
+            <Body size={14} color={t.textSecondary}>
+              Nothing scheduled today. Rest is part of the programme, not a gap in it.
+            </Body>
+            {upcoming.data.length > 0 && (
+              <View style={{ marginTop: t.space.lg, gap: 8 }}>
+                <Body size={11} weight="bold" color={t.textMuted}>
+                  COMING UP
+                </Body>
+                {upcoming.data.map((s) => (
+                  <ChipRow key={s.id}>
+                    <Body size={14} weight="medium" style={{ flex: 1 }}>
+                      {s.title}
+                    </Body>
+                    <Body size={13} color={t.textSecondary}>
+                      {friendlyDate(s.scheduledDate, todayIso)}
+                    </Body>
+                  </ChipRow>
+                ))}
+              </View>
+            )}
+          </Card>
+        )}
 
         <Card title="This week">
           <View style={{ gap: t.space.lg }}>
             <View>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
                 <Body size={13} color={t.textSecondary}>
-                  Sessions completed
+                  {adherence.due === 0 ? 'Sessions so far' : 'Sessions completed'}
                 </Body>
                 <Body size={13} weight="semibold">
-                  {myRollup.sessionsCompleted7d} of {myRollup.sessionsScheduled7d}
+                  {adherence.due === 0
+                    ? 'Nothing due yet'
+                    : `${adherence.completed} of ${adherence.due}`}
                 </Body>
               </View>
-              <ProgressBar value={myRollup.adherence7d} color={adherenceStyle[band].color} />
+              <ProgressBar value={adherence.ratio} color={adherenceStyle[band].color} />
             </View>
 
-            <StatRow
-              items={[
-                { label: 'Streak', value: String(currentStreak()), unit: 'days' },
-                {
-                  label: 'Avg pain',
-                  value: myRollup.avgPain7d === null ? '—' : String(myRollup.avgPain7d),
-                  unit: myRollup.avgPain7d === null ? undefined : '/10',
-                },
-                { label: 'Weight', value: weight ? weight.value.toFixed(1) : '—', unit: 'kg' },
-              ]}
-            />
+            <View style={{ flexDirection: 'row' }}>
+              <Stat label="Scheduled" value={String(week.data.length)} />
+              <Stat
+                label="Weight"
+                value={weight ? weight.value.toFixed(1) : '—'}
+                unit={weight ? 'kg' : undefined}
+              />
+              <Stat
+                label="Readings"
+                value={String(metrics.data.length)}
+                unit={metrics.data.length ? '30d' : undefined}
+              />
+            </View>
           </View>
         </Card>
 
-        <Card
-          title="Nutrition today"
-          right={
-            <Body size={12} color={t.textMuted}>
-              {Math.round(actual.kcal)} / {target.kcal} kcal
-            </Body>
-          }
-        >
-          <View style={{ gap: t.space.md }}>
-            {[
-              { label: 'Protein', a: actual.proteinG, tg: target.proteinG, c: t.series[0]! },
-              { label: 'Carbs', a: actual.carbsG, tg: target.carbsG, c: t.series[1]! },
-              { label: 'Fat', a: actual.fatG, tg: target.fatG, c: t.series[2]! },
-            ].map((m) => (
-              <View key={m.label}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
-                  <Body size={12} color={t.textSecondary}>
-                    {m.label}
-                  </Body>
-                  <Body size={12} weight="semibold">
-                    {Math.round(m.a)} / {m.tg} g
-                  </Body>
-                </View>
-                <ProgressBar value={m.a / m.tg} color={m.c} />
+        <Link href="/health" asChild>
+          <Pressable>
+            <Card title="Apple Health">
+              <Body size={13} color={t.textSecondary}>
+                {metrics.data.length > 0
+                  ? 'Weight, resting heart rate and steps are syncing.'
+                  : 'Connect Apple Health so your physio can see how training is landing.'}
+              </Body>
+              <View style={{ marginTop: t.space.md }}>
+                <Pill tone={metrics.data.length > 0 ? 'good' : 'warning'}>
+                  {metrics.data.length > 0 ? `${metrics.data.length} readings` : 'Not connected'}
+                </Pill>
               </View>
-            ))}
-          </View>
-        </Card>
-
-        <Card title="Apple Health">
-          <Body size={13} color={t.textSecondary}>
-            Weight, resting heart rate, sleep and steps sync automatically.
-          </Body>
-          <View style={{ marginTop: t.space.md }}>
-            <Pill tone="brand">Last synced 07:04</Pill>
-          </View>
-        </Card>
+            </Card>
+          </Pressable>
+        </Link>
       </ScrollView>
     </Screen>
   );
+}
+
+function Stat({ label, value, unit }: { label: string; value: string; unit?: string }) {
+  const t = useTheme();
+  return (
+    <View style={{ flex: 1 }}>
+      <Body size={12} color={t.textSecondary}>
+        {label}
+      </Body>
+      <Text
+        style={{
+          fontFamily: t.font.display,
+          fontSize: 22,
+          letterSpacing: -0.6,
+          color: t.textPrimary,
+          marginTop: 2,
+        }}
+      >
+        {value}
+        {unit && (
+          <Text style={{ fontFamily: t.font.medium, fontSize: 12, color: t.textMuted }}> {unit}</Text>
+        )}
+      </Text>
+    </View>
+  );
+}
+
+function WeekStrip({
+  sessions,
+  weekStart,
+  todayIso,
+}: {
+  sessions: ScheduledSession[];
+  weekStart: string;
+  todayIso: string;
+}) {
+  const t = useTheme();
+  const byDate = new Map(sessions.map((s) => [s.scheduledDate, s]));
+
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: t.space.sm }}>
+      {WEEKDAYS.map((label, i) => {
+        const iso = addDays(weekStart, i);
+        const s = byDate.get(iso);
+        const isToday = iso === todayIso;
+        const done = s?.status === 'completed';
+        const scheduled = Boolean(s) && !done;
+
+        return (
+          <View key={label} style={{ alignItems: 'center', gap: 6 }}>
+            <View
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                borderWidth: isToday ? 3 : 2,
+                borderColor: done
+                  ? t.brand[600]
+                  : isToday
+                    ? t.accent[500]
+                    : scheduled
+                      ? t.brand[300]
+                      : t.grid,
+                backgroundColor: done ? t.brand[600] : 'transparent',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {done ? (
+                <Text style={{ color: '#fff', fontSize: 14 }}>✓</Text>
+              ) : scheduled ? (
+                <View
+                  style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: t.brand[500] }}
+                />
+              ) : null}
+            </View>
+            <Body
+              size={11}
+              color={isToday ? t.textPrimary : t.textMuted}
+              weight={isToday ? 'semibold' : 'regular'}
+            >
+              {label}
+            </Body>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function friendlyDate(iso: string, todayIso: string): string {
+  if (iso === todayIso) return 'Today';
+  if (iso === addDays(todayIso, 1)) return 'Tomorrow';
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(y!, (m ?? 1) - 1, d ?? 1);
+  return dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }

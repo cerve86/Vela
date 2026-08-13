@@ -13,7 +13,7 @@ import {
 } from '@vela/shared';
 import { Body, Button, Card, Display, Pill, Screen } from '@/components/kit';
 import { useTheme } from '@/theme';
-import { me } from '@/lib/today';
+import { useSession } from '@/lib/session';
 
 const SYMPTOMS: SymptomFlag[] = ['none', 'pain', 'heaviness', 'dragging', 'leaking'];
 
@@ -27,6 +27,8 @@ const SYMPTOMS: SymptomFlag[] = ['none', 'pain', 'heaviness', 'dragging', 'leaki
  */
 export default function ReadinessScreen() {
   const t = useTheme();
+  const { client } = useSession();
+  const weeksPostpartum = client?.weeksPostpartum ?? 0;
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -46,14 +48,14 @@ export default function ReadinessScreen() {
     () =>
       evaluateReadiness({
         id: 'screen_draft',
-        clientId: me.id,
+        clientId: client?.id ?? '',
         performedOn: '2026-08-11',
-        weeksPostpartum: me.weeksPostpartum ?? 0,
+        weeksPostpartum,
         loadResults: Object.values(load),
         strengthResults: Object.values(strength),
         coachNotes: null,
       }),
-    [load, strength],
+    [load, strength, client?.id, weeksPostpartum],
   );
 
   const tone =
@@ -84,13 +86,12 @@ export default function ReadinessScreen() {
         <View>
           <Display size={30}>Return-to-running check</Display>
           <Body size={14} color={t.textSecondary} style={{ marginTop: 4, lineHeight: 20 }}>
-            Work through each test with {me.firstName === 'Marta' ? 'your physio' : 'your physio'}.
-            Stop at the first sign of pain, heaviness, dragging or leaking — that is the
-            result, not a failure.
+            Work through each test with your physio. Stop at the first sign of pain,
+            heaviness, dragging or leaking — that is the result, not a failure.
           </Body>
           <View style={{ marginTop: t.space.md }}>
             <Pill tone="brand">
-              {me.weeksPostpartum ?? 0} weeks postpartum
+              {weeksPostpartum} weeks postpartum
             </Pill>
           </View>
         </View>

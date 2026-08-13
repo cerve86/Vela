@@ -9,6 +9,10 @@ export const DISCIPLINES: { value: Discipline; label: string }[] = [
   { value: 'mobility', label: 'Mobility' },
 ];
 
+export const DISCIPLINE_LABEL: Record<Discipline, string> = Object.fromEntries(
+  DISCIPLINES.map((d) => [d.value, d.label]),
+) as Record<Discipline, string>;
+
 export interface ProgramItem {
   id: string;
   exerciseId: string;
@@ -278,6 +282,44 @@ export interface ScheduledSession {
   discipline: Discipline;
   scheduledDate: string;
   status: 'scheduled' | 'in_progress' | 'completed' | 'skipped';
+  /** Null until she logs the session; the before/after pair is what the coach reads. */
+  painBefore: number | null;
+  painAfter: number | null;
+}
+
+const SESSION_COLUMNS = 'id, title, discipline, scheduled_date, status, pain_before, pain_after';
+
+function toSession(row: {
+  id: string;
+  title: string;
+  discipline: string;
+  scheduled_date: string;
+  status: string;
+  pain_before: number | null;
+  pain_after: number | null;
+}): ScheduledSession {
+  return {
+    id: row.id,
+    title: row.title,
+    discipline: row.discipline as Discipline,
+    scheduledDate: row.scheduled_date,
+    status: row.status as ScheduledSession['status'],
+    painBefore: row.pain_before === null ? null : Number(row.pain_before),
+    painAfter: row.pain_after === null ? null : Number(row.pain_after),
+  };
+}
+
+/** One session by id. RLS decides whether the caller may see it, so no filter here. */
+export async function getSession(
+  supabase: VelaClient,
+  sessionId: string,
+): Promise<ScheduledSession | null> {
+  const { data } = await supabase
+    .from('sessions')
+    .select(SESSION_COLUMNS)
+    .eq('id', sessionId)
+    .maybeSingle();
+  return data ? toSession(data) : null;
 }
 
 export async function listSessions(
@@ -286,7 +328,7 @@ export async function listSessions(
 ): Promise<ScheduledSession[]> {
   let q = supabase
     .from('sessions')
-    .select('id, title, discipline, scheduled_date, status')
+    .select(SESSION_COLUMNS)
     .order('scheduled_date', { ascending: true });
 
   if (opts.clientId) q = q.eq('client_id', opts.clientId);
@@ -294,11 +336,5 @@ export async function listSessions(
   if (opts.to) q = q.lte('scheduled_date', opts.to);
 
   const { data } = await q;
-  return (data ?? []).map((s) => ({
-    id: s.id,
-    title: s.title,
-    discipline: s.discipline as Discipline,
-    scheduledDate: s.scheduled_date,
-    status: s.status as ScheduledSession['status'],
-  }));
+  return (data ?? []).map(toSession);
 }

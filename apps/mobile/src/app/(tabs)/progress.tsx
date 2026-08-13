@@ -1,24 +1,25 @@
-import { ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { METRIC_META, TODAY, daysBetween, sessionsByClient, volumeLoad, setLogsByClient } from '@vela/shared';
-import { painColor } from '@vela/shared/tokens';
-import { Card, Pill, Screen, StatRow } from '@/components/kit';
+import { METRIC_META, type MetricType } from '@vela/api';
+import { adherenceBand, adherenceStyle, painColor } from '@vela/shared';
+import { Body, Card, Display, Pill, ProgressBar, Screen } from '@/components/kit';
 import { useTheme } from '@/theme';
-import { CURRENT_CLIENT_ID, latestMetricValue, myRollup } from '@/lib/today';
+import { latestOf, useMetrics, useUpcoming, useWeek, weekAdherence } from '@/lib/data';
+
+const SHOWN: MetricType[] = ['weight_kg', 'resting_hr', 'hrv_ms', 'steps'];
 
 export default function ProgressScreen() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
+  const week = useWeek();
+  const upcoming = useUpcoming(20);
+  const metrics = useMetrics(SHOWN, 90);
 
-  const sessions = (sessionsByClient.get(CURRENT_CLIENT_ID) ?? [])
-    .filter((s) => s.status === 'completed')
-    .slice(-8)
-    .reverse();
-  const logs = setLogsByClient.get(CURRENT_CLIENT_ID) ?? [];
+  const adherence = weekAdherence(week.data);
+  const band = adherenceBand(adherence.ratio);
 
-  const weight = latestMetricValue('weight_kg');
-  const hr = latestMetricValue('resting_hr');
-  const sleep = latestMetricValue('sleep_min');
+  const completed = week.data.filter((s) => s.status === 'completed');
+  const painScores = completed.length;
 
   return (
     <Screen>
@@ -26,120 +27,115 @@ export default function ProgressScreen() {
         contentContainerStyle={{
           padding: t.space.lg,
           paddingTop: insets.top + t.space.md,
-          paddingBottom: t.space.xxl,
+          paddingBottom: t.space.xxl * 2,
           gap: t.space.md,
         }}
       >
-        <Text style={{ color: t.textPrimary, fontSize: 30, fontFamily: t.font.display, letterSpacing: -0.8 }}>Progress</Text>
+        <Display size={30}>Progress</Display>
 
-        <Card title="Last 7 days">
-          <StatRow
-            items={[
-              {
-                label: 'Adherence',
-                value: `${Math.round(myRollup.adherence7d * 100)}%`,
-              },
-              {
-                label: 'Volume',
-                value: (myRollup.volumeLoad7d / 1000).toFixed(1),
-                unit: 't',
-              },
-              {
-                label: 'Avg pain',
-                value: myRollup.avgPain7d === null ? '—' : String(myRollup.avgPain7d),
-                unit: myRollup.avgPain7d === null ? undefined : '/10',
-              },
-            ]}
-          />
-          <View style={{ marginTop: t.space.lg }}>
-            <Pill tone={myRollup.painTrend === 'improving' ? 'good' : 'neutral'}>
-              Pain trend {myRollup.painTrend}
+        <Card title="This week">
+          <View style={{ gap: t.space.lg }}>
+            <View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                <Body size={13} color={t.textSecondary}>Adherence</Body>
+                <Body size={13} weight="semibold">
+                  {adherence.completed} of {adherence.due || week.data.length}
+                </Body>
+              </View>
+              <ProgressBar value={adherence.ratio} color={adherenceStyle[band].color} />
+            </View>
+            <Pill tone={band === 'good' ? 'good' : band === 'watch' ? 'warning' : 'critical'}>
+              {adherenceStyle[band].label}
             </Pill>
           </View>
         </Card>
 
-        <Card title="Vitals from Apple Health">
-          <View style={{ gap: t.space.md }}>
-            {[
-              { m: weight, type: 'weight_kg' as const },
-              { m: hr, type: 'resting_hr' as const },
-              { m: sleep, type: 'sleep_min' as const },
-            ].map(({ m, type }) => {
-              const meta = METRIC_META[type];
-              return (
-                <View
-                  key={type}
-                  style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-                >
-                  <View>
-                    <Text style={{ color: t.textPrimary, fontSize: 15, fontFamily: t.font.regular }}>{meta.label}</Text>
-                    <Text style={{ color: t.textMuted, fontSize: 12, fontFamily: t.font.regular }}>
-                      {m
-                        ? m.source === 'healthkit'
-                          ? 'Apple Health'
-                          : 'Entered manually'
-                        : 'No data'}
+        <Card title="Vitals">
+          {metrics.loading ? (
+            <ActivityIndicator color={t.brand[600]} />
+          ) : metrics.data.length === 0 ? (
+            <Body size={13} color={t.textSecondary}>
+              No readings yet. Connect Apple Health from the Today tab.
+            </Body>
+          ) : (
+            <View style={{ gap: t.space.md }}>
+              {SHOWN.map((type) => {
+                const m = latestOf(metrics.data, type);
+                const meta = METRIC_META[type];
+                return (
+                  <View
+                    key={type}
+                    style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <View>
+                      <Body size={15}>{meta.label}</Body>
+                      <Body size={12} color={t.textMuted}>
+                        {m ? (m.source === 'healthkit' ? 'Apple Health' : 'Entered manually') : 'No data'}
+                      </Body>
+                    </View>
+                    <Text
+                      style={{
+                        fontFamily: t.font.displaySemi,
+                        fontSize: 18,
+                        color: t.textPrimary,
+                        fontVariant: ['tabular-nums'],
+                      }}
+                    >
+                      {m ? m.value.toFixed(meta.decimals) : '—'}
+                      <Text style={{ fontFamily: t.font.regular, fontSize: 12, color: t.textMuted }}>
+                        {meta.unit ? ` ${meta.unit}` : ''}
+                      </Text>
                     </Text>
                   </View>
-                  <Text
-                    style={{
-                      color: t.textPrimary,
-                      fontSize: 18,
-                      fontFamily: t.font.displaySemi,
-                      fontVariant: ['tabular-nums'],
-                    }}
-                  >
-                    {m ? m.value.toFixed(meta.decimals) : '—'}
-                    <Text style={{ color: t.textMuted, fontSize: 12, fontFamily: t.font.regular }}>
-                      {' '}
-                      {meta.unit}
-                    </Text>
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
+                );
+              })}
+            </View>
+          )}
         </Card>
 
         <Card title="Recent sessions">
-          <View style={{ gap: t.space.md }}>
-            {sessions.map((s) => {
-              const sl = logs.filter((l) => l.sessionId === s.id);
-              return (
-                <View
-                  key={s.id}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.md }}
-                >
+          {week.loading ? (
+            <ActivityIndicator color={t.brand[600]} />
+          ) : completed.length === 0 ? (
+            <Body size={13} color={t.textSecondary}>
+              Nothing logged this week yet.
+            </Body>
+          ) : (
+            <View style={{ gap: t.space.md }}>
+              {completed.map((s) => (
+                <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.md }}>
                   <View
-                    style={{
-                      width: 6,
-                      height: 34,
-                      borderRadius: 3,
-                      backgroundColor:
-                        s.painAfter === null ? t.textMuted : painColor(s.painAfter),
-                    }}
+                    style={{ width: 6, height: 34, borderRadius: 3, backgroundColor: painColor(2) }}
                   />
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: t.textPrimary, fontSize: 15, fontFamily: t.font.regular }}>{s.title}</Text>
-                    <Text style={{ color: t.textMuted, fontSize: 12, fontFamily: t.font.regular }}>
-                      {daysBetween(s.scheduledDate, TODAY)} days ago ·{' '}
-                      {Math.round(volumeLoad(sl)).toLocaleString('en-GB')} kg
-                    </Text>
+                    <Body size={15}>{s.title}</Body>
+                    <Body size={12} color={t.textMuted}>{s.scheduledDate}</Body>
                   </View>
-                  <Text
-                    style={{
-                      color: t.textSecondary,
-                      fontSize: 14,
-                      fontFamily: t.font.medium,
-                      fontVariant: ['tabular-nums'],
-                    }}
-                  >
-                    {s.painAfter === null ? '—' : `${s.painAfter}/10`}
-                  </Text>
+                  <Pill tone="good">Done</Pill>
                 </View>
-              );
-            })}
-          </View>
+              ))}
+            </View>
+          )}
+          <Body size={12} color={t.textMuted} style={{ marginTop: t.space.md }}>
+            {painScores > 0
+              ? 'Pain trends and volume charts arrive with set-by-set logging in Phase 3.'
+              : ''}
+          </Body>
+        </Card>
+
+        <Card title="Scheduled ahead">
+          {upcoming.data.length === 0 ? (
+            <Body size={13} color={t.textSecondary}>Nothing scheduled.</Body>
+          ) : (
+            <View style={{ gap: 8 }}>
+              {upcoming.data.slice(0, 8).map((s) => (
+                <View key={s.id} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Body size={14}>{s.title}</Body>
+                  <Body size={13} color={t.textSecondary}>{s.scheduledDate}</Body>
+                </View>
+              ))}
+            </View>
+          )}
         </Card>
       </ScrollView>
     </Screen>

@@ -12,8 +12,25 @@ import {
 import type { MetricType } from '@vela/shared';
 import type { Panel, Point } from '@/components/charts';
 
-/** Ordered list of ISO dates covering the last `days` days, oldest first. */
+/**
+ * Ordered list of ISO dates covering the last `days` days, oldest first, ending today.
+ *
+ * UTC throughout, to match `recorded_at` being sliced to a date on the way out of
+ * Postgres — a local-time window would drop or duplicate a day for a coach in the
+ * evening. Deliberately not `daysAgo`, whose anchor is the frozen mock date: charts of
+ * real readings ended two days in the past when it was.
+ */
 export function dateWindow(days: number): string[] {
+  const end = new Date();
+  return Array.from({ length: days }, (_, i) => {
+    const d = new Date(end);
+    d.setUTCDate(d.getUTCDate() - (days - 1 - i));
+    return d.toISOString().slice(0, 10);
+  });
+}
+
+/** The same window, anchored to the mock dataset's frozen today. Design preview only. */
+function mockDateWindow(days: number): string[] {
   return Array.from({ length: days }, (_, i) => daysAgo(days - 1 - i));
 }
 
@@ -37,7 +54,7 @@ function byDate<T>(items: T[], dateOf: (t: T) => string): Map<string, T[]> {
  * crossings that mean nothing.
  */
 export function painLoadPanels(clientId: string, days = 28): { xLabels: string[]; panels: Panel[] } {
-  const xLabels = dateWindow(days);
+  const xLabels = mockDateWindow(days);
   const sessions = sessionsByClient.get(clientId) ?? [];
   const logs = setLogsByClient.get(clientId) ?? [];
 
@@ -94,7 +111,7 @@ export function metricPanel(
   opts: { label: string; color: string; days?: number; decimals?: number; kind?: 'line' | 'bar' },
 ): { xLabels: string[]; panels: Panel[] } {
   const days = opts.days ?? 28;
-  const xLabels = dateWindow(days);
+  const xLabels = mockDateWindow(days);
   const metrics = (metricsByClient.get(clientId) ?? []).filter((m) => m.type === type);
   const map = new Map(metrics.map((m) => [m.recordedAt.slice(0, 10), m.value]));
 
@@ -125,7 +142,7 @@ export function metricPanel(
 
 /** Daily calories logged against the standing target — same unit, so one panel is honest. */
 export function nutritionPanels(clientId: string, days = 28): { xLabels: string[]; panels: Panel[] } {
-  const xLabels = dateWindow(days);
+  const xLabels = mockDateWindow(days);
   const logs = nutritionByClient.get(clientId) ?? [];
   const target = nutritionTargetByClient.get(clientId)!;
   const grouped = byDate(logs, (l) => l.loggedOn);

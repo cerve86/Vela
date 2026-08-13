@@ -1,23 +1,16 @@
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { isDayOnTarget } from '@vela/shared';
-import { Button, Card, Pill, ProgressBar, Screen } from '@/components/kit';
+import { Body, Card, Display, Pill, Screen } from '@/components/kit';
 import { useTheme } from '@/theme';
-import { todayNutrition } from '@/lib/today';
 
-const MEAL_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
-
+/**
+ * Nutrition is Phase 5. This screen deliberately shows nothing rather than seeded
+ * numbers: a client cannot tell demo data from her own, and a macro ring that is not
+ * really hers is worse than an empty state.
+ */
 export default function NutritionScreen() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
-  const { logs, actual, target } = todayNutrition();
-  const onTarget = isDayOnTarget(actual, target);
-
-  const macros = [
-    { label: 'Protein', a: actual.proteinG, tg: target.proteinG, c: t.series[0]! },
-    { label: 'Carbs', a: actual.carbsG, tg: target.carbsG, c: t.series[1]! },
-    { label: 'Fat', a: actual.fatG, tg: target.fatG, c: t.series[2]! },
-  ];
 
   return (
     <Screen>
@@ -25,106 +18,26 @@ export default function NutritionScreen() {
         contentContainerStyle={{
           padding: t.space.lg,
           paddingTop: insets.top + t.space.md,
-          paddingBottom: t.space.xxl,
           gap: t.space.md,
         }}
       >
-        <Text style={{ color: t.textPrimary, fontSize: 30, fontFamily: t.font.display, letterSpacing: -0.8 }}>Nutrition</Text>
-
+        <Display size={30}>Nutrition</Display>
         <Card>
-          <View style={{ alignItems: 'center', paddingVertical: t.space.sm }}>
-            <Text
-              style={{
-                color: t.textPrimary,
-                fontSize: 44,
-                fontFamily: t.font.display,
-                letterSpacing: -1.4,
-                fontVariant: ['tabular-nums'],
-              }}
-            >
-              {Math.round(actual.kcal)}
-            </Text>
-            <Text style={{ color: t.textSecondary, fontSize: 14, fontFamily: t.font.regular }}>
-              of {target.kcal} kcal · {Math.max(0, target.kcal - Math.round(actual.kcal))} left
-            </Text>
-            <View style={{ marginTop: 10 }}>
-              <Pill tone={onTarget ? 'good' : 'warning'}>
-                {onTarget ? 'On target' : 'Below target'}
-              </Pill>
-            </View>
-          </View>
-
-          <View style={{ marginTop: t.space.lg, gap: 12 }}>
-            {macros.map((m) => (
-              <View key={m.label}>
-                <View
-                  style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}
-                >
-                  <Text style={{ color: t.textSecondary, fontSize: 13, fontFamily: t.font.regular }}>{m.label}</Text>
-                  <Text style={{ color: t.textPrimary, fontSize: 13, fontFamily: t.font.semibold }}>
-                    {Math.round(m.a)} / {m.tg} g
-                  </Text>
-                </View>
-                <ProgressBar value={m.a / m.tg} color={m.c} />
-              </View>
-            ))}
-          </View>
+          <Pill tone="neutral">Coming in Phase 5</Pill>
+          <Body size={14} color={t.textSecondary} style={{ marginTop: t.space.md, lineHeight: 20 }}>
+            Macro targets set by your physio, barcode scanning and daily logging land here.
+            Until then keep using whatever food app you already have — we would rather
+            show you nothing than numbers that are not yours.
+          </Body>
         </Card>
-
-        <View style={{ flexDirection: 'row', gap: t.space.md }}>
-          <View style={{ flex: 1 }}>
-            <Button label="Scan barcode" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button label="Search food" variant="secondary" />
-          </View>
-        </View>
-
-        {MEAL_ORDER.map((meal) => {
-          const items = logs.filter((l) => l.meal === meal);
-          return (
-            <Card
-              key={meal}
-              title={meal.charAt(0).toUpperCase() + meal.slice(1)}
-              right={
-                <Text style={{ color: t.textMuted, fontSize: 12, fontFamily: t.font.regular }}>
-                  {items.reduce((n, i) => n + i.macros.kcal, 0)} kcal
-                </Text>
-              }
-            >
-              {items.length === 0 ? (
-                <Text style={{ color: t.textMuted, fontSize: 13, fontFamily: t.font.regular }}>Nothing logged yet</Text>
-              ) : (
-                <View style={{ gap: 10 }}>
-                  {items.map((i) => (
-                    <View
-                      key={i.id}
-                      style={{ flexDirection: 'row', justifyContent: 'space-between' }}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: t.textPrimary, fontSize: 14, fontFamily: t.font.regular }}>{i.foodName}</Text>
-                        <Text style={{ color: t.textMuted, fontSize: 12, fontFamily: t.font.regular }}>
-                          {i.quantityG} g · P {i.macros.proteinG} · C {i.macros.carbsG} · F{' '}
-                          {i.macros.fatG}
-                        </Text>
-                      </View>
-                      <Text
-                        style={{
-                          color: t.textSecondary,
-                          fontSize: 14,
-                          fontFamily: t.font.medium,
-                          fontVariant: ['tabular-nums'],
-                        }}
-                      >
-                        {i.macros.kcal}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </Card>
-          );
-        })}
+        <Card title="Why it matters here">
+          <Body size={13} color={t.textSecondary} style={{ lineHeight: 19 }}>
+            Energy availability affects recovery, bone health and pelvic floor function,
+            and it matters more while breastfeeding. When this arrives it will be framed
+            around fuelling your training, not restriction.
+          </Body>
+        </Card>
+        <View style={{ height: t.space.xxl }} />
       </ScrollView>
     </Screen>
   );
