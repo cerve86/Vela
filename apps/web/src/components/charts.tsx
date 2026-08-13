@@ -257,8 +257,16 @@ export function TimeSeriesPanels({
                     open = true;
                   });
                   const d = segs.join(' ');
+
+                  // Both are -1 when every reading is null, which is an ordinary state:
+                  // a pain series before her first logged session, a weight series for a
+                  // client who has not weighed herself. Deriving `last` by arithmetic on
+                  // findIndex's -1 produced `points.length` — an index one past the end,
+                  // whose `?.y` is undefined rather than null, so the marker guard below
+                  // let it through and then dereferenced nothing.
                   const first = s.points.findIndex((p) => p.y !== null);
-                  const last = s.points.length - 1 - [...s.points].reverse().findIndex((p) => p.y !== null);
+                  const lastFromEnd = [...s.points].reverse().findIndex((p) => p.y !== null);
+                  const last = lastFromEnd === -1 ? -1 : s.points.length - 1 - lastFromEnd;
 
                   return (
                     <g key={s.id}>
@@ -296,7 +304,7 @@ export function TimeSeriesPanels({
                           ),
                         )}
                       {/* 8px marker on the latest value, ringed in the surface colour */}
-                      {last >= 0 && s.points[last]?.y !== null && (
+                      {last >= 0 && s.points[last]?.y != null && (
                         <circle
                           cx={xAt(last)}
                           cy={yAt(s.points[last]!.y as number)}

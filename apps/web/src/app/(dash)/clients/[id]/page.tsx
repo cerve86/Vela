@@ -151,10 +151,21 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
       </div>
 
       <Card title="Reported pain" action={<span className="text-xs ink-3">Last 28 days</span>}>
-        <TimeSeriesPanels xLabels={xLabels} panels={painPanel} />
-        <p className="mt-2 text-xs ink-3">
-          Training volume load joins this timeline once set-by-set logs sync in Phase 3.
-        </p>
+        {painByDate.size === 0 ? (
+          // An empty 0–10 axis reads like something failed to load. Say what is actually
+          // true: she has not finished a session yet, so there is no score to plot.
+          <p className="text-sm ink-2">
+            No pain scores yet. Each session she finishes records one before and one after,
+            and the gap between them is what tells you whether the load is right.
+          </p>
+        ) : (
+          <>
+            <TimeSeriesPanels xLabels={xLabels} panels={painPanel} />
+            <p className="mt-2 text-xs ink-3">
+              Training volume load joins this timeline once set-by-set logs sync in Phase 3.
+            </p>
+          </>
+        )}
       </Card>
 
       <div className="grid grid-cols-3 gap-4">
