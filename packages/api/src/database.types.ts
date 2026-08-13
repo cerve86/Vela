@@ -359,6 +359,125 @@ export type Database = {
           },
         ]
       }
+      food_logs: {
+        Row: {
+          carbs_g: number
+          client_id: string
+          created_at: string
+          description: string
+          fat_g: number
+          food_id: string | null
+          id: string
+          kcal: number
+          logged_on: string
+          meal: Database["public"]["Enums"]["meal_slot"]
+          protein_g: number
+          quantity_g: number | null
+          source: Database["public"]["Enums"]["food_log_source"]
+        }
+        Insert: {
+          carbs_g?: number
+          client_id: string
+          created_at?: string
+          description: string
+          fat_g?: number
+          food_id?: string | null
+          id?: string
+          kcal: number
+          logged_on: string
+          meal: Database["public"]["Enums"]["meal_slot"]
+          protein_g?: number
+          quantity_g?: number | null
+          source: Database["public"]["Enums"]["food_log_source"]
+        }
+        Update: {
+          carbs_g?: number
+          client_id?: string
+          created_at?: string
+          description?: string
+          fat_g?: number
+          food_id?: string | null
+          id?: string
+          kcal?: number
+          logged_on?: string
+          meal?: Database["public"]["Enums"]["meal_slot"]
+          protein_g?: number
+          quantity_g?: number | null
+          source?: Database["public"]["Enums"]["food_log_source"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_logs_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      foods: {
+        Row: {
+          barcode: string | null
+          brand: string | null
+          carbs_100g: number
+          coach_id: string | null
+          created_at: string
+          fat_100g: number
+          id: string
+          kcal_100g: number
+          name: string
+          protein_100g: number
+          serving_g: number | null
+          serving_name: string | null
+          source: Database["public"]["Enums"]["food_source"]
+        }
+        Insert: {
+          barcode?: string | null
+          brand?: string | null
+          carbs_100g?: number
+          coach_id?: string | null
+          created_at?: string
+          fat_100g?: number
+          id?: string
+          kcal_100g: number
+          name: string
+          protein_100g?: number
+          serving_g?: number | null
+          serving_name?: string | null
+          source: Database["public"]["Enums"]["food_source"]
+        }
+        Update: {
+          barcode?: string | null
+          brand?: string | null
+          carbs_100g?: number
+          coach_id?: string | null
+          created_at?: string
+          fat_100g?: number
+          id?: string
+          kcal_100g?: number
+          name?: string
+          protein_100g?: number
+          serving_g?: number | null
+          serving_name?: string | null
+          source?: Database["public"]["Enums"]["food_source"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "foods_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       metrics: {
         Row: {
           client_id: string
@@ -396,6 +515,60 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nutrition_targets: {
+        Row: {
+          carbs_g: number
+          client_id: string
+          coach_id: string
+          created_at: string
+          effective_from: string
+          fat_g: number
+          id: string
+          kcal: number
+          note: string | null
+          protein_g: number
+        }
+        Insert: {
+          carbs_g: number
+          client_id: string
+          coach_id: string
+          created_at?: string
+          effective_from: string
+          fat_g: number
+          id?: string
+          kcal: number
+          note?: string | null
+          protein_g: number
+        }
+        Update: {
+          carbs_g?: number
+          client_id?: string
+          coach_id?: string
+          created_at?: string
+          effective_from?: string
+          fat_g?: number
+          id?: string
+          kcal?: number
+          note?: string | null
+          protein_g?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_targets_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nutrition_targets_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
             referencedColumns: ["id"]
           },
         ]
@@ -731,6 +904,40 @@ export type Database = {
       import_health_metrics: { Args: { p_samples: Json }; Returns: number }
       is_coach_of: { Args: { target_client: string }; Returns: boolean }
       is_the_client: { Args: { target_client: string }; Returns: boolean }
+      nutrition_days: {
+        Args: { p_client: string; p_from: string; p_to: string }
+        Returns: {
+          carbs_g: number
+          day: string
+          entries: number
+          fat_g: number
+          kcal: number
+          protein_g: number
+          target_kcal: number
+          target_protein_g: number
+        }[]
+      }
+      nutrition_target_on: {
+        Args: { p_client: string; p_on: string }
+        Returns: {
+          carbs_g: number
+          client_id: string
+          coach_id: string
+          created_at: string
+          effective_from: string
+          fat_g: number
+          id: string
+          kcal: number
+          note: string | null
+          protein_g: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "nutrition_targets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       record_consent: {
         Args: {
           p_types: Database["public"]["Enums"]["consent_type"][]
@@ -753,6 +960,9 @@ export type Database = {
         | "plyometric"
         | "running"
         | "mobility"
+      food_log_source: "barcode" | "search" | "custom" | "quick"
+      food_source: "off" | "custom"
+      meal_slot: "breakfast" | "lunch" | "dinner" | "snack"
       metric_source: "manual" | "healthkit" | "coach"
       metric_type:
         | "weight_kg"
@@ -913,6 +1123,9 @@ export const Constants = {
         "running",
         "mobility",
       ],
+      food_log_source: ["barcode", "search", "custom", "quick"],
+      food_source: ["off", "custom"],
+      meal_slot: ["breakfast", "lunch", "dinner", "snack"],
       metric_source: ["manual", "healthkit", "coach"],
       metric_type: [
         "weight_kg",

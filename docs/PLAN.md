@@ -238,6 +238,63 @@ Simulator, which holds no samples; a real iPhone is needed to confirm import vol
 > You (or a willing client) log 7 consecutive days including barcode scans, and the
 > portal's adherence numbers match a hand calculation.
 
+### Phase 5 progress — nutrition shipped 2026-08-13
+
+**Shipped**
+
+- `nutrition_targets`, versioned by `effective_from` and never edited in place, so lowering
+  a target in March cannot rewrite February's adherence. `nutrition_target_on(client, day)`
+  resolves the one in force.
+- `foods` stored per 100 g, holding two kinds of row: Open Food Facts products cached by
+  barcode (owned by nobody, readable by all) and the coach's own custom foods.
+- `food_logs` copies the macros onto the row rather than joining `foods` — correcting a
+  food next month must not silently change what a diary said last month.
+- `nutrition_days(client, from, to)` computes daily totals against the target in force on
+  each day, in the database, so the app and the portal cannot disagree. Unlogged days come
+  back as zero-with-no-entries rather than being omitted.
+- iOS: diary with macro bars against target, a week strip, and three ways in — barcode
+  (camera or typed number), search across her coach's foods, and calories-only for the meal
+  nobody is going to weigh. Quick entries leave the macros blank instead of inventing a split.
+- Portal: target editor with history, 7- and 30-day adherence, energy-against-target with
+  weight on a shared timeline, and today's meals labelled by how each was entered.
+- `targetConcerns()` warns when a target falls below 1,600 kcal, or 2,000 while
+  breastfeeding, and the editor checks the macro split against the stated energy before it
+  will save. Neither is a clinical threshold; both exist because this population is the one
+  most harmed by a number typed in haste.
+- `scripts/seed-demo.mjs` (`npm run seed`) rebuilds the whole demo world through the real
+  APIs as the real users, so a broken policy fails the seed. It also asserts that
+  re-importing the same HealthKit payload inserts nothing.
+
+**Verified end to end** — logged a coach food (120 g chicken → 251 kcal) and a scanned
+product (Nutella by barcode → 108 kcal at 20 g) from the app; both appeared in the coach's
+diary view labelled "Searched" and "Scanned". The portal's three adherence numbers were
+checked by hand against the rows: 6 of 7 days logged, 1 of 6 within 10% of 2,450 kcal, mean
+2,356 kcal. 38 pgTAP assertions pass. One day is deliberately left unlogged rather than
+seeding a tidy seven, because "she logged nothing" is a finding the UI has to render.
+
+**Found and fixed while verifying**
+
+- The `foods` read policy matched only `coach_id = auth.uid()`, so every food a coach
+  created was invisible to her client — the search box returned nothing and looked merely
+  empty. Now covered by a paired positive/negative assertion.
+- Magic-link sign-in on iOS was broken end to end: the app asks for a six-digit code but
+  GoTrue's default template mails only a link, and `vela://auth-callback` had no route, so
+  a tapped link ended on "Unmatched Route" with the code stranded in the URL. Added a
+  magic-link template carrying `{{ .Token }}`, plus an `auth-callback` route that exchanges
+  the PKCE code — and an exemption in the routing gate, which was redirecting the callback
+  to sign-in before it could run.
+- Logging from the scanner returned to a stale "Add food" screen, because the scanner
+  replaces itself with that route and leaves the first one underneath.
+- `expo-camera`'s config plugin declares `NSMicrophoneUsageDescription` by default. Vela
+  never records video; an unexplained microphone prompt in a food diary is both an App
+  Review finding and a fair reason to delete the app. Disabled, along with the leftover
+  photo-library string for progress photos that do not exist yet.
+
+**Not done** — recents and favourites, editing a logged entry's portion, and coach-side
+custom food management in the portal UI (foods are seeded or created through the API).
+Barcode scanning through the lens is unverifiable on the Simulator, which has no camera;
+the typed-number path exercises the same lookup, cache and log.
+
 ---
 
 ## Phase 6 — Coach dashboard & intelligence · ~1.5 weeks

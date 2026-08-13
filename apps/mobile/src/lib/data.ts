@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  currentTarget,
   getSession,
   getSessionPlan,
+  listFoodLogs,
   listMetrics,
   listSessions,
+  nutritionDays,
+  type FoodLogEntry,
   type Metric,
   type MetricType,
+  type NutritionDay,
+  type NutritionTarget,
   type ScheduledSession,
   type SessionPlanItem,
 } from '@vela/api';
@@ -129,6 +135,31 @@ export function useMetrics(types: MetricType[], sinceDays = 56) {
     async () => (client ? listMetrics(supabase, { clientId: client.id, types, since }) : []),
     [],
     [client?.id, types.join(','), sinceDays],
+  );
+}
+
+/** Today's diary, the target in force, and the last `days` of daily totals. */
+export function useNutrition(days = 7) {
+  const { client } = useSession();
+  const todayIso = today();
+  const from = addDays(todayIso, -(days - 1));
+
+  return useAsync<{
+    entries: FoodLogEntry[];
+    target: NutritionTarget | null;
+    days: NutritionDay[];
+  }>(
+    async () => {
+      if (!client) return { entries: [], target: null, days: [] };
+      const [entries, target, rows] = await Promise.all([
+        listFoodLogs(supabase, { clientId: client.id, from, to: todayIso }),
+        currentTarget(supabase, client.id, todayIso),
+        nutritionDays(supabase, client.id, from, todayIso),
+      ]);
+      return { entries, target, days: rows };
+    },
+    { entries: [], target: null, days: [] },
+    [client?.id, from, todayIso],
   );
 }
 

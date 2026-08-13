@@ -1,0 +1,31 @@
+<!--
+  Sign-in email.
+
+  A code, for the same reason the invitation is a code: the app asks for six digits on
+  the screen it leaves you on, and a tapped link opens whichever browser the OS prefers
+  and then has to bounce back through a custom scheme. The link is offered underneath as
+  a convenience, but the code is the path the interface actually describes.
+-->
+<h2>Your Vela sign-in code</h2>
+
+<p>Enter this code in the app to sign in:</p>
+
+<p
+  style="font-family:system-ui,sans-serif;font-size:34px;font-weight:800;letter-spacing:10px;color:#008460;background:#eff8f3;padding:18px 24px;border-radius:16px;display:inline-block"
+>
+  {{ .Token }}
+</p>
+
+<p style="color:#5a625e;font-size:13px">
+  The code expires in one hour and can only be used once.
+</p>
+
+<p style="color:#5a625e;font-size:13px">
+  On the same phone you can also
+  <a href="{{ .ConfirmationURL }}">tap here to sign in</a>.
+</p>
+
+<p style="color:#949b97;font-size:12px">
+  If you didn't ask to sign in, you can ignore this email — nobody can get into your
+  account without this code.
+</p>

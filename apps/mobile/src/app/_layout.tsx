@@ -32,6 +32,7 @@ function Gate() {
   const onInvite = route === 'invite';
   const onSignIn = route === 'sign-in';
   const onConsent = route === 'consent';
+  const onAuthCallback = route === 'auth-callback';
 
   useEffect(() => {
     if (loading) return;
@@ -39,6 +40,11 @@ function Gate() {
     // The invite screen must stay reachable while signed out — it is how an account
     // comes into existence in the first place.
     if (onInvite) return;
+
+    // Likewise the deep-link callback: it arrives with no session precisely because it
+    // is the thing that creates one. Redirecting to sign-in here would throw away the
+    // one-time code before it could be exchanged.
+    if (onAuthCallback) return;
 
     if (!session) {
       if (!onSignIn) router.replace('/sign-in');
@@ -57,7 +63,7 @@ function Gate() {
     }
 
     if (onSignIn || onConsent) router.replace('/');
-  }, [loading, session, client, hasConsent, onInvite, onSignIn, onConsent, router]);
+  }, [loading, session, client, hasConsent, onInvite, onSignIn, onConsent, onAuthCallback, router]);
 
   if (loading) {
     return (
@@ -71,11 +77,14 @@ function Gate() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="sign-in" />
+      <Stack.Screen name="auth-callback" />
       <Stack.Screen name="invite" />
       <Stack.Screen name="consent" />
-        <Stack.Screen name="readiness" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="health" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="readiness" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="health" options={{ presentation: 'modal' }} />
       <Stack.Screen name="session/[id]" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="food/add" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="food/scan" options={{ presentation: 'modal' }} />
     </Stack>
   );
 }

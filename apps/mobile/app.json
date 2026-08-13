@@ -12,9 +12,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "io.vela.app",
       "infoPlist": {
-        "NSHealthShareUsageDescription": "Vela reads body weight, body fat percentage, resting heart rate, heart rate variability, steps and VO₂ max from Apple Health so your physiotherapist can see how training is affecting your recovery. Your health data is never used for advertising and is never shared with third parties.",
-        "NSCameraUsageDescription": "Take progress photos and scan food barcodes.",
-        "NSPhotoLibraryUsageDescription": "Attach progress photos to your check-ins."
+        "NSHealthShareUsageDescription": "Vela reads body weight, body fat percentage, resting heart rate, heart rate variability, steps and VO\u2082 max from Apple Health so your physiotherapist can see how training is affecting your recovery. Your health data is never used for advertising and is never shared with third parties."
       },
       "entitlements": {
         "com.apple.developer.healthkit": true
@@ -28,6 +26,14 @@
           "backgroundColor": "#0F766E",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Vela uses the camera only to read barcodes on food packaging. Nothing is photographed or stored.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ]
     ],

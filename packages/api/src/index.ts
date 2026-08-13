@@ -4,4 +4,6 @@ export * from './invites';
 export * from './exercises';
 export * from './programs';
 export * from './metrics';
+export * from './nutrition';
+export * from './openfoodfacts';
 export type { Database } from './database.types';

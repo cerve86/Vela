@@ -250,6 +250,12 @@ otp_expiry = 3600
 subject = "You've been invited to Vela"
 content_path = "./supabase/templates/invite.html"
 
+# The app's sign-in screen asks for six digits, so the email has to contain six digits.
+# GoTrue's default magic-link template is link-only, which left that field unfillable.
+[auth.email.template.magic_link]
+subject = "Your Vela sign-in code"
+content_path = "./supabase/templates/magic_link.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

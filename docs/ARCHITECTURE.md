@@ -16,6 +16,15 @@
 > Language rule: never "bounce back", "get your body back" or "pre-baby body". The
 > audience and the clinicians serving it have turned against that framing. Vela frames
 > forward.
+>
+> Energy rule, which follows from the same reasoning: nutrition is framed as fuelling
+> training, never as restriction. A weight delta is shown without a value judgement — a
+> fall postpartum, and especially while breastfeeding, is not automatically progress. The
+> app warns when a coach sets a target below 1,600 kcal, or 2,000 while breastfeeding
+> (`targetConcerns` in `@vela/api`). These are not clinical thresholds and Vela does not
+> block them; a physiotherapist may have a reason. They exist because this is the
+> population most harmed by a number typed in haste, and software that renders an
+> aggressive deficit as a tidy progress ring is taking a side.
 
 ---
 
@@ -94,7 +103,7 @@ roughly 3–4 extra weeks you don't need to spend yet.
 | Charts | Recharts (web), Victory Native XL (mobile) | |
 | Forms/validation | React Hook Form + Zod, schemas in `packages/shared` | One schema validates client, server and DB constraint |
 | Health data | HealthKit read-only via `@kingstinct/react-native-healthkit` | Background delivery for weight/HR/sleep/steps |
-| Food database | Open Food Facts (free, EU, barcode) | Swap to FatSecret/Nutritionix if coverage disappoints |
+| Food database | Open Food Facts (free, EU, barcode) | Swap to FatSecret/Nutritionix if coverage disappoints. Called from the device with an identifying User-Agent, as their terms require; every product resolved is cached in `foods` so a second scan of the same tin needs no network. Crowd-sourced, so a product with no energy value is treated as a miss — logging it as 0 kcal would be worse than not logging it |
 | Media | Supabase Storage, signed URLs, private buckets | Exercise video + progress photos |
 | Push | Expo Notifications → APNs | |
 | Errors / analytics | Sentry + PostHog (EU cloud) | |

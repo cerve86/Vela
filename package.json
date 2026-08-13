@@ -2,7 +2,7 @@
   "name": "vela",
   "version": "0.1.0",
   "private": true,
-  "description": "Physiotherapy coaching platform — iOS client app + coach web portal",
+  "description": "Physiotherapy coaching platform \u2014 iOS client app + coach web portal",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -18,7 +18,8 @@
     "build": "npm run build --workspace=@vela/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "seed": "node scripts/seed-demo.mjs"
   },
   "devDependencies": {
     "prettier": "^3.4.2",

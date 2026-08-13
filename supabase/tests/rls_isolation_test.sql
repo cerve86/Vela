@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (27);
+  plan (38);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -303,6 +303,116 @@ select throws_ok (
   '42501',
   null,
   'client two cannot read the session plan of client one'
+);
+
+-- ---------------------------------------------------------------------------
+-- Nutrition
+-- ---------------------------------------------------------------------------
+
+reset role;
+
+insert into
+  public.nutrition_targets (client_id, coach_id, effective_from, kcal, protein_g, carbs_g, fat_g)
+values
+  ('00000000-0000-4000-8000-0000000000f1', '00000000-0000-4000-8000-0000000000a1', current_date - 10, 2400, 120, 280, 80),
+  ('00000000-0000-4000-8000-0000000000f2', '00000000-0000-4000-8000-0000000000a2', current_date - 10, 2100, 110, 240, 70);
+
+insert into
+  public.food_logs (client_id, logged_on, meal, description, kcal, protein_g, carbs_g, fat_g, source)
+values
+  ('00000000-0000-4000-8000-0000000000f1', current_date, 'breakfast', 'Porridge', 350, 12, 55, 8, 'search'),
+  ('00000000-0000-4000-8000-0000000000f2', current_date, 'breakfast', 'Toast', 220, 8, 38, 4, 'search');
+
+insert into
+  public.foods (coach_id, source, name, kcal_100g, protein_100g, carbs_100g, fat_100g)
+values
+  ('00000000-0000-4000-8000-0000000000a1', 'custom', 'A-only Food', 118, 4.6, 15.2, 4.1),
+  ('00000000-0000-4000-8000-0000000000a2', 'custom', 'B-only Food', 209, 26, 0, 11.6);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+-- Positive control first: without it, an empty result below proves nothing.
+select is (
+  (select count(*) from public.food_logs),
+  1::bigint,
+  'client one sees her own diary entry'
+);
+
+select is (
+  (select count(*) from public.food_logs where client_id = '00000000-0000-4000-8000-0000000000f2'),
+  0::bigint,
+  'client one cannot read client two''s diary'
+);
+
+select is (
+  (select count(*) from public.nutrition_targets),
+  1::bigint,
+  'client one reads her own target and no other'
+);
+
+-- She may read the target but never write one; setting her own would defeat the point
+-- of a coach-led model.
+select throws_ok (
+  $$insert into public.nutrition_targets (client_id, coach_id, effective_from, kcal, protein_g, carbs_g, fat_g)
+    values ('00000000-0000-4000-8000-0000000000f1', '00000000-0000-4000-8000-0000000000a1', current_date, 1200, 60, 120, 40)$$,
+  '42501',
+  null,
+  'a client cannot set her own macro target'
+);
+
+select throws_ok (
+  $$select * from public.nutrition_days('00000000-0000-4000-8000-0000000000f2', current_date - 6, current_date)$$,
+  '42501',
+  null,
+  'client one cannot read client two''s daily totals'
+);
+
+-- She must be able to find the foods her own coach added — that is what they are for.
+-- Getting this wrong made the search box return nothing and look merely empty.
+select is (
+  (select count(*) from public.foods where name = 'A-only Food'),
+  1::bigint,
+  'a client CAN search the custom foods her own coach created'
+);
+
+select is (
+  (select count(*) from public.foods where name = 'B-only Food'),
+  0::bigint,
+  'a client cannot see another coach''s custom foods'
+);
+
+-- The coach reads the diary, and only her own client's.
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select count(*) from public.food_logs),
+  1::bigint,
+  'coach A reads her own client''s diary and no other'
+);
+
+select is (
+  (select entries from public.nutrition_days('00000000-0000-4000-8000-0000000000f1', current_date, current_date)),
+  1::int,
+  'the coach''s daily totals resolve through the same function the app uses'
+);
+
+select is (
+  (select target_kcal from public.nutrition_days('00000000-0000-4000-8000-0000000000f1', current_date, current_date)),
+  2400,
+  'the target in force on the day is attached to it'
+);
+
+-- What a client ate is her account of her own day. A coach silently editing it would
+-- make the record worth nothing.
+update public.food_logs
+set kcal = 1
+where client_id = '00000000-0000-4000-8000-0000000000f1';
+
+select is (
+  (select kcal from public.food_logs where client_id = '00000000-0000-4000-8000-0000000000f1'),
+  350::numeric,
+  'a coach cannot rewrite what her client logged'
 );
 
 select * from finish ();
