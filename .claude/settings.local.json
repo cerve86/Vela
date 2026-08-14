@@ -77,7 +77,25 @@
       "Bash(node -e \"console.log\\(Object.keys\\(require\\('./package.json'\\).scripts\\).join\\(', '\\)\\)\")",
       "Bash(echo \"PREBUILD=$?\")",
       "Bash(docker volume *)",
-      "Bash(docker stats *)"
+      "Bash(docker stats *)",
+      "Bash(/bin/sleep 6)",
+      "Bash(/bin/sleep 3)",
+      "Bash(/bin/sleep 1)",
+      "Bash(/bin/sleep 2)",
+      "Bash(/bin/sleep 5)",
+      "Bash(grep -o \"UnitForIdentifierGenerated<T[^=]*=[^;]\\\\{0,400\\\\}\" node_modules/@kingstinct/react-native-healthkit/lib/typescript/generated/healthkit.generated.d.ts)",
+      "Bash(/bin/sleep 4)",
+      "Bash(perl -0pi -e 's/\\(export function painLoadPanels\\\\\\(clientId: string, days = 28\\\\\\): \\\\{ xLabels: string\\\\[\\\\]; panels: Panel\\\\[\\\\] \\\\} \\\\{\\\\n  const xLabels = \\)dateWindow/$1mockDateWindow/' apps/web/src/lib/series.ts)",
+      "Bash(perl -0pi -e 's/\\(opts\\\\.days \\\\?\\\\? 28;\\\\n  const xLabels = \\)dateWindow/$1mockDateWindow/' apps/web/src/lib/series.ts)",
+      "Bash(perl -0pi -e 's/\\(export function nutritionPanels\\\\\\(clientId: string, days = 28\\\\\\): \\\\{ xLabels: string\\\\[\\\\]; panels: Panel\\\\[\\\\] \\\\} \\\\{\\\\n  const xLabels = \\)dateWindow/$1mockDateWindow/' apps/web/src/lib/series.ts)",
+      "Bash(npx supabase *)",
+      "Bash(git check-ignore *)",
+      "Bash(git commit *)",
+      "Bash(perl -0pi -e \"s/\\\\\\(select c\\\\.id from public\\\\.coaches c where c\\\\.profile_id = auth\\\\.uid\\\\\\(\\\\\\)\\\\\\)/auth.uid\\(\\)/g\" supabase/migrations/20260813000000_nutrition.sql)",
+      "Bash(node scripts/seed-demo.mjs)",
+      "Bash(python3 -c \"import json;print\\(list\\(json.load\\(open\\('apps/mobile/app.json'\\)\\)['expo']['ios']['infoPlist'].keys\\(\\)\\)\\)\")",
+      "Bash(/bin/sleep 8)",
+      "Bash(kill 14141 14158)"
     ]
   }
 }
