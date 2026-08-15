@@ -61,6 +61,7 @@ export default async function ClientsPage() {
 
       {rows.length === 0 ? (
         <EmptyState
+          art="roster"
           title="No clients yet"
           body="Invite your first client and they'll appear here the moment they accept and verify their email address."
         />

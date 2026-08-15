@@ -132,6 +132,7 @@ export default async function NutritionTab({ params }: { params: Promise<{ id: s
 
       {days.every((d) => d.entries === 0) ? (
         <EmptyState
+          art="plate"
           title="Nothing logged yet"
           body="Her diary is empty for the last 30 days. Entries appear here the moment she logs a meal in the app — including what she scanned and what she typed by hand."
         />

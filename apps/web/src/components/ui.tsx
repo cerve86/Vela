@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { Circle, CircleCheck, OctagonAlert, TriangleAlert } from 'lucide-react';
+import type { IllustrationName } from '@vela/shared';
 import { palette } from '@vela/shared/tokens';
+import { Illustration } from './Illustration';
 
 export function Card({
   title,
@@ -133,9 +135,23 @@ export function PainDot({ score }: { score: number | null }) {
   );
 }
 
-export function EmptyState({ title, body }: { title: string; body: string }) {
+export function EmptyState({
+  title,
+  body,
+  art,
+}: {
+  title: string;
+  body: string;
+  /** Optional spot illustration. Omit it where an empty state is a passing moment. */
+  art?: IllustrationName;
+}) {
   return (
     <div className="surface rounded-[20px] p-10 text-center" style={{ background: 'var(--surface)' }}>
+      {art && (
+        <div className="mb-4 flex justify-center">
+          <Illustration name={art} width={190} />
+        </div>
+      )}
       <h3 className="text-sm font-semibold">{title}</h3>
       <p className="mx-auto mt-1 max-w-md text-sm ink-2">{body}</p>
     </div>

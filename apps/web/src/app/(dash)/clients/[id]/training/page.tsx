@@ -117,6 +117,7 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
       <Card title="Pain before and after" action={<span className="text-xs ink-3">Last 8 weeks</span>}>
         {completed.length === 0 ? (
           <EmptyState
+            art="trend"
             title="Nothing logged yet"
             body="Each session she finishes records a pain score before and after. Two or three sessions in, the gap between the lines starts telling you whether the load is right."
           />

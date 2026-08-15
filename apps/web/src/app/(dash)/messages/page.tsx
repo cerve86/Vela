@@ -10,6 +10,7 @@ export default function MessagesPage() {
         <p className="mt-0.5 text-sm ink-2">Direct threads with each client</p>
       </header>
       <EmptyState
+        art="welcome"
         title="Messaging — Phase 7"
         body="Realtime 1:1 threads with unread counts, image attachments and push notification delivery. Deliberately late in the build: it is the easiest piece to replace with WhatsApp until the training loop is proven."
       />

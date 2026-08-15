@@ -91,6 +91,7 @@ export default async function VitalsTab({ params }: { params: Promise<{ id: stri
   if (metrics.length === 0) {
     return (
       <EmptyState
+        art="trend"
         title="No readings yet"
         body="Once she connects Apple Health in the app, weight, resting heart rate, HRV and steps appear here — each labelled with where it came from."
       />

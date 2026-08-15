@@ -17,6 +17,7 @@ import {
   Screen,
 } from '@/components/kit';
 import { VelaIcon } from '@/components/brand';
+import { Illustration } from '@/components/Illustration';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
 import {
@@ -212,6 +213,9 @@ export default function TodayScreen() {
           </Card>
         ) : (
           <Card title="Rest day">
+            <View style={{ alignItems: 'center', marginBottom: t.space.md }}>
+              <Illustration name="rest" width={168} />
+            </View>
             <Body size={14} color={t.textSecondary}>
               Nothing scheduled today. Rest is part of the programme, not a gap in it.
             </Body>

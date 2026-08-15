@@ -24,6 +24,7 @@ export default async function ProgramsPage() {
 
       {programs.length === 0 ? (
         <EmptyState
+          art="roster"
           title="No programmes yet"
           body="Create your first block above — for example a 6-week early postnatal progression, or a 12-week return to running."
         />

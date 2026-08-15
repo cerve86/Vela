@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { MEAL_SLOTS, deleteFoodLog, sumMacros, type FoodLogEntry, type MealSlot } from '@vela/api';
 import { Body, Button, Card, ChipRow, Display, Pill, Screen } from '@/components/kit';
+import { Illustration } from '@/components/Illustration';
 import { useTheme } from '@/theme';
 import { supabase } from '@/lib/supabase';
 import { today, useNutrition } from '@/lib/data';
@@ -227,6 +228,9 @@ export default function NutritionScreen() {
 
             {entries.length === 0 ? (
               <Card>
+                <View style={{ alignItems: 'center', marginBottom: t.space.md }}>
+                  <Illustration name="plate" width={168} />
+                </View>
                 <Body size={14} color={t.textSecondary} style={{ lineHeight: 20 }}>
                   Nothing logged today. Scan a barcode, search what your physio has added,
                   or type it in — whichever is quickest with one hand free.
