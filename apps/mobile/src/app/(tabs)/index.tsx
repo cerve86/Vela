@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { Link, useFocusEffect } from 'expo-router';
+import { Bell, Check, Footprints } from 'lucide-react-native';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { adherenceBand, adherenceStyle } from '@vela/shared';
@@ -88,7 +89,7 @@ export default function TodayScreen() {
               justifyContent: 'center',
             }}
           >
-            <Text style={{ fontSize: 18 }}>🔔</Text>
+            <Bell size={18} color={t.textSecondary} strokeWidth={2} />
           </View>
         </View>
 
@@ -113,9 +114,9 @@ export default function TodayScreen() {
         {client?.weeksPostpartum != null && (
           <Link href="/readiness" asChild>
             <Pressable>
-              <Card fill={t.dark ? 'rgba(255,255,255,0.05)' : t.tint.cream}>
+              <Card fill={t.dark ? 'rgba(240,85,63,0.13)' : t.tint.peach}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.lg }}>
-                  <Text style={{ fontSize: 28 }}>🏃‍♀️</Text>
+                  <Footprints size={28} color={t.brand[600]} strokeWidth={2} />
                   <View style={{ flex: 1 }}>
                     <Text
                       style={{
@@ -353,7 +354,7 @@ function WeekStrip({
               }}
             >
               {done ? (
-                <Text style={{ color: '#fff', fontSize: 14 }}>✓</Text>
+                <Check size={14} color="#fff" strokeWidth={3} />
               ) : scheduled ? (
                 <View
                   style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: t.brand[500] }}

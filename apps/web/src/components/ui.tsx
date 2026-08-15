@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Circle, CircleCheck, OctagonAlert, TriangleAlert } from 'lucide-react';
 import { palette } from '@vela/shared/tokens';
 
 export function Card({
@@ -64,7 +65,7 @@ export function StatTile({
   );
 }
 
-/** Status is never colour alone — every pill carries a glyph and a word. */
+/** Status is never colour alone — every pill carries an icon and a word. */
 export function StatusPill({
   tone,
   children,
@@ -73,21 +74,19 @@ export function StatusPill({
   children: ReactNode;
 }) {
   const map = {
-    good: { color: palette.status.good, glyph: '●' },
-    warning: { color: palette.status.warning, glyph: '▲' },
-    serious: { color: palette.status.serious, glyph: '▲' },
-    critical: { color: palette.status.critical, glyph: '■' },
-    neutral: { color: 'var(--ink-muted)', glyph: '○' },
+    good: { color: palette.status.good, Icon: CircleCheck },
+    warning: { color: palette.status.warning, Icon: TriangleAlert },
+    serious: { color: palette.status.serious, Icon: TriangleAlert },
+    critical: { color: palette.status.critical, Icon: OctagonAlert },
+    neutral: { color: 'var(--ink-muted)', Icon: Circle },
   } as const;
-  const { color, glyph } = map[tone];
+  const { color, Icon } = map[tone];
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium"
       style={{ background: 'var(--ghost)', color: 'var(--ink-primary)' }}
     >
-      <span aria-hidden style={{ color, fontSize: 9 }}>
-        {glyph}
-      </span>
+      <Icon size={12} strokeWidth={2.5} style={{ color }} aria-hidden />
       {children}
     </span>
   );

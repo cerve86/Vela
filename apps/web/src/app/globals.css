@@ -5,33 +5,34 @@
  * truth for the iOS app, this block is the same values as CSS custom properties so
  * Tailwind utilities and raw SVG can both reach them.
  *
- * Visual direction follows the fitness-coaching reference: deep spearmint green on white,
- * violet secondary, very round corners, heavy tight display type over light body text.
+ * Visual direction "Sunrise": coral leads, plum supports, cream replaces white. Two coral
+ * steps do different jobs — brand-500 is the identity colour and the first series slot,
+ * brand-600 is the interactive step, darkened until white label text clears 4.5:1.
  *
  * Dark values are declared twice on purpose: the media query follows the OS setting, the
  * [data-theme] scope lets an explicit toggle win in both directions.
  */
 
 @theme {
-  --color-brand-50: #edf8f4;
-  --color-brand-100: #d2efe5;
-  --color-brand-200: #a5dfcb;
-  --color-brand-300: #63c7a7;
-  --color-brand-400: #26a87f;
-  --color-brand-500: #00966d;
-  --color-brand-600: #008460;
-  --color-brand-700: #026e51;
-  --color-brand-800: #065842;
-  --color-brand-900: #074635;
+  --color-brand-50: #fff4f1;
+  --color-brand-100: #ffe5df;
+  --color-brand-200: #ffc6b9;
+  --color-brand-300: #ff9e8b;
+  --color-brand-400: #ff7b63;
+  --color-brand-500: #ff5a45;
+  --color-brand-600: #d93a24;
+  --color-brand-700: #b32e1b;
+  --color-brand-800: #8c2415;
+  --color-brand-900: #661a0f;
 
-  --color-accent-100: #e7e2fb;
-  --color-accent-500: #5838c8;
-  --color-accent-700: #432aa0;
+  --color-accent-100: #f1e9fb;
+  --color-accent-500: #7a2fb8;
+  --color-accent-700: #5a1f8c;
 
-  --color-status-good: #0ca30c;
-  --color-status-warning: #fab219;
-  --color-status-serious: #ec835a;
-  --color-status-critical: #d03b3b;
+  --color-status-good: #0b8f5a;
+  --color-status-warning: #b87a00;
+  --color-status-serious: #b85a12;
+  --color-status-critical: #c4184a;
 
   --font-display: var(--font-outfit), system-ui, sans-serif;
   --font-sans: var(--font-jakarta), system-ui, sans-serif;
@@ -43,85 +44,89 @@
 :root {
   color-scheme: light;
 
-  --surface: #ffffff;
-  --page: #f4f6f5;
+--surface: #ffffff;
+  --page: #fff6ef;
   --raised: #ffffff;
-  --ink-primary: #0b0f0d;
-  --ink-secondary: #5a625e;
-  --ink-muted: #949b97;
-  --grid: #e8ebe9;
-  --axis: #c6ccc9;
-  --border: rgba(11, 15, 13, 0.08);
-  --success-text: #026e51;
-  --ghost: #f5f6f5;
+  --ink-primary: #1f1512;
+  --ink-secondary: #6b5b54;
+  --ink-muted: #8a7a71;
+  --grid: #efe4da;
+  --axis: #dcccc0;
+  --border: rgba(31, 21, 18, 0.09);
+  --success-text: #0b7a4b;
+  --ghost: #f6efe8;
 
-  --tint-cream: #fffbed;
-  --tint-mint: #eff8f3;
-  --tint-lilac: #f2effc;
+  --tint-cream: #ffefe2;
+  --tint-peach: #fff1ea;
+  --tint-mint: #e9f7f1;
+  --tint-lilac: #f3ecfb;
 
-  /* Categorical series — fixed order, never cycled */
-  --series-1: #008460;
-  --series-2: #5838c8;
-  --series-3: #eb6834;
-  --series-4: #2a78d6;
-  --series-5: #eda100;
-  --series-6: #e87ba4;
+  /* Categorical series — fixed order, never cycled. Green and gold are kept apart:
+     adjacent, that pair falls below the tritan floor. */
+  --series-1: #ff5a45;
+  --series-2: #7a2fb8;
+  --series-3: #0e9f6e;
+  --series-4: #e8a200;
+  --series-5: #2d6bf0;
+  --series-6: #e0489b;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme='light'])) {
     color-scheme: dark;
 
-    --surface: #14171a;
-    --page: #0a0c0e;
-    --raised: #1c2024;
-    --ink-primary: #ffffff;
-    --ink-secondary: #b9c0bc;
-    --ink-muted: #868e8a;
-    --grid: #262b2e;
-    --axis: #39403d;
-    --border: rgba(255, 255, 255, 0.09);
-    --success-text: #12a37a;
-    --ghost: rgba(255, 255, 255, 0.06);
+--surface: #241a16;
+    --page: #191310;
+    --raised: #2e221c;
+    --ink-primary: #f8efe9;
+    --ink-secondary: #bcada4;
+    --ink-muted: #8c7d74;
+    --grid: #33261f;
+    --axis: #4a3931;
+    --border: rgba(248, 239, 233, 0.1);
+    --success-text: #12a377;
+    --ghost: rgba(248, 239, 233, 0.07);
 
-    --tint-cream: rgba(255, 255, 255, 0.05);
-    --tint-mint: rgba(18, 163, 122, 0.12);
-    --tint-lilac: rgba(139, 120, 238, 0.12);
+    --tint-cream: rgba(248, 239, 233, 0.05);
+    --tint-peach: rgba(240, 85, 63, 0.13);
+    --tint-mint: rgba(18, 163, 119, 0.13);
+    --tint-lilac: rgba(154, 90, 216, 0.15);
 
-    --series-1: #12a37a;
-    --series-2: #8b78ee;
-    --series-3: #d95926;
-    --series-4: #3987e5;
-    --series-5: #c98500;
-    --series-6: #d55181;
+    --series-1: #f0553f;
+    --series-2: #9a5ad8;
+    --series-3: #12a377;
+    --series-4: #c28900;
+    --series-5: #4a80f0;
+    --series-6: #db4f97;
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --surface: #14171a;
-  --page: #0a0c0e;
-  --raised: #1c2024;
-  --ink-primary: #ffffff;
-  --ink-secondary: #b9c0bc;
-  --ink-muted: #868e8a;
-  --grid: #262b2e;
-  --axis: #39403d;
-  --border: rgba(255, 255, 255, 0.09);
-  --success-text: #12a37a;
-  --ghost: rgba(255, 255, 255, 0.06);
+--surface: #241a16;
+  --page: #191310;
+  --raised: #2e221c;
+  --ink-primary: #f8efe9;
+  --ink-secondary: #bcada4;
+  --ink-muted: #8c7d74;
+  --grid: #33261f;
+  --axis: #4a3931;
+  --border: rgba(248, 239, 233, 0.1);
+  --success-text: #12a377;
+  --ghost: rgba(248, 239, 233, 0.07);
 
-  --tint-cream: rgba(255, 255, 255, 0.05);
-  --tint-mint: rgba(18, 163, 122, 0.12);
-  --tint-lilac: rgba(139, 120, 238, 0.12);
+  --tint-cream: rgba(248, 239, 233, 0.05);
+  --tint-peach: rgba(240, 85, 63, 0.13);
+  --tint-mint: rgba(18, 163, 119, 0.13);
+  --tint-lilac: rgba(154, 90, 216, 0.15);
 
-  --series-1: #12a37a;
-  --series-2: #8b78ee;
-  --series-3: #d95926;
-  --series-4: #3987e5;
-  --series-5: #c98500;
-  --series-6: #d55181;
+  --series-1: #f0553f;
+  --series-2: #9a5ad8;
+  --series-3: #12a377;
+  --series-4: #c28900;
+  --series-5: #4a80f0;
+  --series-6: #db4f97;
 }
 
 * {

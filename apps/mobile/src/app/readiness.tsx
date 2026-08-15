@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Check } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   LOAD_TESTS,
@@ -168,11 +169,7 @@ export default function ReadinessScreen() {
                         justifyContent: 'center',
                       }}
                     >
-                      {r.completed && (
-                        <Body size={12} color="#fff" weight="bold">
-                          ✓
-                        </Body>
-                      )}
+                      {r.completed && <Check size={14} color="#fff" strokeWidth={3} />}
                     </View>
                     <Body size={13} color={t.textSecondary}>
                       Completed the full dose

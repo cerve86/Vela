@@ -2,15 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { CalendarRange, Dumbbell, MessageSquare, Sparkles, Users } from 'lucide-react';
 import { palette } from '@vela/shared/tokens';
 import { SignedInAs } from './SignedInAs';
 
 const NAV = [
-  { href: '/clients', label: 'Clients', glyph: '◫' },
-  { href: '/programs', label: 'Programs', glyph: '◳' },
-  { href: '/library', label: 'Exercise library', glyph: '☰' },
-  { href: '/messages', label: 'Messages', glyph: '✉' },
-  { href: '/preview', label: 'Design preview', glyph: '◈' },
+  { href: '/clients', label: 'Clients', Icon: Users },
+  { href: '/programs', label: 'Programs', Icon: CalendarRange },
+  { href: '/library', label: 'Exercise library', Icon: Dumbbell },
+  { href: '/messages', label: 'Messages', Icon: MessageSquare },
+  { href: '/preview', label: 'Design preview', Icon: Sparkles },
 ];
 
 export function Sidebar() {
@@ -26,10 +27,10 @@ export function Sidebar() {
         <div className="mb-6 flex items-center gap-2.5 px-2">
           <span
             className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white"
-            style={{ background: palette.brand[700] }}
+            style={{ background: palette.brand[600] }}
             aria-hidden
           >
-            C
+            V
           </span>
           <span className="text-sm font-semibold">Vela</span>
         </div>
@@ -49,9 +50,7 @@ export function Sidebar() {
                     fontWeight: active ? 600 : 400,
                   }}
                 >
-                  <span aria-hidden className="w-4 text-center opacity-70">
-                    {item.glyph}
-                  </span>
+                  <item.Icon size={17} strokeWidth={active ? 2.4 : 2} aria-hidden />
                   {item.label}
                 </Link>
               </li>

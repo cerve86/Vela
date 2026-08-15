@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
+import { Check } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { recordConsent, type ConsentType } from '@vela/api';
 import { Body, Button, Card, Display, Screen } from '@/components/kit';
@@ -111,7 +112,7 @@ export default function ConsentScreen() {
                       marginTop: 2,
                     }}
                   >
-                    {on && <Body size={13} color="#fff" weight="bold">✓</Body>}
+                    {on && <Check size={14} color="#fff" strokeWidth={3} />}
                   </View>
                   <View style={{ flex: 1 }}>
                     <Body size={15} weight="semibold">

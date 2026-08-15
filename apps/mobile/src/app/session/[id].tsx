@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Check } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { estimateOneRepMax } from '@vela/shared';
 import { DISCIPLINE_LABEL } from '@vela/api';
@@ -266,7 +267,7 @@ export default function SessionScreen() {
                       backgroundColor: s.done ? t.brand[600] : t.inputFill,
                     }}
                   >
-                    <Text style={{ color: s.done ? '#fff' : t.textMuted, fontSize: 17 }}>✓</Text>
+                    <Check size={17} color={s.done ? '#fff' : t.textMuted} strokeWidth={3} />
                   </Pressable>
                 </View>
               ))}

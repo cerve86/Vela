@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { X } from 'lucide-react-native';
 import { MEAL_SLOTS, deleteFoodLog, sumMacros, type FoodLogEntry, type MealSlot } from '@vela/api';
 import { Body, Button, Card, ChipRow, Display, Pill, Screen } from '@/components/kit';
 import { useTheme } from '@/theme';
@@ -256,9 +257,7 @@ export default function NutritionScreen() {
                           hitSlop={10}
                           style={{ paddingLeft: 6 }}
                         >
-                          <Body size={16} color={t.textMuted}>
-                            ×
-                          </Body>
+                          <X size={16} color={t.textMuted} strokeWidth={2.5} />
                         </Pressable>
                       </ChipRow>
                     ))}
