@@ -1,0 +1,11 @@
+<svg width="176" height="48" viewBox="0 0 176 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vela">
+  <!-- Horizontal lockup. The wordmark is live text so it stays editable in Figma;
+       outline it before handing off to anywhere without Outfit installed.
+       Clear space on every side is the height of the "V" — 30 units here. -->
+  <g transform="translate(0 3) scale(0.875)">
+      <path d="M6 5 L16.5 5 L24 41.5 L21 41.5 Z" fill="#FF7B63"/>
+      <path d="M39 5 C34 16.5 28.5 29.5 25.5 41.5 L45 41.5 C44 28.5 42 16 39 5 Z" fill="#D93A24"/>
+  </g>
+  <text x="56" y="33.5" font-family="Outfit, 'Outfit Variable', system-ui, sans-serif"
+        font-size="30" font-weight="700" letter-spacing="-1.2" fill="#1F1512">Vela</text>
+</svg>

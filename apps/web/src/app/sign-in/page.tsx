@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { sendMagicLink } from '@vela/api';
 import { palette } from '@vela/shared/tokens';
 import { getBrowserSupabase } from '@/lib/supabase/browser';
+import { VelaMark } from '@/components/VelaMark';
 
 export default function SignInPage() {
   const [email, setEmail] = useState('');
@@ -34,13 +35,7 @@ export default function SignInPage() {
     <div className="flex min-h-screen items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex items-center gap-2.5">
-          <span
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold text-white"
-            style={{ background: palette.brand[600] }}
-            aria-hidden
-          >
-            C
-          </span>
+          <VelaMark size={36} radius={16} />
           <span className="display-face text-lg font-bold">Vela</span>
         </div>
 

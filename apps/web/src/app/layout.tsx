@@ -21,6 +21,8 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: 'Vela — Coach Portal',
   description: 'Monitor client exercise, nutrition and health vitals.',
+  // Generated from the same path data as the app icon by scripts/generate-brand-assets.mjs.
+  icons: { icon: '/icon.svg' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

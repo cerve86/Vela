@@ -19,7 +19,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "seed": "node scripts/seed-demo.mjs"
+    "seed": "node scripts/seed-demo.mjs",
+    "brand:assets": "node scripts/generate-brand-assets.mjs"
   },
   "devDependencies": {
     "prettier": "^3.4.2",

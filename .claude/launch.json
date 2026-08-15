@@ -5,7 +5,8 @@
       "name": "portal",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:web"],
-      "port": 4310
+      "port": 4310,
+      "autoPort": false
     }
   ]
 }

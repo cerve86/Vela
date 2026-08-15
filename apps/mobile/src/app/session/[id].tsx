@@ -7,6 +7,7 @@ import { estimateOneRepMax } from '@vela/shared';
 import { DISCIPLINE_LABEL } from '@vela/api';
 import { ActivityIndicator } from 'react-native';
 import { Body, Button, Card, Display, PainScale, Pill, Screen } from '@/components/kit';
+import { VelaIcon } from '@/components/brand';
 import { useTheme } from '@/theme';
 import { useSessionMeta, useSessionPlan } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
@@ -186,11 +187,21 @@ export default function SessionScreen() {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <View style={{ flex: 1 }}>
                 <Display size={18}>{item.exerciseName}</Display>
-                <Body size={13} color={t.textSecondary} style={{ marginTop: 2 }}>
-                  {item.sets} × {item.reps}
-                  {item.targetRpe ? ` @ RPE ${item.targetRpe}` : ''}
-                  {item.tempo ? ` · tempo ${item.tempo}` : ''}
-                </Body>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                  <VelaIcon name="sets-reps" size={15} color={t.textMuted} strokeWidth={1.8} />
+                  <Body size={13} color={t.textSecondary}>
+                    {item.sets} × {item.reps}
+                    {item.targetRpe ? ` @ RPE ${item.targetRpe}` : ''}
+                  </Body>
+                  {item.tempo && (
+                    <>
+                      <VelaIcon name="tempo" size={15} color={t.textMuted} strokeWidth={1.8} />
+                      <Body size={13} color={t.textSecondary}>
+                        {item.tempo}
+                      </Body>
+                    </>
+                  )}
+                </View>
               </View>
               <Body size={12} color={t.textMuted}>
                 {item.restSec}s rest

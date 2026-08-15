@@ -4,6 +4,7 @@ import { ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { sendMagicLink, verifyEmailOtp } from '@vela/api';
 import { Body, Button, Card, Display, Screen } from '@/components/kit';
+import { VelaMark } from '@/components/VelaMark';
 import { useTheme } from '@/theme';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/lib/session';
@@ -75,7 +76,10 @@ export default function SignInScreen() {
         }}
       >
         <View>
-          <Display size={32}>Welcome back</Display>
+          <VelaMark size={44} radius={15} />
+          <Display size={32} style={{ marginTop: t.space.lg }}>
+            Welcome back
+          </Display>
           <Body size={14} color={t.textSecondary} style={{ marginTop: 4 }}>
             {stage === 'code' || stage === 'verifying'
               ? `We sent a six-digit code to ${email}`

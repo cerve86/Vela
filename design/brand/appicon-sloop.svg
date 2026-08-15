@@ -1,0 +1,11 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vela">
+  <!-- iOS/Android master. Full-bleed ground, no rounding baked in: iOS masks it and
+       Android adaptive icons need the bleed. The transform centres the artwork's own
+       bounding box, not the 48-unit grid, and lifts it 16px because a sail is
+       bottom-heavy and reads low when it is centred geometrically. -->
+  <rect width="1024" height="1024" fill="#D93A24"/>
+  <g transform="translate(50.0 100.0) scale(17.6000)">
+      <path d="M26.5 4 L26.5 41 L45 41 C42 27 36 13.5 26.5 4 Z" fill="#FFF6EF"/>
+      <path d="M22.5 11 L22.5 41 L7.5 41 C10.8 30.5 16 19.5 22.5 11 Z" fill="#FFC6B9"/>
+  </g>
+</svg>

@@ -1,0 +1,11 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vela">
+  <!-- Direction A — "Sloop". Mainsail + jib sharing an implied mast.
+       The mast slot is 4 units wide, not 3: below ~40px a 3-unit gap closes up
+       and the mark collapses into one triangle. The jib's head sits well below
+       the mainsail's so the two shapes are never read as one split shape.
+       Mainsail carries the interactive coral; the jib steps down to brand-400
+       rather than to plum, because the palette already spends its contrast
+       budget on coral vs plum elsewhere. -->
+  <path d="M26.5 4 L26.5 41 L45 41 C42 27 36 13.5 26.5 4 Z" fill="#D93A24"/>
+  <path d="M22.5 11 L22.5 41 L7.5 41 C10.8 30.5 16 19.5 22.5 11 Z" fill="#FF7B63"/>
+</svg>

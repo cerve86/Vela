@@ -1,14 +1,26 @@
 'use client';
 
+import type { ComponentType } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CalendarRange, Dumbbell, MessageSquare, Sparkles, Users } from 'lucide-react';
+import { Dumbbell, MessageSquare, Sparkles, Users } from 'lucide-react';
+import type { VelaIconName } from '@vela/shared';
 import { palette } from '@vela/shared/tokens';
 import { SignedInAs } from './SignedInAs';
+import { VelaBadge, VelaIcon } from './brand';
 
-const NAV = [
+interface NavItem {
+  href: string;
+  label: string;
+  /** A Lucide component, for concepts Lucide already says well. */
+  Icon?: ComponentType<{ size?: number; strokeWidth?: number }>;
+  /** One of Vela's own glyphs, for the concepts it doesn't. */
+  vela?: VelaIconName;
+}
+
+const NAV: NavItem[] = [
   { href: '/clients', label: 'Clients', Icon: Users },
-  { href: '/programs', label: 'Programs', Icon: CalendarRange },
+  { href: '/programs', label: 'Programmes', vela: 'program-block' },
   { href: '/library', label: 'Exercise library', Icon: Dumbbell },
   { href: '/messages', label: 'Messages', Icon: MessageSquare },
   { href: '/preview', label: 'Design preview', Icon: Sparkles },
@@ -25,19 +37,14 @@ export function Sidebar() {
     >
       <div>
         <div className="mb-6 flex items-center gap-2.5 px-2">
-          <span
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white"
-            style={{ background: palette.brand[600] }}
-            aria-hidden
-          >
-            V
-          </span>
-          <span className="text-sm font-semibold">Vela</span>
+          <VelaBadge size={30} radius={9} />
+          <span className="display-face text-base font-extrabold tracking-tight">Vela</span>
         </div>
 
         <ul className="space-y-0.5">
           {NAV.map((item) => {
             const active = pathname.startsWith(item.href);
+            const stroke = active ? 2.4 : 2;
             return (
               <li key={item.href}>
                 <Link
@@ -50,7 +57,11 @@ export function Sidebar() {
                     fontWeight: active ? 600 : 400,
                   }}
                 >
-                  <item.Icon size={17} strokeWidth={active ? 2.4 : 2} aria-hidden />
+                  {item.vela ? (
+                    <VelaIcon name={item.vela} size={17} strokeWidth={stroke} />
+                  ) : item.Icon ? (
+                    <item.Icon size={17} strokeWidth={stroke} />
+                  ) : null}
                   {item.label}
                 </Link>
               </li>

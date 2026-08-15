@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { Link, useFocusEffect } from 'expo-router';
-import { Bell, Check, Footprints } from 'lucide-react-native';
+import { Bell, Check } from 'lucide-react-native';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { adherenceBand, adherenceStyle } from '@vela/shared';
@@ -16,6 +16,7 @@ import {
   ProgressBar,
   Screen,
 } from '@/components/kit';
+import { VelaIcon } from '@/components/brand';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
 import {
@@ -116,7 +117,7 @@ export default function TodayScreen() {
             <Pressable>
               <Card fill={t.dark ? 'rgba(240,85,63,0.13)' : t.tint.peach}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.lg }}>
-                  <Footprints size={28} color={t.brand[600]} strokeWidth={2} />
+                  <VelaIcon name="readiness" size={28} color={t.brand[600]} strokeWidth={2} />
                   <View style={{ flex: 1 }}>
                     <Text
                       style={{
