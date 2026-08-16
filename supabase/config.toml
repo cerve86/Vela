@@ -206,7 +206,9 @@ password_requirements = ""
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
-email_sent = 2
+# Was 2 — the built-in provider's cap. With Resend behind it, that limit only served to
+# lock out anyone who needed a second code.
+email_sent = 60
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
@@ -245,15 +247,27 @@ otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
-# Use a production-ready SMTP server
-# [auth.email.smtp]
-# enabled = true
-# host = "smtp.sendgrid.net"
-# port = 587
-# user = "apikey"
-# pass = "env(SENDGRID_API_KEY)"
-# admin_email = "admin@email.com"
-# sender_name = "Admin"
+# Resend, over SMTP.
+#
+# This is not a nicety. Supabase refuses email template customisation on the free tier
+# with the built-in provider, and Vela's invite and sign-in flows both hand out a
+# six-digit code that the stock template does not contain — so without this, the only way
+# into the app is a link minted by hand.
+#
+# The key is never committed. Supply it when pushing:
+#   RESEND_API_KEY=re_... npx supabase config push
+#
+# `admin_email` is the From address and must belong to a domain verified in Resend.
+# onboarding@resend.dev works immediately but only delivers to the Resend account
+# owner's own address, which is enough to test and not enough to invite a client.
+[auth.email.smtp]
+enabled = true
+host = "smtp.resend.com"
+port = 465
+user = "resend"
+pass = "env(RESEND_API_KEY)"
+admin_email = "onboarding@resend.dev"
+sender_name = "Vela"
 
 # Uncomment to customize email template
 [auth.email.template.invite]
