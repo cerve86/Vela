@@ -46,8 +46,9 @@ export default function PrivacyPage() {
         style={{ background: 'var(--tint-peach)', color: 'var(--ink-primary)' }}
       >
         <strong>Operator to complete before launch:</strong> the data controller&apos;s
-        registered name, address and contact email, the ICO (or local supervisory authority)
-        registration number, and the retention period in &ldquo;How long it is kept&rdquo;.
+        registered name, address and contact email, the retention period in &ldquo;How long
+        it is kept&rdquo;, and — if any client is in the UK or the EU — the transfer
+        mechanism relied on for storing their data in Singapore.
       </div>
 
       <Section title="Who controls your data">
@@ -111,11 +112,19 @@ export default function PrivacyPage() {
 
       <Section title="Why it is allowed to be stored">
         <p>
-          Most of this is health data, which UK and EU law treat as a special category. Vela
-          relies on your <strong>explicit consent</strong> under Article 9(2)(a) UK
-          GDPR/GDPR. You give that consent in the app the first time you sign in, each type
-          separately, and the record of it — what you agreed to, which version, and when — is
-          stored alongside your account.
+          Most of this is health data, which data protection law treats as more sensitive
+          than ordinary personal data. Vela relies on your <strong>explicit consent</strong>.
+          You give it in the app the first time you sign in, each type separately, and the
+          record of it — what you agreed to, which version, and when — is stored alongside
+          your account.
+        </p>
+        <p>
+          Under Singapore&apos;s Personal Data Protection Act that consent is the basis for
+          collecting, using and disclosing your data. If you are in the UK or the EU, the
+          equivalent basis is explicit consent under Article 9(2)(a) UK GDPR/GDPR, and your
+          data being stored in Singapore is an international transfer —{' '}
+          <em>[the practice should confirm the transfer mechanism it relies on before
+          accepting clients in those regions]</em>.
         </p>
         <p>
           Consent can be withdrawn at any time from your profile. Withdrawing it stops
@@ -138,8 +147,8 @@ export default function PrivacyPage() {
 
       <Section title="Where it is stored">
         <p>
-          On Supabase infrastructure in the European Union, encrypted in transit and at rest.
-          Vela does not use advertising networks, and does not sell or share personal data.
+          On Supabase infrastructure in Singapore, encrypted in transit and at rest. Vela
+          does not use advertising networks, and does not sell or share personal data.
         </p>
       </Section>
 
@@ -159,8 +168,9 @@ export default function PrivacyPage() {
           removes your sessions, measurements, food diary and consent records.
         </p>
         <p>
-          You also have the right to complain to your data protection authority. In the UK
-          that is the Information Commissioner&apos;s Office.
+          You also have the right to complain to your data protection authority — in
+          Singapore the Personal Data Protection Commission, or in the UK the Information
+          Commissioner&apos;s Office.
         </p>
       </Section>
 
