@@ -16,7 +16,7 @@ create type public.exercise_category as enum (
 );
 
 create table public.exercises (
-  id uuid primary key default uuid_generate_v4 (),
+  id uuid primary key default gen_random_uuid (),
   /** NULL means part of the shipped library. */
   coach_id uuid references public.coaches (id) on delete cascade,
   name text not null,

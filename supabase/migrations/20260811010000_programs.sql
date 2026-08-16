@@ -6,7 +6,7 @@
 -- editing next week's programme must not rewrite what happened last week.
 
 create table public.programs (
-  id uuid primary key default uuid_generate_v4 (),
+  id uuid primary key default gen_random_uuid (),
   coach_id uuid not null references public.coaches (id) on delete cascade,
   name text not null,
   description text,
@@ -21,7 +21,7 @@ create table public.programs (
 create index programs_coach_idx on public.programs (coach_id);
 
 create table public.program_days (
-  id uuid primary key default uuid_generate_v4 (),
+  id uuid primary key default gen_random_uuid (),
   program_id uuid not null references public.programs (id) on delete cascade,
   week_no int not null check (week_no >= 1),
   /** 1 = first training day of the week, not a calendar weekday. The start date decides
@@ -37,7 +37,7 @@ create table public.program_days (
 create index program_days_program_idx on public.program_days (program_id);
 
 create table public.program_items (
-  id uuid primary key default uuid_generate_v4 (),
+  id uuid primary key default gen_random_uuid (),
   program_day_id uuid not null references public.program_days (id) on delete cascade,
   exercise_id uuid not null references public.exercises (id) on delete restrict,
   order_index int not null default 0,
@@ -56,7 +56,7 @@ create table public.program_items (
 create index program_items_day_idx on public.program_items (program_day_id, order_index);
 
 create table public.assignments (
-  id uuid primary key default uuid_generate_v4 (),
+  id uuid primary key default gen_random_uuid (),
   coach_id uuid not null references public.coaches (id) on delete cascade,
   client_id uuid not null references public.clients (id) on delete cascade,
   program_id uuid not null references public.programs (id) on delete restrict,
@@ -70,7 +70,7 @@ create index assignments_client_idx on public.assignments (client_id, status);
 create type public.session_status as enum ('scheduled', 'in_progress', 'completed', 'skipped');
 
 create table public.sessions (
-  id uuid primary key default uuid_generate_v4 (),
+  id uuid primary key default gen_random_uuid (),
   client_id uuid not null references public.clients (id) on delete cascade,
   assignment_id uuid references public.assignments (id) on delete cascade,
   /** Nullable so an ad-hoc session the client logs herself is still a session. */

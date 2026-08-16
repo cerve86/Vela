@@ -8,7 +8,9 @@
 --   3. Consent is versioned and revocable — GDPR Article 9 requires explicit consent
 --      for health data, and "they ticked a box once" is not a defensible record.
 
-create extension if not exists "uuid-ossp";
+-- No uuid-ossp: gen_random_uuid() has been core Postgres since 13, and hosted Supabase
+-- installs extensions into the `extensions` schema, which is not on a migration's search
+-- path — so uuid_generate_v4() resolves locally and fails on deploy.
 
 -- ---------------------------------------------------------------------------
 -- Profiles — extends auth.users
@@ -37,7 +39,7 @@ create table public.coaches (
 create type public.client_status as enum ('invited', 'active', 'paused', 'archived');
 
 create table public.clients (
-  id uuid primary key default uuid_generate_v4 (),
+  id uuid primary key default gen_random_uuid (),
   profile_id uuid unique references public.profiles (id) on delete cascade,
   coach_id uuid not null references public.coaches (id) on delete restrict,
   email text not null,
@@ -56,7 +58,7 @@ create index clients_coach_id_idx on public.clients (coach_id);
 create index clients_profile_id_idx on public.clients (profile_id);
 
 create table public.client_invites (
-  id uuid primary key default uuid_generate_v4 (),
+  id uuid primary key default gen_random_uuid (),
   coach_id uuid not null references public.coaches (id) on delete cascade,
   client_id uuid not null references public.clients (id) on delete cascade,
   email text not null,
@@ -73,7 +75,7 @@ create table public.client_invites (
 create type public.consent_type as enum ('tos', 'privacy', 'health_data_processing');
 
 create table public.consents (
-  id uuid primary key default uuid_generate_v4 (),
+  id uuid primary key default gen_random_uuid (),
   client_id uuid not null references public.clients (id) on delete cascade,
   type public.consent_type not null,
   policy_version text not null,

@@ -21,7 +21,7 @@ create type public.metric_type as enum (
 create type public.metric_source as enum ('manual', 'healthkit', 'coach');
 
 create table public.metrics (
-  id uuid primary key default uuid_generate_v4 (),
+  id uuid primary key default gen_random_uuid (),
   client_id uuid not null references public.clients (id) on delete cascade,
   recorded_at timestamptz not null,
   type public.metric_type not null,

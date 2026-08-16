@@ -12,7 +12,7 @@
  * before it, which is what `nutrition_target_on` resolves.
  */
 create table public.nutrition_targets (
-  id uuid primary key default uuid_generate_v4 (),
+  id uuid primary key default gen_random_uuid (),
   client_id uuid not null references public.clients (id) on delete cascade,
   coach_id uuid not null references public.coaches (id) on delete cascade,
   effective_from date not null,
@@ -63,7 +63,7 @@ create type public.food_source as enum ('off', 'custom');
  * database has ever heard of.
  */
 create table public.foods (
-  id uuid primary key default uuid_generate_v4 (),
+  id uuid primary key default gen_random_uuid (),
   coach_id uuid references public.coaches (id) on delete cascade,
   source public.food_source not null,
   barcode text,
@@ -146,7 +146,7 @@ create type public.food_log_source as enum ('barcode', 'search', 'custom', 'quic
  * nullable.
  */
 create table public.food_logs (
-  id uuid primary key default uuid_generate_v4 (),
+  id uuid primary key default gen_random_uuid (),
   client_id uuid not null references public.clients (id) on delete cascade,
   logged_on date not null,
   meal public.meal_slot not null,
