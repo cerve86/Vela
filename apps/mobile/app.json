@@ -12,10 +12,14 @@
       "supportsTablet": false,
       "bundleIdentifier": "io.velas.app",
       "infoPlist": {
-        "NSHealthShareUsageDescription": "Vela reads body weight, body fat percentage, resting heart rate, heart rate variability, steps and VO\u2082 max from Apple Health so your physiotherapist can see how training is affecting your recovery. Your health data is never used for advertising and is never shared with third parties."
+        "NSHealthShareUsageDescription": "Vela reads body weight, body fat percentage, resting heart rate, heart rate variability, steps and VO₂ max from Apple Health so your physiotherapist can see how training is affecting your recovery. Your health data is never used for advertising and is never shared with third parties.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
         "com.apple.developer.healthkit": true
+      },
+      "runtimeVersion": {
+        "policy": "appVersion"
       }
     },
     "plugins": [
@@ -45,6 +49,14 @@
       "eas": {
         "projectId": "420c2299-3e45-4943-aa35-3fae1546f904"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/420c2299-3e45-4943-aa35-3fae1546f904"
+    },
+    "android": {
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     }
   }
 }
