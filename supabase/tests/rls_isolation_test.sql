@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (38);
+  plan (39);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -413,6 +413,22 @@ select is (
   (select kcal from public.food_logs where client_id = '00000000-0000-4000-8000-0000000000f1'),
   350::numeric,
   'a coach cannot rewrite what her client logged'
+);
+
+-- ---------------------------------------------------------------------------
+-- The anonymous role holds nothing
+-- ---------------------------------------------------------------------------
+
+-- A hosted project applies its own default privileges, and the deployed database was
+-- found holding SELECT for `anon` on four tables that RLS alone was protecting. Empty
+-- results and denied results look identical from outside; this asserts the difference.
+reset role;
+
+select is (
+  (select count(*) from information_schema.role_table_grants
+   where grantee = 'anon' and table_schema = 'public'),
+  0::bigint,
+  'anon holds no privilege on any table in public'
 );
 
 select * from finish ();
