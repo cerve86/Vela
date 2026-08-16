@@ -29,8 +29,15 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # next.config refuses a production build with no Supabase configuration, because a
+      # deployment built without it is green and broken. CI has to supply the same public
+      # values a real build gets. Neither is a secret: the anon key ships inside the
+      # client either way, and row level security is what protects the data.
       - name: Build portal
         run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://eainnbmlzbhfftcpushs.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVhaW5uYm1semJoZmZ0Y3B1c2hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MjE4ODYsImV4cCI6MjEwMjM5Nzg4Nn0.qKuSLi40PpKUAJPEktyWgobnqRGdVWd7mq4B2YvgfEk
 
   rls:
     name: RLS isolation tests
