@@ -2,7 +2,7 @@
   "name": "vela",
   "version": "0.1.0",
   "private": true,
-  "description": "Physiotherapy coaching platform \u2014 iOS client app + coach web portal",
+  "description": "Physiotherapy coaching platform — iOS client app + coach web portal",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -23,6 +23,7 @@
     "brand:assets": "node scripts/generate-brand-assets.mjs"
   },
   "devDependencies": {
+    "eas-cli": "^22.0.0",
     "prettier": "^3.4.2",
     "typescript": "^5.7.3"
   },
