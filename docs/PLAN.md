@@ -36,7 +36,7 @@ Nothing here is a feature. It is the machine that ships features.
 | iOS app — Today, session logging, progress, nutrition, profile | ✅ Written, builds locally |
 | Supabase schema + default-deny RLS + pgTAP CP1 tests | ✅ Written, not yet applied |
 | CI — typecheck, lint, build, RLS tests | ✅ Written |
-| TestFlight pipeline | ⛔ Blocked on Apple enrolment |
+| TestFlight pipeline | ✅ 0.1.0 (4) submitted 2026-08-16 |
 
 **Environment findings on this Mac**
 
@@ -381,16 +381,34 @@ you validate the training loop.
 | Apple Developer Program | **Not yet enrolled** | Enrolment is task #1 of Phase 0 and gates CP0. See below. |
 | Languages at beta | **English only** | No i18n layer, but all user-facing copy lives in `packages/shared/strings` from day 1 so adding Italian later is a translation job, not a refactor. |
 
-### Apple enrolment — do this before anything else
+### Apple enrolment - done 2026-08-16
 
-Enrolment can take anywhere from a few hours to over a week. Start it, then build Phase 0
-around it; everything except the TestFlight upload can proceed in parallel.
+Enrolled, signed, built and submitted. Recorded here because this was the tracked blocker
+from Phase 0 onward, and the details are worth having next time.
 
-1. Decide **Individual** (fastest — personal ID, app lists under your own name) vs. **Organization** (needs a legal entity and a D-U-N-S number, which alone can take 5+ business days; app lists under your business name). For a solo physio practice, Individual is usually right unless you want the practice name on the App Store listing.
-2. Enrol at `developer.apple.com/programs` with the Apple ID you intend to keep long-term — €99/yr, two-factor authentication required.
-3. Once approved: create the App ID and bundle identifier, then the App Store Connect app record.
-4. Add the HealthKit capability to the App ID at creation time.
+- Apple Developer Program active, Team ID `5YC55P5CQD`
+- Bundle identifier is **`io.velas.app`**. `io.vela.app` was already taken on Apple's side;
+  the custom URL scheme stays `vela`, so the auth deep links were unaffected
+- App Store Connect app ID `6801958199`, SKU `vela-ios`
+- First TestFlight build: **0.1.0 (4)**, production profile, submitted 2026-08-16
 
-Steps 2–4 involve your personal identity and payment details, so they're yours to do — I
-can't and shouldn't complete them for you. Tell me when the account is live and I'll wire
-up the signing and EAS submission.
+**What the first real build surfaced, all now fixed:**
+
+- `uuid_generate_v4()` failed against hosted Postgres. Hosted Supabase installs extensions
+  into the `extensions` schema, off a migration search path, so it resolved locally and
+  died on deploy. Switched to `gen_random_uuid()`, core since Postgres 13
+- `ITSAppUsesNonExemptEncryption` was missing, which puts a manual export-compliance
+  toggle in front of every build. Declared false: Vela uses only standard TLS
+- all three build profiles named an update channel with `expo-updates` not installed. Now
+  configured, so a JS-only fix reaches testers via `eas update` without a rebuild
+- a `_comment` key in `eas.json` broke every eas-cli command; that file is schema-validated
+  and rejects unknown keys
+
+**Interactive by necessity.** The first build signing certificate and the App Store Connect
+API key both require an interactive Apple login, so those two commands are the operator to
+run. Every build and submit after them can be non-interactive.
+
+**Known limitation at first ship.** Client invites do not work yet: Supabase refuses email
+template customisation on the free tier with the default email provider, and the invite
+flow depends on a six-digit token the stock template omits. Coach sign-in works, because
+the magic link deep-links into the app. Custom SMTP unblocks it.
