@@ -9,9 +9,14 @@
  * accounts, so every write is checked by row level security on the way in. That makes
  * this script a smoke test as well as a seed: if a policy regresses, seeding fails.
  *
- * Local only. Refuses to run against anything but the local stack.
+ * Local by default. Seeding a remote project is possible but has to be asked for: this
+ * script DELETES the demo client, every programme belonging to the coach, and her custom
+ * foods before rebuilding them, which is harmless on a laptop and destructive anywhere
+ * that has real data in it.
  *
  *   node scripts/seed-demo.mjs
+ *   SEED_ALLOW_REMOTE=1 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... COACH_EMAIL=... \
+ *     node scripts/seed-demo.mjs
  */
 import { createClient } from '@supabase/supabase-js';
 
@@ -23,15 +28,21 @@ const ANON_KEY =
   process.env.SUPABASE_ANON_KEY ??
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
 
-if (!/127\.0\.0\.1|localhost/.test(URL)) {
-  console.error(`Refusing to seed a non-local project: ${URL}`);
+const isLocal = /127\.0\.0\.1|localhost/.test(URL);
+if (!isLocal && process.env.SEED_ALLOW_REMOTE !== '1') {
+  console.error(
+    `Refusing to seed a non-local project: ${URL}\n` +
+      'This deletes the demo client, the coach\'s programmes and her custom foods before\n' +
+      'rebuilding them. Set SEED_ALLOW_REMOTE=1 if that is genuinely what you want.',
+  );
   process.exit(1);
 }
+if (!isLocal) console.warn(`! seeding REMOTE project ${URL}\n`);
 
 /** PostgREST requires a filter on delete; this one matches every row RLS already allows. */
 const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
 
-const COACH_EMAIL = 'coach@vela.test';
+const COACH_EMAIL = process.env.COACH_EMAIL ?? 'coach@vela.test';
 const CLIENT_EMAIL = 'marta.rossi@client.test';
 const POLICY_VERSION = '2026-08-01';
 
