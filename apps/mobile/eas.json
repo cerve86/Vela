@@ -37,7 +37,6 @@
   "submit": {
     "production": {
       "ios": {
-        "_comment": "Filled in after the App Store Connect record exists. appleId is the Apple ID email; ascAppId is the numeric App ID from App Store Connect; appleTeamId is the 10-character Team ID from developer.apple.com/account.",
         "appleId": "REPLACE_WITH_APPLE_ID",
         "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
         "appleTeamId": "REPLACE_WITH_TEAM_ID"

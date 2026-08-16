@@ -39,6 +39,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "owner": "cerve86",
+    "extra": {
+      "eas": {
+        "projectId": "420c2299-3e45-4943-aa35-3fae1546f904"
+      }
     }
   }
 }
