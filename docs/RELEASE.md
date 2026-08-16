@@ -23,7 +23,7 @@ before `eas submit` will run:
 | `appleTeamId` | developer.apple.com → Membership → Team ID (10 characters) |
 | `ascAppId` | App Store Connect → the app → App Information → Apple ID (numeric) |
 
-The bundle identifier is `io.vela.app` and needs the **HealthKit** capability enabled on
+The bundle identifier is `io.velas.app` and needs the **HealthKit** capability enabled on
 it at developer.apple.com → Identifiers.
 
 Authenticate EAS to Apple with an **App Store Connect API key** (Users and Access →
