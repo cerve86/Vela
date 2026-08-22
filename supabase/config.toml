@@ -159,11 +159,26 @@ enabled = true
 # The deployed portal. Every flow passes an explicit redirect (the portal builds one
 # from window.location.origin, the app uses vela://auth-callback), so this is only the
 # fallback — but on a hosted project it should still name the real site.
-site_url = "https://vela-web-phi.vercel.app"
+#
+# `www`, not the apex: Vercel serves the apex as a 308 to www, so a link built on the
+# bare domain would bounce a client through a redirect mid-authentication. The apex is
+# still allow-listed below, because allowing a URL costs nothing and refusing one that
+# turns up in the wild fails the sign-in outright.
+site_url = "https://www.vela-coaching.com"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
+#
+# Matched EXACTLY, so every host a redirect can legitimately arrive on needs its own
+# entry — including the apex, which redirects to www but can still be the origin a
+# browser builds a callback from. The vercel.app pair stays for now: preview deployments
+# and any link already sitting in an inbox still resolve there, and dropping them would
+# turn a working sign-in into a silent failure for no gain.
 additional_redirect_urls = [
+  "https://www.vela-coaching.com",
+  "https://www.vela-coaching.com/auth/callback",
+  "https://vela-coaching.com",
+  "https://vela-coaching.com/auth/callback",
   "https://vela-web-phi.vercel.app",
   "https://vela-web-phi.vercel.app/auth/callback",
   "http://localhost:4310",
