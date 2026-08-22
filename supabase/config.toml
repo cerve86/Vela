@@ -257,16 +257,22 @@ otp_expiry = 3600
 # The key is never committed. Supply it when pushing:
 #   RESEND_API_KEY=re_... npx supabase config push
 #
-# `admin_email` is the From address and must belong to a domain verified in Resend.
-# onboarding@resend.dev works immediately but only delivers to the Resend account
-# owner's own address, which is enough to test and not enough to invite a client.
+# `admin_email` is the From address and must belong to a domain verified in Resend —
+# vela-coaching.com, whose DKIM, SPF and bounce-handling MX records are live on
+# Cloudflare DNS. The sandbox sender it replaces (onboarding@resend.dev) only ever
+# delivered to the Resend account owner, which was enough to test and not enough to
+# invite anybody.
+#
+# Mail sent here goes nowhere until an inbox or a forward exists for it. A patient who
+# replies to an invitation — and some will, rather than opening the app — should reach
+# a person, so route it on with Cloudflare Email Routing.
 [auth.email.smtp]
 enabled = true
 host = "smtp.resend.com"
 port = 465
 user = "resend"
 pass = "env(RESEND_API_KEY)"
-admin_email = "onboarding@resend.dev"
+admin_email = "hello@vela-coaching.com"
 sender_name = "Vela"
 
 # Uncomment to customize email template

@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (45);
+  plan (47);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -475,6 +475,42 @@ select is (
    where client_id = '00000000-0000-4000-8000-0000000000f1' and type = 'steps'),
   1::bigint,
   'and the re-import does not accumulate a second row for that day'
+);
+
+-- ---------------------------------------------------------------------------
+-- create_client_invite resolves to exactly one function
+-- ---------------------------------------------------------------------------
+
+-- A second overload once sat beside this one, left behind by a `create or replace` that
+-- changed the argument list. Every five-argument call then matched both candidates and
+-- Postgres refused to choose, which broke inviting a client from the portal outright.
+--
+-- The seed never caught it: it passes all eight arguments, which matches the newer
+-- function uniquely. So the only call shape the application actually sends was the one
+-- shape nothing tested. Both halves are asserted below — the count, and the arity.
+reset role;
+
+select is (
+  (select count(*) from pg_proc p
+   join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'create_client_invite'),
+  1::bigint,
+  'exactly one create_client_invite exists, so no call can be ambiguous'
+);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+-- Named arguments, five of them: byte for byte what the portal's createInvite sends.
+select lives_ok (
+  $$select * from public.create_client_invite(
+      p_email => 'new.patient@test.local',
+      p_first_name => 'New',
+      p_last_name => 'Patient',
+      p_condition => 'Sore knee',
+      p_goal => 'Walk 5k without pain'
+    )$$,
+  'the five-argument invite the portal sends resolves and runs'
 );
 
 -- ---------------------------------------------------------------------------
