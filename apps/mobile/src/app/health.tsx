@@ -50,13 +50,16 @@ export default function HealthScreen() {
       return;
     }
 
-    const { inserted, scanned, error: syncError } = await syncHealth(30);
+    const { written, scanned, error: syncError } = await syncHealth(30);
     if (syncError) setError(syncError);
     else {
+      // Two numbers because they answer different questions: `scanned` is how much Apple
+      // Health held, `written` is how many days that condensed into. Reporting only the
+      // first made a successful sync of one day look like thousands of readings.
       setResult(
-        inserted === 0
-          ? `Checked ${scanned} readings — nothing new since last time.`
-          : `Imported ${inserted} new reading${inserted === 1 ? '' : 's'} from ${scanned} checked.`,
+        written === 0
+          ? `Checked ${scanned} readings — nothing to import yet.`
+          : `Imported ${written} day${written === 1 ? '' : 's'} of readings from ${scanned} samples.`,
       );
       metrics.reload();
     }

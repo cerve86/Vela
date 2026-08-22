@@ -109,51 +109,101 @@ export async function requestHealthAccess(): Promise<{ granted: boolean; error: 
 }
 
 /**
- * Reads a window of samples and imports them.
+ * Metric types HealthKit records as an accumulating count rather than a state.
+ *
+ * The distinction decides how a day's samples combine. Steps arrive as dozens of short
+ * interval samples — 137 here, 8 there — and a day only means anything summed. Weight or
+ * HRV are readings of a state at a moment, where a sum would be nonsense and the mean of
+ * however many readings that day is the honest summary.
+ */
+const CUMULATIVE: ReadonlySet<MetricType> = new Set<MetricType>(['steps']);
+
+/** `YYYY-MM-DD` in the phone's own timezone — see the note in `syncHealth`. */
+function localDayKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Reads a window of samples and imports them as one reading per metric per day.
  *
  * We deliberately re-read an overlapping window rather than tracking a high-water mark:
  * HealthKit backfills late (a scale syncs hours afterwards), so a strict watermark
- * silently loses readings. The database deduplicates on the sample UUID, so overlap is
- * free and correctness does not depend on the client tracking state properly.
+ * silently loses readings. Overlap is free because the import upserts on a day key.
+ *
+ * The rollup is the important part, and it was not always here. Storing HealthKit's raw
+ * samples put 2,056 step rows and 494 HRV rows into a single client's 90 days, which was
+ * wrong twice over: a chart point read "168 steps" because it was one ten-minute bucket
+ * rather than a day, and the sheer row count pushed the table past the ceiling the read
+ * query silently truncates at, so the newest fortnight stopped arriving at all.
+ *
+ * Bucketing happens here, on the phone, rather than in SQL, because only the device knows
+ * which timezone the person was actually living in. A day summed in UTC would cut a
+ * Singapore day at 8am and split one walk across two points.
  */
 export async function syncHealth(days = 30): Promise<{
-  inserted: number;
+  written: number;
   scanned: number;
   error: string | null;
 }> {
   const hk = loadModule();
-  if (!hk) return { inserted: 0, scanned: 0, error: 'Apple Health is not available on this device.' };
+  if (!hk) return { written: 0, scanned: 0, error: 'Apple Health is not available on this device.' };
 
   const to = new Date();
   const from = new Date(to.getTime() - days * 86400000);
-  const samples: HealthSample[] = [];
+
+  // (type, local day) -> running total, count, and the latest moment seen in that day.
+  const buckets = new Map<string, { type: MetricType; day: string; total: number; n: number; at: number }>();
+  let scanned = 0;
 
   try {
     for (const entry of READ_MAP) {
       const rows = await hk.queryQuantitySamples(entry.identifier, {
-        limit: 2000,
+        limit: 5000,
         unit: entry.unit,
         filter: { date: { startDate: from, endDate: to } },
       });
       for (const r of rows) {
-        if (!r.uuid) continue;
         if (!Number.isFinite(r.quantity)) continue;
-        samples.push({
-          type: entry.type,
-          value: r.quantity,
-          recordedAt: new Date(r.endDate ?? r.startDate).toISOString(),
-          externalId: r.uuid,
-        });
+        const when = new Date(r.endDate ?? r.startDate);
+        if (Number.isNaN(when.getTime())) continue;
+
+        scanned++;
+        const day = localDayKey(when);
+        const key = `${entry.type}:${day}`;
+        const b = buckets.get(key);
+        if (b) {
+          b.total += r.quantity;
+          b.n++;
+          if (when.getTime() > b.at) b.at = when.getTime();
+        } else {
+          buckets.set(key, { type: entry.type, day, total: r.quantity, n: 1, at: when.getTime() });
+        }
       }
     }
   } catch (e) {
     return {
-      inserted: 0,
-      scanned: samples.length,
+      written: 0,
+      scanned,
       error: e instanceof Error ? e.message : 'Could not read from Apple Health.',
     };
   }
 
-  const { inserted, error } = await importHealthSamples(supabase, samples);
-  return { inserted, scanned: samples.length, error };
+  const samples: HealthSample[] = [];
+  for (const [key, b] of buckets) {
+    samples.push({
+      type: b.type,
+      value: CUMULATIVE.has(b.type) ? b.total : b.total / b.n,
+      recordedAt: new Date(b.at).toISOString(),
+      // The day key IS the identity. A HealthKit sample UUID cannot serve here: the same
+      // day is re-read on every sync and has to land on the same row, updating as later
+      // samples raise the total, rather than accumulating a new row each time.
+      externalId: key,
+    });
+  }
+
+  const { written, error } = await importHealthSamples(supabase, samples);
+  return { written, scanned, error };
 }

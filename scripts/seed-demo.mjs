@@ -247,7 +247,10 @@ const push = (type, dayOffset, value) =>
     type,
     value: Math.round(value * 100) / 100,
     recordedAt: new Date(`${day(-dayOffset)}T07:00:00Z`).toISOString(),
-    externalId: `seed-${type}-${dayOffset}`,
+    // Day-keyed, exactly as the app writes it. A `seed-…` key of its own would land a
+    // second row on dates the device has also imported, leaving one date holding two
+    // competing readings — and the chart quietly picking whichever sorted last.
+    externalId: `${type}:${day(-dayOffset)}`,
   });
 
 for (let g = 0; g <= 55; g++) {
@@ -262,10 +265,21 @@ const { data: imported, error: importError } = await client.rpc('import_health_m
 });
 if (importError) throw new Error(`import_health_metrics: ${importError.message}`);
 
-// Proving the guarantee rather than trusting it: the same payload a second time must
-// insert nothing at all.
-const { data: reimported } = await client.rpc('import_health_metrics', { p_samples: samples });
-if (reimported !== 0) throw new Error(`re-import inserted ${reimported} rows, expected 0`);
+// Proving the guarantee rather than trusting it. What is being asserted changed with the
+// day key: a re-import no longer writes nothing — it rewrites each day in place, and
+// reports having done so, because a day's step total legitimately climbs between syncs.
+// The property that still has to hold is that the table does not GROW.
+const countMetrics = async () => {
+  const { count } = await client.from('metrics').select('id', { count: 'exact', head: true });
+  return count ?? 0;
+};
+
+const afterFirst = await countMetrics();
+await client.rpc('import_health_metrics', { p_samples: samples });
+const afterSecond = await countMetrics();
+if (afterSecond !== afterFirst) {
+  throw new Error(`re-import grew metrics from ${afterFirst} to ${afterSecond} rows, expected no change`);
+}
 
 // ---------------------------------------------------------------------------
 // Nutrition
@@ -378,7 +392,7 @@ console.log(
     `  client        ${CLIENT_EMAIL} (${clientId})`,
     `  programme     6 weeks, from ${lastMonday}`,
     `  sessions      ${sessionCount}`,
-    `  vitals        ${imported} readings (re-import inserted 0, as it must)`,
+    `  vitals        ${imported} daily readings (re-import left the row count at ${afterFirst})`,
     `  food logs     ${logCount} entries over 6 of the last 7 days`,
     '',
   ].join('\n'),

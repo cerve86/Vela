@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (39);
+  plan (45);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -413,6 +413,68 @@ select is (
   (select kcal from public.food_logs where client_id = '00000000-0000-4000-8000-0000000000f1'),
   350::numeric,
   'a coach cannot rewrite what her client logged'
+);
+
+-- ---------------------------------------------------------------------------
+-- HealthKit import: one row per day, and a day that is allowed to grow
+-- ---------------------------------------------------------------------------
+
+-- Apple Health hands out interval samples, not daily figures, so the import buckets them
+-- by day on the device and keys each row `type:YYYY-MM-DD`. That key changes what the
+-- write has to guarantee, and these assertions pin both halves of it.
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+-- One payload repeating a day key must collapse rather than abort. Postgres refuses to
+-- update the same row twice in one upsert, so without the dedup step this raises
+-- 'cannot affect row a second time' and loses the entire sync, not just the duplicate.
+select is (
+  public.import_health_metrics (
+    '[{"type":"steps","recordedAt":"2026-08-17T09:00:00Z","value":1200,"externalId":"steps:2026-08-17"},
+      {"type":"steps","recordedAt":"2026-08-17T10:00:00Z","value":1500,"externalId":"steps:2026-08-17"}]'::jsonb
+  ),
+  1,
+  'a payload repeating one day key writes a single row'
+);
+
+select is (
+  (select count(*) from public.metrics
+   where client_id = '00000000-0000-4000-8000-0000000000f1' and external_id = 'steps:2026-08-17'),
+  1::bigint,
+  'the day key is stored exactly once'
+);
+
+select is (
+  (select value from public.metrics
+   where client_id = '00000000-0000-4000-8000-0000000000f1' and external_id = 'steps:2026-08-17'),
+  1500::numeric,
+  'the later sample in the payload is the one kept'
+);
+
+-- Re-syncing a day later in the afternoon must RAISE its total. This is precisely what
+-- `on conflict do nothing` could not do: a day first synced at 9am would have stayed
+-- pinned at its morning figure permanently, which is a quieter bug than the one the
+-- rollup was written to fix and a good deal harder to notice.
+select is (
+  public.import_health_metrics (
+    '[{"type":"steps","recordedAt":"2026-08-17T18:00:00Z","value":8400,"externalId":"steps:2026-08-17"}]'::jsonb
+  ),
+  1,
+  're-importing the same day reports a row written, not zero'
+);
+
+select is (
+  (select value from public.metrics
+   where client_id = '00000000-0000-4000-8000-0000000000f1' and external_id = 'steps:2026-08-17'),
+  8400::numeric,
+  'a daily total climbs as later samples arrive'
+);
+
+select is (
+  (select count(*) from public.metrics
+   where client_id = '00000000-0000-4000-8000-0000000000f1' and type = 'steps'),
+  1::bigint,
+  'and the re-import does not accumulate a second row for that day'
 );
 
 -- ---------------------------------------------------------------------------

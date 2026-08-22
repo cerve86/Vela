@@ -48,27 +48,44 @@ export interface HealthSample {
   externalId: string;
 }
 
+/**
+ * Readings for a client, oldest first — the order every chart and `latestOf` expects.
+ *
+ * Fetched newest-first and reversed, which is not a detail. PostgREST enforces its own
+ * row ceiling (1000 on Supabase by default) whether or not the query asks for a limit,
+ * and it applies that ceiling *after* ordering. An ascending query over a window holding
+ * more rows than the ceiling therefore returns the oldest thousand and silently discards
+ * everything newer — no error, no truncation flag, just charts frozen at whatever date
+ * the cap happened to fall on. Descending inverts which end gets sacrificed: the cap can
+ * only ever cost us history, never the readings someone actually opened the app to see.
+ *
+ * `limit` is explicit for the same reason. Relying on a server default means the day the
+ * data outgrows it, the symptom is silently wrong numbers rather than a missing row.
+ */
 export async function listMetrics(
   supabase: VelaClient,
-  opts: { clientId?: string; types?: MetricType[]; since?: string } = {},
+  opts: { clientId?: string; types?: MetricType[]; since?: string; limit?: number } = {},
 ): Promise<Metric[]> {
   let q = supabase
     .from('metrics')
     .select('id, recorded_at, type, value, source')
-    .order('recorded_at', { ascending: true });
+    .order('recorded_at', { ascending: false })
+    .limit(opts.limit ?? 1000);
 
   if (opts.clientId) q = q.eq('client_id', opts.clientId);
   if (opts.types?.length) q = q.in('type', opts.types);
   if (opts.since) q = q.gte('recorded_at', opts.since);
 
   const { data } = await q;
-  return (data ?? []).map((m) => ({
-    id: m.id,
-    recordedAt: m.recorded_at,
-    type: m.type as MetricType,
-    value: Number(m.value),
-    source: m.source as MetricSource,
-  }));
+  return (data ?? [])
+    .map((m) => ({
+      id: m.id,
+      recordedAt: m.recorded_at,
+      type: m.type as MetricType,
+      value: Number(m.value),
+      source: m.source as MetricSource,
+    }))
+    .reverse();
 }
 
 export async function latestMetric(
@@ -111,20 +128,24 @@ export async function recordManualMetric(
 }
 
 /**
- * Batch import from Apple Health. Returns the count of genuinely new readings, so the
- * UI can report what actually landed rather than what was offered.
+ * Batch import from Apple Health, one reading per metric per day.
+ *
+ * Returns rows *written* rather than rows newly inserted, because with a day key the two
+ * differ in a way that matters: re-syncing at 6pm legitimately rewrites today's step
+ * total, and reporting that as "nothing new" would tell a client her afternoon walk had
+ * not registered.
  */
 export async function importHealthSamples(
   supabase: VelaClient,
   samples: HealthSample[],
-): Promise<{ inserted: number; error: string | null }> {
-  if (samples.length === 0) return { inserted: 0, error: null };
+): Promise<{ written: number; error: string | null }> {
+  if (samples.length === 0) return { written: 0, error: null };
   const { data, error } = await supabase.rpc('import_health_metrics', {
     // The generated signature wants the Json union; HealthSample[] is structurally
     // compatible but TypeScript cannot see that through the recursive type.
     p_samples: samples as unknown as never,
   });
-  return { inserted: (data as number) ?? 0, error: error?.message ?? null };
+  return { written: (data as number) ?? 0, error: error?.message ?? null };
 }
 
 export interface SessionPlanItem {
