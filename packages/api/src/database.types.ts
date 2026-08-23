@@ -943,6 +943,8 @@ export type Database = {
           program_day_id: string | null
           scheduled_date: string
           session_rpe: number | null
+          sets_done: number | null
+          sets_planned: number | null
           started_at: string | null
           status: Database["public"]["Enums"]["session_status"]
           title: string
@@ -963,6 +965,8 @@ export type Database = {
           program_day_id?: string | null
           scheduled_date: string
           session_rpe?: number | null
+          sets_done?: number | null
+          sets_planned?: number | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["session_status"]
           title: string
@@ -983,6 +987,8 @@ export type Database = {
           program_day_id?: string | null
           scheduled_date?: string
           session_rpe?: number | null
+          sets_done?: number | null
+          sets_planned?: number | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["session_status"]
           title?: string

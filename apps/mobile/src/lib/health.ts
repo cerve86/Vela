@@ -21,6 +21,25 @@ interface QuantityRow {
   endDate: string | Date;
 }
 
+interface CategoryRow {
+  uuid: string;
+  /** For sleep analysis: see ASLEEP_VALUES. */
+  value: number;
+  startDate: string | Date;
+  endDate: string | Date;
+}
+
+const SLEEP_IDENTIFIER = 'HKCategoryTypeIdentifierSleepAnalysis';
+
+/**
+ * The sleep-analysis values that mean asleep.
+ *
+ * 1 asleepUnspecified, 3 core, 4 deep, 5 REM. Deliberately excluding 0 (inBed) and
+ * 2 (awake): counting time in bed as sleep is how a restless night reads as eight hours,
+ * which would make the recovery number worse than useless — confidently wrong.
+ */
+const ASLEEP_VALUES: ReadonlySet<number> = new Set([1, 3, 4, 5]);
+
 /** The slice of @kingstinct/react-native-healthkit v14 that Vela uses. */
 export interface HealthKitModule {
   /** Synchronous in v14; awaiting a non-promise is harmless, so callers can await it. */
@@ -39,6 +58,15 @@ export interface HealthKitModule {
       filter?: { date?: { startDate?: Date; endDate?: Date } };
     },
   ) => Promise<readonly QuantityRow[]>;
+  /** Sleep is a category type, not a quantity — a different call with no unit. */
+  queryCategorySamples: (
+    identifier: string,
+    options: {
+      limit: number;
+      ascending?: boolean;
+      filter?: { date?: { startDate?: Date; endDate?: Date } };
+    },
+  ) => Promise<readonly CategoryRow[]>;
 }
 
 /**
@@ -64,6 +92,7 @@ export const READ_PERMISSION_LABELS = [
   'Heart rate variability',
   'Steps',
   'VO₂ max',
+  'Sleep',
 ];
 
 let cached: HealthKitModule | null | undefined;
@@ -100,7 +129,8 @@ export async function requestHealthAccess(): Promise<{ granted: boolean; error: 
   try {
     // No toShare key at all: read-only, explicitly.
     const granted = await hk.requestAuthorization({
-      toRead: READ_MAP.map((r) => r.identifier),
+      // Sleep rides along here rather than in READ_MAP, which is quantity types only.
+      toRead: [...READ_MAP.map((r) => r.identifier), SLEEP_IDENTIFIER],
     });
     return { granted, error: null };
   } catch (e) {
@@ -112,11 +142,12 @@ export async function requestHealthAccess(): Promise<{ granted: boolean; error: 
  * Metric types HealthKit records as an accumulating count rather than a state.
  *
  * The distinction decides how a day's samples combine. Steps arrive as dozens of short
- * interval samples — 137 here, 8 there — and a day only means anything summed. Weight or
- * HRV are readings of a state at a moment, where a sum would be nonsense and the mean of
- * however many readings that day is the honest summary.
+ * interval samples — 137 here, 8 there — and a day only means anything summed. Sleep is the
+ * same shape for a different reason: a night is delivered as its stages, and the night is
+ * their sum. Weight or HRV are readings of a state at a moment, where a sum would be
+ * nonsense and the mean of however many readings that day is the honest summary.
  */
-const CUMULATIVE: ReadonlySet<MetricType> = new Set<MetricType>(['steps']);
+const CUMULATIVE: ReadonlySet<MetricType> = new Set<MetricType>(['steps', 'sleep_min']);
 
 /** `YYYY-MM-DD` in the phone's own timezone — see the note in `syncHealth`. */
 function localDayKey(d: Date): string {
@@ -181,6 +212,47 @@ export async function syncHealth(days = 30): Promise<{
         } else {
           buckets.set(key, { type: entry.type, day, total: r.quantity, n: 1, at: when.getTime() });
         }
+      }
+    }
+
+    /**
+     * Sleep, attributed to the morning you woke.
+     *
+     * Segments are summed per night rather than taken as one block: Apple splits a night
+     * into core, deep and REM stages, plus wakes, so a single night arrives as a dozen
+     * rows and the longest of them is not the night's sleep.
+     *
+     * Only segments ending before midday count. Sleep is the thing recovery is asked about,
+     * and without that cut an afternoon nap lands on the same day key and inflates last
+     * night. It does mean a night-shift sleep from 09:00 is missed, which for this
+     * population is the right trade — and it is a miss rather than a wrong number.
+     */
+    const sleepRows = await hk.queryCategorySamples(SLEEP_IDENTIFIER, {
+      limit: 5000,
+      filter: { date: { startDate: from, endDate: to } },
+    });
+
+    for (const r of sleepRows) {
+      if (!ASLEEP_VALUES.has(r.value)) continue;
+
+      const start = new Date(r.startDate);
+      const end = new Date(r.endDate);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
+      if (end.getHours() >= 12) continue;
+
+      const minutes = (end.getTime() - start.getTime()) / 60000;
+      if (!(minutes > 0)) continue;
+
+      scanned++;
+      const day = localDayKey(end);
+      const key = `sleep_min:${day}`;
+      const b = buckets.get(key);
+      if (b) {
+        b.total += minutes;
+        b.n++;
+        if (end.getTime() > b.at) b.at = end.getTime();
+      } else {
+        buckets.set(key, { type: 'sleep_min', day, total: minutes, n: 1, at: end.getTime() });
       }
     }
   } catch (e) {

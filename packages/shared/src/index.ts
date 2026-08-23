@@ -8,4 +8,5 @@ export * from './readiness';
 export * from './plan';
 export * from './progression';
 export * from './milestones';
+export * from './vitality';
 export * from './mock';

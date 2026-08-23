@@ -165,6 +165,10 @@ export function useSessionLog(sessionId: string | null, plan: SessionPlanItem[])
           completed_at: new Date().toISOString(),
           pain_before: painBefore,
           pain_after: painAfter,
+          // The volume, which used to die with the local scratchpad. Without it "completed"
+          // meant both every set and one set, and nothing could weigh a day's work.
+          sets_planned: total,
+          sets_done: completed,
         })
         .eq('id', sessionId);
 
@@ -178,7 +182,7 @@ export function useSessionLog(sessionId: string | null, plan: SessionPlanItem[])
       // Only now is the local copy redundant.
       void AsyncStorage.removeItem(key(sessionId)).catch(() => {});
     },
-    [sessionId, painBefore, completed],
+    [sessionId, painBefore, completed, total],
   );
 
   return {

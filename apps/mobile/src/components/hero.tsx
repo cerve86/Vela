@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import Svg, { Circle, Defs, G, Path, RadialGradient, Rect, Stop, LinearGradient } from 'react-native-svg';
+import Svg, { Circle, Defs, G, Line, Path, RadialGradient, Rect, Stop, LinearGradient } from 'react-native-svg';
 import { ChevronRight } from 'lucide-react-native';
 import { useTheme } from '@/theme';
 import { Body } from '@/components/kit';
@@ -198,6 +198,172 @@ export function ReadinessDial({
           </Body>
         ) : null}
       </View>
+    </View>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * The dual dial: recovery on the left, strain on the right
+ * ───────────────────────────────────────────────────────────── */
+
+const RING_BOX = 188;
+const RING_R = 74;
+const RING_C = 2 * Math.PI * RING_R;
+const TICKS = 44;
+
+/**
+ * Two arcs on one dial, plus a tick ring behind them.
+ *
+ * The outer arc is recovery and the inner marker is the strain target, which is the whole
+ * point of putting them on one instrument: the question a person actually has in the morning
+ * is not "what are my numbers" but "is what I am about to do more than what I have". Two
+ * separate gauges make that a subtraction the reader has to do.
+ *
+ * Both arcs start at twelve o'clock, drawn on a rotated layer. The knob is a second,
+ * un-rotated SVG rotated by its own angle — nesting a counter-rotation inside the rotated
+ * group puts the knob's centre in the wrong place.
+ */
+export function DualDial({
+  recovery,
+  strain,
+  strainTarget,
+  tone,
+}: {
+  /** 0–100, or null when nothing has been logged or synced yet. */
+  recovery: number | null;
+  strain: number;
+  /** Where today's plan sits on the strain scale. Null on a rest day. */
+  strainTarget: number | null;
+  tone: string;
+}) {
+  const t = useTheme();
+  const rec = recovery === null ? 0 : Math.max(0, Math.min(100, recovery)) / 100;
+  const str = Math.max(0, Math.min(100, strain)) / 100;
+
+  return (
+    <View style={{ width: RING_BOX, height: RING_BOX }}>
+      <Svg
+        width={RING_BOX}
+        height={RING_BOX}
+        viewBox={`0 0 ${RING_BOX} ${RING_BOX}`}
+        style={{ transform: [{ rotate: '-90deg' }] }}
+      >
+        {/* The tick ring. Texture, and a scale to read the arcs against. */}
+        <G>
+          {Array.from({ length: TICKS }, (_, i) => {
+            const angle = (i / TICKS) * 2 * Math.PI;
+            const inner = 46;
+            const outer = i % 11 === 0 ? 60 : 57;
+            const cx = RING_BOX / 2;
+            return (
+              <Line
+                key={i}
+                x1={cx + Math.cos(angle) * inner}
+                y1={cx + Math.sin(angle) * inner}
+                x2={cx + Math.cos(angle) * outer}
+                y2={cx + Math.sin(angle) * outer}
+                stroke={i / TICKS <= str ? tone : t.dialTicks}
+                strokeWidth={i / TICKS <= str ? 2.4 : 1.8}
+                strokeLinecap="round"
+              />
+            );
+          })}
+        </G>
+
+        <Circle cx={94} cy={94} r={RING_R} fill="none" stroke={t.dialTrack} strokeWidth={10} />
+
+        {/* Recovery, the outer arc. */}
+        <Circle
+          cx={94}
+          cy={94}
+          r={RING_R}
+          fill="none"
+          stroke={recovery === null ? t.dialTrack : tone}
+          strokeWidth={10}
+          strokeLinecap="round"
+          strokeDasharray={RING_C}
+          strokeDashoffset={RING_C * (1 - rec)}
+        />
+      </Svg>
+
+      {/* The strain target, as a notch on the tick ring rather than a third arc. */}
+      {strainTarget !== null && (
+        <Svg
+          width={RING_BOX}
+          height={RING_BOX}
+          viewBox={`0 0 ${RING_BOX} ${RING_BOX}`}
+          style={{ position: 'absolute', top: 0, left: 0 }}
+        >
+          <G transform={`rotate(${(strainTarget / 100) * 360} 94 94)`}>
+            <Line x1={94} y1={30} x2={94} y2={48} stroke={t.textSecondary} strokeWidth={2.6} strokeLinecap="round" />
+          </G>
+        </Svg>
+      )}
+
+      {/* The recovery knob. */}
+      {recovery !== null && (
+        <Svg
+          width={RING_BOX}
+          height={RING_BOX}
+          viewBox={`0 0 ${RING_BOX} ${RING_BOX}`}
+          style={{ position: 'absolute', top: 0, left: 0 }}
+        >
+          <G transform={`rotate(${rec * 360} 94 94)`}>
+            <Circle cx={94} cy={20} r={7} fill={tone} />
+            <Circle cx={94} cy={20} r={2.8} fill={t.dark ? t.bandFill : '#FFFFFF'} />
+          </G>
+        </Svg>
+      )}
+    </View>
+  );
+}
+
+/**
+ * One of the two figures flanking the dial: a big percentage, a label, and a qualifier.
+ *
+ * The qualifier line is what stops these being two decorative numbers — "moderate" and
+ * "target 59%" are the parts that say whether the figure above is good news.
+ */
+export function DialStat({
+  value,
+  label,
+  sub,
+  align,
+  tone,
+}: {
+  value: string;
+  label: string;
+  sub: string;
+  align: 'left' | 'right';
+  tone?: string;
+}) {
+  const t = useTheme();
+  return (
+    <View style={{ flex: 1 }}>
+      <Text
+        style={{
+          fontFamily: t.font.displaySemi,
+          fontSize: 34,
+          letterSpacing: -1.4,
+          lineHeight: 36,
+          color: tone ?? t.textPrimary,
+          textAlign: align,
+          fontVariant: ['tabular-nums'],
+        }}
+      >
+        {value}
+      </Text>
+      <Body
+        size={11}
+        weight="medium"
+        color={t.textSecondary}
+        style={{ marginTop: 5, letterSpacing: 0.8, textAlign: align }}
+      >
+        {label}
+      </Body>
+      <Body size={11} color={t.textSecondary} style={{ marginTop: 2, letterSpacing: 0.6, textAlign: align }}>
+        {sub}
+      </Body>
     </View>
   );
 }

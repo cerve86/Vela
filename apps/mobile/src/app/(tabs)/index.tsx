@@ -1,9 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Utensils } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { activePlan, planMinutes } from '@vela/shared';
+import { activePlan, planMinutes, type RecoveryBand } from '@vela/shared';
 import {
   Body,
   Button,
@@ -17,12 +17,13 @@ import {
   StatTile,
 } from '@/components/kit';
 import { VelaIcon } from '@/components/brand';
-import { HeroBand, HeroChip, HeroStat, ReadinessDial, SlotStrip, Tile, TideBars } from '@/components/hero';
+import { DialStat, DualDial, HeroBand, HeroChip, SlotStrip, Tile, TideBars } from '@/components/hero';
 import { Illustration } from '@/components/Illustration';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
 import { addDays, today, useNutrition, useSessionPlan, useUpcoming, useWeek } from '@/lib/data';
 import { useDailyRead } from '@/lib/daily';
+import { useVitality } from '@/lib/vitality';
 
 /**
  * Today, rebuilt to the "Coaching App Flow Redesign" prototype.
@@ -43,6 +44,7 @@ export default function TodayScreen() {
   const plan = useSessionPlan(week.todaySession?.id ?? null);
   const nutrition = useNutrition(1);
   const daily = useDailyRead();
+  const vitality = useVitality(daily.current);
 
   // Coming back from a finished session must not leave "Start session" on screen. The
   // logging screen writes the outcome and pops, so this tab has to refetch on focus
@@ -55,6 +57,28 @@ export default function TodayScreen() {
     }, []),
   );
 
+  const [refreshing, setRefreshing] = useState(false);
+
+  /**
+   * Pull to refresh.
+   *
+   * Everything on this screen is a read of something that can change from elsewhere — a
+   * session logged on another device, a plan the physio just assigned, an overnight
+   * HealthKit backfill — so the gesture reloads all of it rather than one thing.
+   *
+   * The spinner is held until every read settles. Dropping it on the first response makes
+   * the pull feel broken when the slowest number arrives a beat after the spinner leaves.
+   */
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([week.reload(), nutrition.reload(), daily.reload(), plan.reload(), vitality.reload()]);
+    } finally {
+      setRefreshing(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const firstName = client?.email.split('@')[0]?.split('.')[0] || 'there';
   const name = firstName.charAt(0).toUpperCase() + firstName.slice(1);
   const todayIso = today();
@@ -65,12 +89,14 @@ export default function TodayScreen() {
   const started = week.todaySession?.status === 'in_progress';
   const done = week.todaySession?.status === 'completed';
 
-  // Readiness drives the dial. Unlogged sits the needle at a quarter turn rather than zero —
-  // an empty ring reads as "you are depleted" when it means "you have not said".
-  const dialValue = daily.current === null ? 0.25 : (daily.current + 1) / 5;
-  const dialWord = daily.current === null ? 'Not yet' : t.tide[daily.current]!.label;
-  const dialTone = daily.current === null ? t.textMuted : t.tide[daily.current]!.tone;
-  const dialSub = daily.current === null ? undefined : `${daily.current + 1} of 5`;
+  /**
+   * The dial's colour follows recovery, not readiness.
+   *
+   * Readiness is one of three inputs now, so colouring the ring by it would have the ring
+   * disagree with the number printed beside it whenever sleep or HRV pulled the other way.
+   */
+  const recoveryTone =
+    vitality.recovery.score === null ? t.textMuted : BAND_TONE(t)[vitality.recovery.band];
 
   /**
    * The chip under the dial: the read she just gave, named and attributed.
@@ -106,8 +132,6 @@ export default function TodayScreen() {
   );
   const slotCount = Object.values(loggedSlots).filter(Boolean).length;
 
-  const sessionsKept = week.data.filter((s) => s.status === 'completed').length;
-
   return (
     <Screen>
       <ScrollView
@@ -117,6 +141,14 @@ export default function TodayScreen() {
           gap: 14,
         }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void refresh()}
+            tintColor={t.brand[600]}
+            colors={[t.brand[600]]}
+          />
+        }
       >
         <HeroBand>
           <View style={{ paddingTop: insets.top + 22 }}>
@@ -128,22 +160,27 @@ export default function TodayScreen() {
                 gap: 6,
               }}
             >
-              <HeroStat
-                value={String(sessionsKept)}
-                label="KEPT"
-                sub="this week"
+              <DialStat
+                value={vitality.recovery.score === null ? '—' : `${vitality.recovery.score}%`}
+                label="RECOVERY"
+                sub={vitality.recovery.score === null ? 'not yet' : BAND_WORD[vitality.recovery.band]}
                 align="right"
+                tone={vitality.recovery.score === null ? t.textMuted : undefined}
               />
-              <ReadinessDial
-                value={dialValue}
-                word={dialWord}
-                sub={dialSub}
-                tone={dialTone}
+              <DualDial
+                recovery={vitality.recovery.score}
+                strain={vitality.strain.score}
+                strainTarget={vitality.strain.target}
+                tone={recoveryTone}
               />
-              <HeroStat
-                value={done ? '0' : String(active.items.length)}
-                label="MOVES"
-                sub={done ? 'all done' : 'to go'}
+              <DialStat
+                value={`${vitality.strain.score}%`}
+                label="STRAIN"
+                sub={
+                  vitality.strain.target === null
+                    ? 'rest day'
+                    : `target ${vitality.strain.target}%`
+                }
                 align="left"
               />
             </View>
@@ -158,8 +195,20 @@ export default function TodayScreen() {
                 marginTop: 18,
               }}
             >
-              {greeting(name, daily.current, done, Boolean(week.todaySession))}
+              {vitality.recovery.score === null
+                ? greeting(name, daily.current, done, Boolean(week.todaySession))
+                : vitality.recovery.note}
             </Text>
+
+            {vitality.recovery.score !== null && vitality.recovery.estimated && (
+              <Body
+                size={11}
+                color={t.textSecondary}
+                style={{ textAlign: 'center', marginTop: 8 }}
+              >
+                Estimated · no sleep recorded last night
+              </Body>
+            )}
 
             <HeroChip
               label={readChip}
@@ -324,6 +373,29 @@ export default function TodayScreen() {
     </Screen>
   );
 }
+
+/** Band → the word under the recovery figure. */
+const BAND_WORD: Record<RecoveryBand, string> = {
+  low: 'LOW',
+  moderate: 'MODERATE',
+  good: 'GOOD',
+  strong: 'STRONG',
+};
+
+/**
+ * Band → the dial's colour.
+ *
+ * Green at the top and amber in the middle, and deliberately not red at the bottom: a
+ * postpartum client opening this app to a red ring has been told she is broken by an
+ * average of three numbers. Violet is the palette's recovery colour and says "hold" without
+ * saying "alarm".
+ */
+const BAND_TONE = (t: ReturnType<typeof useTheme>): Record<RecoveryBand, string> => ({
+  low: t.vitals.hrv,
+  moderate: t.status.warningFill,
+  good: t.status.good,
+  strong: t.status.good,
+});
 
 function capitalise(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
