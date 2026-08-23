@@ -1,81 +1,54 @@
-import { useCallback } from 'react';
-import { Link, useFocusEffect, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X } from 'lucide-react-native';
-import { MEAL_SLOTS, deleteFoodLog, sumMacros, type FoodLogEntry, type MealSlot } from '@vela/api';
-import { Body, Button, Card, ChipRow, Display, Pill, Screen } from '@/components/kit';
+import { ScanLine, Utensils } from 'lucide-react-native';
+import { EMPTY_MACROS, deleteFoodLog, logFood, sumMacros } from '@vela/api';
+import type { MealSlot } from '@vela/api';
+import { isBlocking } from '@vela/shared';
+import { Body, Card, Display, Screen } from '@/components/kit';
+import { Rise, Tap } from '@/components/motion';
+import {
+  MacroBar,
+  QuickFoodRow,
+  SlotPicker,
+  SlotSection,
+  withAlpha,
+  type SlotEntry,
+} from '@/components/fuel-kit';
 import { Illustration } from '@/components/Illustration';
 import { useTheme } from '@/theme';
-import { supabase } from '@/lib/supabase';
+import { useSession } from '@/lib/session';
 import { today, useNutrition } from '@/lib/data';
+import { useDailyRead } from '@/lib/daily';
+import { supabase } from '@/lib/supabase';
 
-const DAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-
-/** A ring-less meter: a filled track, honest about overshoot by clamping the bar only. */
-function MacroBar({
-  label,
-  value,
-  target,
-  unit,
-  color,
-}: {
-  label: string;
-  value: number;
-  target: number | null;
-  unit: string;
-  color: string;
-}) {
-  const t = useTheme();
-  const ratio = target && target > 0 ? value / target : 0;
-
-  return (
-    <View style={{ gap: 6 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <Body size={13} color={t.textSecondary}>
-          {label}
-        </Body>
-        <Body size={13} weight="semibold">
-          {Math.round(value)}
-          {target !== null && (
-            <Text style={{ color: t.textMuted, fontFamily: t.font.regular }}>
-              {' '}
-              / {Math.round(target)} {unit}
-            </Text>
-          )}
-          {target === null && (
-            <Text style={{ color: t.textMuted, fontFamily: t.font.regular }}> {unit}</Text>
-          )}
-        </Body>
-      </View>
-      <View
-        style={{
-          height: 8,
-          borderRadius: t.radius.pill,
-          backgroundColor: t.softFill,
-          overflow: 'hidden',
-        }}
-      >
-        <View
-          style={{
-            width: `${Math.max(0, Math.min(1, ratio)) * 100}%`,
-            height: '100%',
-            borderRadius: t.radius.pill,
-            backgroundColor: color,
-          }}
-        />
-      </View>
-    </View>
-  );
-}
-
-export default function NutritionScreen() {
+/**
+ * Fuel — four slots, logged separately.
+ *
+ * The slots are the whole design. One "daily log" form with a meal dropdown holds the same
+ * rows and tells you far less: it cannot show, without reading anything, that lunch never
+ * happened. Four sections with four totals can.
+ *
+ * The copy is deliberately about eating enough. This is a postpartum and often
+ * breastfeeding population, which is the group most harmed by a nutrition screen that
+ * reads as a deficit to hit.
+ */
+export default function FuelScreen() {
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const nutrition = useNutrition(7);
+  const { client } = useSession();
 
-  // Adding a meal happens on a pushed screen; coming back must show it.
+  // Two weeks, not one day: today drives the totals, and the fortnight behind it is where
+  // the one-tap suggestions come from.
+  const nutrition = useNutrition(14);
+  const daily = useDailyRead();
+
+  const [slot, setSlot] = useState<MealSlot>('breakfast');
+  const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
   useFocusEffect(
     useCallback(() => {
       nutrition.reload();
@@ -84,207 +57,355 @@ export default function NutritionScreen() {
   );
 
   const todayIso = today();
-  const entries = nutrition.data.entries.filter((e) => e.loggedOn === todayIso);
   const target = nutrition.data.target;
-  const totals = sumMacros(entries);
 
-  const byMeal = new Map<MealSlot, FoodLogEntry[]>();
-  for (const e of entries) {
-    const arr = byMeal.get(e.meal);
-    if (arr) arr.push(e);
-    else byMeal.set(e.meal, [e]);
+  const todayEntries = useMemo(
+    () => nutrition.data.entries.filter((e) => e.loggedOn === todayIso),
+    [nutrition.data.entries, todayIso],
+  );
+
+  const logged = useMemo(
+    () => sumMacros(todayEntries.length ? todayEntries : [EMPTY_MACROS]),
+    [todayEntries],
+  );
+
+  /**
+   * One-tap suggestions, drawn from what she has actually eaten.
+   *
+   * Not a search: `searchFoods` refuses queries under two characters by design, so there is
+   * no "list everything" to lean on — and a generic food list would be the wrong thing
+   * anyway. Re-logging yesterday's breakfast is the single most common action this screen
+   * has, and a previous entry already carries its own portion and macros, including for
+   * described estimates that never had a food row at all.
+   */
+  const quick = useMemo(() => {
+    const seen = new Map<string, { description: string; kcal: number; detail: string }>();
+    for (const e of nutrition.data.entries) {
+      if (e.loggedOn === todayIso) continue;
+      const key = e.description.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.set(key, {
+        description: e.description,
+        kcal: e.kcal,
+        detail: e.quantityG ? `${Math.round(e.quantityG)} g · logged before` : 'logged before',
+      });
+      if (seen.size === 3) break;
+    }
+    return [...seen.values()];
+  }, [nutrition.data.entries, todayIso]);
+
+  const bySlot = useMemo(() => {
+    const map: Record<string, SlotEntry[]> = {};
+    for (const s of t.mealSlots) map[s.key] = [];
+    for (const e of todayEntries) {
+      (map[e.meal] ??= []).push({
+        id: e.id,
+        description: e.description || 'Logged',
+        kcal: e.kcal,
+        detail: e.quantityG ? `${Math.round(e.quantityG)} g` : sourceLabel(e.source),
+      });
+    }
+    return map;
+  }, [todayEntries, t.mealSlots]);
+
+  const blocked = isBlocking(daily.read.symptom);
+  const slotSpec = t.mealSlots.find((s) => s.key === slot)!;
+
+  function flash(message: string) {
+    setToast(message);
+    setTimeout(() => setToast((m) => (m === message ? null : m)), 2600);
+  }
+
+  /**
+   * Re-logs a previous entry into the selected slot.
+   *
+   * The macros are copied from the earlier log rather than recomputed from a food row — the
+   * entry may never have had one, and even where it did, the row it came from could have
+   * been corrected since. What she ate last Tuesday is what she ate.
+   */
+  async function addQuick(item: { description: string; kcal: number }) {
+    if (!client || busy) return;
+    const previous = nutrition.data.entries.find(
+      (e) => e.description === item.description && e.loggedOn !== todayIso,
+    );
+    if (!previous) return;
+
+    setBusy(true);
+    const { error } = await logFood(supabase, {
+      clientId: client.id,
+      loggedOn: todayIso,
+      meal: slot,
+      foodId: previous.foodId,
+      description: previous.description,
+      quantityG: previous.quantityG,
+      macros: {
+        kcal: previous.kcal,
+        proteinG: previous.proteinG,
+        carbsG: previous.carbsG,
+        fatG: previous.fatG,
+      },
+      source: previous.source,
+    });
+    setBusy(false);
+    if (error) {
+      // The write failed, so nothing was logged. Saying so plainly beats a toast that
+      // implies success and a total that quietly does not move.
+      flash('Could not save that — check your connection.');
+      return;
+    }
+    flash(`Added to ${slotSpec.label.toLowerCase()}`);
+    nutrition.reload();
   }
 
   async function remove(id: string) {
-    await deleteFoodLog(supabase, id);
+    if (busy) return;
+    setBusy(true);
+    const { error } = await deleteFoodLog(supabase, id);
+    setBusy(false);
+    if (error) {
+      flash('Could not remove that yet.');
+      return;
+    }
     nutrition.reload();
   }
+
+  const noTarget = !target;
 
   return (
     <Screen>
       <ScrollView
         contentContainerStyle={{
-          padding: t.space.lg,
+          paddingHorizontal: t.space.lg,
           paddingTop: insets.top + t.space.md,
-          paddingBottom: t.space.xxl * 2,
-          gap: t.space.md,
+          paddingBottom: t.space.xxl * 3,
+          gap: 14,
         }}
+        showsVerticalScrollIndicator={false}
       >
-        <Display size={30}>Today&apos;s food</Display>
+        <Display size={30}>Fuel</Display>
 
-        {nutrition.loading && nutrition.data.days.length === 0 ? (
-          <Card>
+        {nutrition.loading ? (
+          <Card style={{ borderRadius: 22 }}>
             <ActivityIndicator color={t.brand[600]} />
           </Card>
         ) : (
           <>
-            <Card>
-              <View style={{ gap: t.space.lg }}>
+            <Rise>
+              <Card style={{ borderRadius: 22 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                  <View
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 10,
+                      backgroundColor: t.dark ? withAlpha('#E8A200', 0.16) : '#FFF6E3',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Utensils size={16} color={t.status.warning} strokeWidth={2.1} />
+                  </View>
+                  <Body size={13.5} weight="medium" style={{ flex: 1 }}>
+                    Fuel today
+                  </Body>
+                </View>
+
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
                   <Text
                     style={{
-                      fontFamily: t.font.display,
-                      fontSize: 38,
-                      letterSpacing: -1.2,
+                      fontFamily: t.font.displaySemi,
+                      fontSize: 32,
+                      letterSpacing: -1.3,
                       color: t.textPrimary,
+                      fontVariant: ['tabular-nums'],
                     }}
                   >
-                    {Math.round(totals.kcal).toLocaleString('en-GB')}
+                    {Math.round(logged.kcal).toLocaleString('en-GB')}
                   </Text>
-                  <Body size={14} color={t.textMuted}>
+                  <Body size={15} color={t.textSecondary}>
                     {target ? `of ${target.kcal.toLocaleString('en-GB')} kcal` : 'kcal logged'}
                   </Body>
                 </View>
 
-                <View style={{ gap: t.space.md }}>
-                  <MacroBar
-                    label="Energy"
-                    value={totals.kcal}
-                    target={target?.kcal ?? null}
-                    unit="kcal"
-                    color={t.brand[600]}
-                  />
-                  <MacroBar
-                    label="Protein"
-                    value={totals.proteinG}
-                    target={target?.proteinG ?? null}
-                    unit="g"
-                    color={t.accent[500]}
-                  />
-                  <MacroBar
-                    label="Carbs"
-                    value={totals.carbsG}
-                    target={target?.carbsG ?? null}
-                    unit="g"
-                    color={t.brand[400]}
-                  />
-                  <MacroBar
-                    label="Fat"
-                    value={totals.fatG}
-                    target={target?.fatG ?? null}
-                    unit="g"
-                    color={t.status.warning}
-                  />
-                </View>
-
-                {target?.note && (
-                  <Body size={12} color={t.textSecondary} style={{ lineHeight: 17 }}>
-                    {target.note}
+                {noTarget ? (
+                  <Body size={12.5} color={t.textSecondary} style={{ marginTop: 12, lineHeight: 18 }}>
+                    Your physio has not set targets yet. Logging still works — the bars appear
+                    once she does.
                   </Body>
+                ) : (
+                  <View style={{ gap: 13, marginTop: 18 }}>
+                    <MacroBar
+                      label="Protein"
+                      value={logged.proteinG}
+                      target={target.proteinG}
+                      unit="g"
+                      color={t.brand[600]}
+                    />
+                    <MacroBar
+                      label="Carbohydrate"
+                      value={logged.carbsG}
+                      target={target.carbsG}
+                      unit="g"
+                      color={t.accent[500]}
+                    />
+                    <MacroBar
+                      label="Fat"
+                      value={logged.fatG}
+                      target={target.fatG}
+                      unit="g"
+                      color={t.status.warningFill}
+                    />
+                  </View>
                 )}
-                {!target && (
-                  <Body size={12} color={t.textMuted} style={{ lineHeight: 17 }}>
-                    Your physio hasn&apos;t set a target yet. Log anyway — what you eat is
-                    worth knowing before there is a number attached to it.
-                  </Body>
-                )}
-              </View>
-            </Card>
 
-            <Button label="Add food" onPress={() => router.push('/food/add')} />
-
-            <Card title="This week">
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                {nutrition.data.days.map((d) => {
-                  const logged = d.entries > 0;
-                  const isToday = d.day === todayIso;
-                  const dow = new Date(`${d.day}T00:00:00Z`).getUTCDay();
-                  return (
-                    <View key={d.day} style={{ alignItems: 'center', gap: 6 }}>
-                      <View
-                        style={{
-                          width: 34,
-                          height: 34,
-                          borderRadius: 17,
-                          borderWidth: isToday ? 2.5 : 1.5,
-                          borderColor: isToday
-                            ? t.accent[500]
-                            : logged
-                              ? t.brand[500]
-                              : t.grid,
-                          backgroundColor: logged ? t.brand[600] : 'transparent',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        {logged && (
-                          <Body size={10} color="#fff" weight="bold">
-                            {Math.round(d.kcal / 100)}
-                          </Body>
-                        )}
-                      </View>
-                      <Body size={11} color={isToday ? t.textPrimary : t.textMuted}>
-                        {DAY_INITIALS[dow]}
-                      </Body>
-                    </View>
-                  );
-                })}
-              </View>
-              <Body size={11} color={t.textMuted} style={{ marginTop: t.space.md }}>
-                Filled days are logged; the number is hundreds of kcal. Blank means no
-                entry, which is not the same as eating nothing.
-              </Body>
-            </Card>
-
-            {entries.length === 0 ? (
-              <Card>
-                <View style={{ alignItems: 'center', marginBottom: t.space.md }}>
-                  <Illustration name="plate" width={168} />
-                </View>
-                <Body size={14} color={t.textSecondary} style={{ lineHeight: 20 }}>
-                  Nothing logged today. Scan a barcode, search what your physio has added,
-                  or type it in — whichever is quickest with one hand free.
+                <Body size={12.5} color={t.textSecondary} style={{ marginTop: 16, lineHeight: 17 }}>
+                  {client?.breastfeeding
+                    ? 'Breastfeeding is included in these numbers. They exist to help you eat enough, not less.'
+                    : 'These numbers exist to help you eat enough, not less.'}
                 </Body>
               </Card>
-            ) : (
-              MEAL_SLOTS.filter((s) => byMeal.has(s.value)).map((slot) => (
-                <Card key={slot.value} title={slot.label}>
-                  <View style={{ gap: 8 }}>
-                    {byMeal.get(slot.value)!.map((e) => (
-                      <ChipRow key={e.id}>
-                        <View style={{ flex: 1 }}>
-                          <Body size={14} weight="medium">
-                            {e.description}
-                          </Body>
-                          <Body size={11} color={t.textMuted}>
-                            {e.quantityG !== null ? `${Math.round(e.quantityG)} g · ` : ''}
-                            {Math.round(e.proteinG)}p · {Math.round(e.carbsG)}c ·{' '}
-                            {Math.round(e.fatG)}f
-                          </Body>
-                        </View>
-                        <Body size={14} weight="semibold">
-                          {Math.round(e.kcal)}
-                        </Body>
-                        <Pressable
-                          onPress={() => remove(e.id)}
-                          accessibilityLabel={`Remove ${e.description}`}
-                          hitSlop={10}
-                          style={{ paddingLeft: 6 }}
-                        >
-                          <X size={16} color={t.textMuted} strokeWidth={2.5} />
-                        </Pressable>
-                      </ChipRow>
-                    ))}
+            </Rise>
+
+            <Rise delay={60}>
+              <Card style={{ borderRadius: 22 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Body size={13.5} weight="medium" style={{ flex: 1 }}>
+                    Add to {slotSpec.label.toLowerCase()}
+                  </Body>
+                  <Body size={11} color={t.textSecondary}>
+                    {Math.round(
+                      (bySlot[slot] ?? []).reduce((n, e) => n + e.kcal, 0),
+                    ).toLocaleString('en-GB')}{' '}
+                    kcal
+                  </Body>
+                </View>
+
+                <View style={{ marginTop: 14 }}>
+                  <SlotPicker value={slot} onChange={(k) => setSlot(k as MealSlot)} />
+                </View>
+
+                {quick.length > 0 && (
+                  <>
+                    <Body
+                      size={11}
+                      weight="medium"
+                      color={t.textSecondary}
+                      style={{ letterSpacing: 0.5, marginTop: 18 }}
+                    >
+                      AGAIN, SAME PORTION
+                    </Body>
+                    <View style={{ gap: 7, marginTop: 10 }}>
+                      {quick.map((q) => (
+                        <QuickFoodRow
+                          key={q.description}
+                          name={q.description}
+                          portion={q.detail}
+                          kcal={q.kcal}
+                          accent={slotSpec.color}
+                          onAdd={() => void addQuick(q)}
+                        />
+                      ))}
+                    </View>
+                  </>
+                )}
+
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                  <Tap
+                    onPress={() => router.push({ pathname: '/food/add', params: { meal: slot } })}
+                    scale={0.97}
+                    style={{
+                      flex: 1,
+                      borderWidth: 1.5,
+                      borderColor: t.border,
+                      borderRadius: t.radius.md,
+                      paddingVertical: 12,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Body size={13.5} weight="medium">
+                      Search or describe it
+                    </Body>
+                  </Tap>
+                  <Tap
+                    onPress={() => router.push('/food/scan')}
+                    scale={0.97}
+                    accessibilityLabel="Scan a barcode"
+                    style={{
+                      width: 52,
+                      borderWidth: 1.5,
+                      borderColor: t.border,
+                      borderRadius: t.radius.md,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <ScanLine size={18} color={t.textPrimary} strokeWidth={2} />
+                  </Tap>
+                </View>
+              </Card>
+            </Rise>
+
+            {nutrition.data.entries.length === 0 && (
+              <Rise delay={120}>
+                <Card style={{ borderRadius: 22 }}>
+                  <View style={{ alignItems: 'center', gap: 10, paddingVertical: 8 }}>
+                    <Illustration name="plate" width={150} />
+                    <Body size={13} color={t.textSecondary} style={{ textAlign: 'center' }}>
+                      Nothing logged today. Start with whichever meal already happened — there is
+                      no order to keep to.
+                    </Body>
                   </View>
                 </Card>
-              ))
+              </Rise>
             )}
 
-            <Link href="/food/add" asChild>
-              <Pressable>
-                <Card>
-                  <Pill tone="brand">Fuel first</Pill>
-                  <Body size={13} color={t.textSecondary} style={{ marginTop: t.space.md, lineHeight: 19 }}>
-                    Energy availability affects recovery, bone health and pelvic floor
-                    function, and it matters more while breastfeeding. These numbers are
-                    here to help you eat enough, not less.
-                  </Body>
-                </Card>
-              </Pressable>
-            </Link>
+            {t.mealSlots.map((s, i) => (
+              <Rise key={s.key} delay={150 + i * 40}>
+                <SlotSection
+                  slot={s.key}
+                  entries={bySlot[s.key] ?? []}
+                  onAdd={() => {
+                    setSlot(s.key as MealSlot);
+                    router.push({ pathname: '/food/add', params: { meal: s.key } });
+                  }}
+                  onDelete={(id) => void remove(id)}
+                  softenedCta={
+                    blocked && s.key === 'snack' && (bySlot.snack?.length ?? 0) > 0
+                      ? 'One snack a day is enough'
+                      : undefined
+                  }
+                />
+              </Rise>
+            ))}
           </>
         )}
       </ScrollView>
+
+      {toast && (
+        <View
+          style={{
+            position: 'absolute',
+            left: t.space.lg,
+            right: t.space.lg,
+            bottom: 96,
+            backgroundColor: t.dark ? t.brand[900] : '#12172B',
+            borderRadius: t.radius.md,
+            paddingVertical: 13,
+            paddingHorizontal: 16,
+          }}
+        >
+          <Body size={13} weight="medium" color="#FFFFFF">
+            {toast}
+          </Body>
+        </View>
+      )}
     </Screen>
   );
+}
+
+function sourceLabel(source: string): string {
+  if (source === 'barcode') return 'Scanned';
+  if (source === 'described') return 'Estimated from a description';
+  if (source === 'manual') return 'Entered by hand';
+  return 'From the food list';
 }
