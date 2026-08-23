@@ -240,9 +240,14 @@ export default function MoodScreen() {
           </Body>
         </Card>
 
+        {/*
+          This said "saved on this phone for now" until the daily_reads table existed. It does
+          now, and these reads go to her physio — which is the opposite of what the old line
+          promised. Telling someone their symptom log is private when it is shared is not a
+          stale string, so the copy states plainly where it goes.
+        */}
         <Body size={11} color={t.textMuted} style={{ textAlign: 'center', lineHeight: 16 }}>
-          Saved on this phone for now. Your physio will see these once daily reads are added to
-          your record.
+          Your physio sees these reads. They are what she uses to set the size of your session.
         </Body>
       </ScrollView>
     </Screen>

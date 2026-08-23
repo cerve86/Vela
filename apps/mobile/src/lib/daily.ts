@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   currentRead,
   lockDailyRead,
@@ -64,9 +65,23 @@ export function useDailyRead() {
     setLoading(false);
   }, [client, iso]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  /**
+   * Reloads whenever the screen using this comes into focus, not just on mount.
+   *
+   * A plain effect keyed on `[client, iso]` fires once and never again — neither changes
+   * when you navigate. Locking a read on the mood screen refetched that screen's copy of
+   * this hook and left every other screen holding what it fetched on mount, so the dial,
+   * the greeting and the read tile all went on saying "not logged" after the write had
+   * landed. The read looked like it had not saved when it had.
+   *
+   * This lives in the hook rather than in each screen's focus effect so a new screen cannot
+   * forget it. `useFocusEffect` also fires on mount, so it replaces the effect outright.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   const logged = loggedWindows(reads, iso);
   const inForce = currentRead(reads, iso);
@@ -140,6 +155,14 @@ export function useDailyRead() {
      * "asked, and the answer was Depleted", because one prompts and the other prescribes.
      */
     current: (inForce?.readiness ?? null) as Tide | null,
+    /**
+     * Which window `current` came from — not the same as `openWindow`.
+     *
+     * At six in the evening the open window is "evening" while the read in force may still
+     * be the midday one. Labelling the read with the open window would attribute it to a
+     * slot she has not filled yet.
+     */
+    currentWindow: (inForce?.window ?? null) as WindowKey | null,
     lock,
     setSymptom,
     openWindow: openWindow(),

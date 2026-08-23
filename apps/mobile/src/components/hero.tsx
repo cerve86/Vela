@@ -109,10 +109,13 @@ const DIAL_CIRCUMFERENCE = 2 * Math.PI * DIAL_R; // ≈ 439.8, the design's 440
 export function ReadinessDial({
   value,
   word,
+  sub,
   tone,
 }: {
   value: number;
   word: string;
+  /** The score behind the word, e.g. "2 of 5". Omitted when nothing is logged. */
+  sub?: string;
   tone?: string;
 }) {
   const t = useTheme();
@@ -177,13 +180,23 @@ export function ReadinessDial({
         <Text
           style={{
             fontFamily: t.font.displaySemi,
-            fontSize: 15,
-            letterSpacing: -0.2,
+            fontSize: sub ? 19 : 15,
+            letterSpacing: -0.3,
             color: stroke,
           }}
         >
           {word}
         </Text>
+        {sub ? (
+          <Body
+            size={11}
+            weight="medium"
+            color={t.textSecondary}
+            style={{ marginTop: 2, letterSpacing: 0.2 }}
+          >
+            {sub}
+          </Body>
+        ) : null}
       </View>
     </View>
   );
@@ -238,30 +251,62 @@ export function HeroStat({
   );
 }
 
-/** The pill under the greeting sentence — one fact, dot-coded by tone. */
-export function HeroChip({ label, dot }: { label: string; dot: string }) {
+/**
+ * The pill under the greeting sentence — one fact, dot-coded by tone.
+ *
+ * Tappable when given `onPress`, which is how the unlogged state becomes an invitation
+ * rather than a notice: "no read yet" is the one thing on this screen a person can fix in
+ * one tap, so the chip saying it should be the thing that takes them there.
+ */
+export function HeroChip({
+  label,
+  dot,
+  onPress,
+}: {
+  label: string;
+  dot: string;
+  onPress?: () => void;
+}) {
   const t = useTheme();
-  return (
-    <View style={{ alignItems: 'center', marginTop: 14 }}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 7,
-          backgroundColor: t.surface,
-          borderWidth: 1,
-          borderColor: t.dark ? t.border : 'rgba(27,79,216,0.14)',
-          borderRadius: t.radius.pill,
-          paddingVertical: 7,
-          paddingHorizontal: 14,
-        }}
-      >
-        <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: dot }} />
-        <Body size={11} color={t.textSecondary}>
-          {label}
-        </Body>
-      </View>
+
+  const body = (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 7,
+        backgroundColor: t.surface,
+        borderWidth: 1,
+        borderColor: t.dark ? t.border : 'rgba(27,79,216,0.14)',
+        borderRadius: t.radius.pill,
+        paddingVertical: 7,
+        paddingHorizontal: 14,
+      }}
+    >
+      <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: dot }} />
+      <Body size={11} color={t.textSecondary}>
+        {label}
+      </Body>
     </View>
+  );
+
+  if (!onPress) {
+    return <View style={{ alignItems: 'center', marginTop: 14 }}>{body}</View>;
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => ({
+        alignItems: 'center',
+        marginTop: 14,
+        transform: [{ scale: pressed ? 0.97 : 1 }],
+      })}
+    >
+      {body}
+    </Pressable>
   );
 }
 

@@ -3,7 +3,7 @@ import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Utensils } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { activePlan, planMinutes, temperTone } from '@vela/shared';
+import { activePlan, planMinutes } from '@vela/shared';
 import {
   Body,
   Button,
@@ -70,6 +70,28 @@ export default function TodayScreen() {
   const dialValue = daily.current === null ? 0.25 : (daily.current + 1) / 5;
   const dialWord = daily.current === null ? 'Not yet' : t.tide[daily.current]!.label;
   const dialTone = daily.current === null ? t.textMuted : t.tide[daily.current]!.tone;
+  const dialSub = daily.current === null ? undefined : `${daily.current + 1} of 5`;
+
+  /**
+   * The chip under the dial: the read she just gave, named and attributed.
+   *
+   * It used to repeat `active.tag · mins`, both of which the plan card below already states —
+   * as a tag and as the TIME tile — and neither of which means anything on a rest day. The
+   * read had no plain-language home on this screen at all: it was a word inside the ring at
+   * 15px and a bare number on the tile. So the chip carries the read instead, with the
+   * window it came from, and the symptom when there is one, since a symptom is the part that
+   * changes what she should do today.
+   */
+  const readChip =
+    daily.current === null
+      ? 'No read yet — tap to add one'
+      : [
+          capitalise(daily.currentWindow ?? daily.openWindow),
+          t.tide[daily.current]!.label,
+          daily.read.symptom === 'Nothing' ? null : daily.read.symptom,
+        ]
+          .filter(Boolean)
+          .join(' · ');
 
   // `useNutrition(1)` windows to today alone, so `days` holds at most one row. Reading the
   // rolled-up day rather than summing entries here keeps one definition of a daily total.
@@ -112,7 +134,12 @@ export default function TodayScreen() {
                 sub="this week"
                 align="right"
               />
-              <ReadinessDial value={dialValue} word={dialWord} tone={dialTone} />
+              <ReadinessDial
+                value={dialValue}
+                word={dialWord}
+                sub={dialSub}
+                tone={dialTone}
+              />
               <HeroStat
                 value={done ? '0' : String(active.items.length)}
                 label="MOVES"
@@ -135,12 +162,9 @@ export default function TodayScreen() {
             </Text>
 
             <HeroChip
-              label={
-                daily.current === null
-                  ? 'Readiness not logged yet'
-                  : `${active.tag} · ${mins} min`
-              }
-              dot={daily.current === null ? t.textMuted : temperTone[active.temper]}
+              label={readChip}
+              dot={daily.current === null ? t.textMuted : t.tide[daily.current]!.tone}
+              onPress={() => router.push('/mood')}
             />
           </View>
         </HeroBand>
