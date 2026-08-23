@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { DISCIPLINE_LABEL, listSessions } from '@vela/api';
+import { DISCIPLINE_LABEL, getSessionPlan, listDailyReads, listSessions } from '@vela/api';
+import { isBlocking, tide } from '@vela/shared';
 import { Card, EmptyState, PainDot, StatusPill } from '@/components/ui';
+import { SessionResponse } from './SessionResponse';
 import { TimeSeriesPanels, type Panel } from '@/components/charts';
 import { dateWindow } from '@/lib/series';
 import { createServerSupabase } from '@/lib/supabase/server';
@@ -28,6 +30,40 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
   const sessions = await listSessions(supabase, { clientId: id });
 
   const completed = sessions.filter((s) => s.status === 'completed');
+
+  /**
+   * The session under review: the most recent one she finished.
+   *
+   * The prescription is fetched rather than reconstructed, because what the coach needs to
+   * see is what the app actually served that day. Set-by-set results are not here — they
+   * stay on the phone until the send, and only the outcome is written — so the card shows
+   * the prescription and the outcome and does not invent a per-exercise verdict it cannot
+   * know.
+   */
+  const review = [...completed].sort((a, b) => (a.scheduledDate < b.scheduledDate ? 1 : -1))[0] ?? null;
+
+  const [reviewPlan, reviewReads] = await Promise.all([
+    review ? getSessionPlan(supabase, review.id) : Promise.resolve([]),
+    review
+      ? listDailyReads(supabase, { clientId: id, from: review.scheduledDate, to: review.scheduledDate })
+      : Promise.resolve([]),
+  ]);
+
+  // What she reported on the day, which is what decided whether the app trimmed the work.
+  const blockingRead = reviewReads.find((r) => isBlocking(r.symptom)) ?? null;
+  const lowestRead = [...reviewReads].sort((a, b) => a.readiness - b.readiness)[0] ?? null;
+
+  const suggestions = review
+    ? [
+        blockingRead
+          ? `Good call stopping the impact work when the ${blockingRead.symptom.toLowerCase()} showed up.`
+          : 'That looked comfortable — we can add a little next week.',
+        review.painAfter !== null && review.painBefore !== null && review.painAfter > review.painBefore
+          ? 'Symptoms came up during that one. Let us hold the load where it is.'
+          : 'Symptoms stayed settled, which is what I was watching for.',
+        'How did it feel the next morning?',
+      ]
+    : [];
   const upcoming = sessions.filter((s) => s.scheduledDate >= todayIso && s.status === 'scheduled');
 
   const xLabels = dateWindow(56);
@@ -113,6 +149,111 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
           </p>
         )}
       </Card>
+
+      {review && (
+        <Card
+          title="Latest session"
+          action={
+            <span className="text-xs ink-3">
+              {new Date(`${review.scheduledDate}T00:00:00Z`).toLocaleDateString('en-GB', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                timeZone: 'UTC',
+              })}
+            </span>
+          }
+        >
+          <div className="flex items-start justify-between gap-5">
+            <div>
+              <h3 className="display-face text-2xl font-semibold">{review.title}</h3>
+              <p className="mt-1 text-sm ink-2">
+                {reviewPlan.length} movements ·{' '}
+                {reviewPlan.reduce((n, i) => n + i.sets, 0)} sets prescribed ·{' '}
+                {review.painBefore !== null && review.painAfter !== null
+                  ? `symptoms ${review.painBefore}/10 before, ${review.painAfter}/10 after`
+                  : 'no symptom scores recorded'}
+              </p>
+            </div>
+            {blockingRead ? (
+              <StatusPill tone="warning">Symptom flagged</StatusPill>
+            ) : (
+              <StatusPill tone="good">Completed</StatusPill>
+            )}
+          </div>
+
+          {blockingRead && (
+            <div className="mt-4 rounded-[16px] p-4" style={{ background: 'var(--tint-cream)' }}>
+              <div className="text-sm font-medium">
+                She reported {blockingRead.symptom.toLowerCase()} on her {blockingRead.window} read
+              </div>
+              <p className="mt-1 text-sm ink-2">
+                The app withdrew the impact work for that day on its own and served breath and
+                connection work instead. Readiness was{' '}
+                {tide[blockingRead.readiness]?.label.toLowerCase() ?? 'unrecorded'}. Worth
+                confirming whether it settled by the evening.
+              </p>
+            </div>
+          )}
+
+          {!blockingRead && lowestRead && lowestRead.readiness <= 1 && (
+            <div className="mt-4 rounded-[16px] p-4" style={{ background: 'var(--tint-cream)' }}>
+              <div className="text-sm font-medium">
+                Readiness was {tide[lowestRead.readiness]?.label.toLowerCase()} that day
+              </div>
+              <p className="mt-1 text-sm ink-2">
+                The session was trimmed automatically before she started it — fewer sets and no
+                load — so a full log here means she completed the trimmed version.
+              </p>
+            </div>
+          )}
+
+          {reviewPlan.length > 0 && (
+            <ul className="mt-4 space-y-2">
+              {reviewPlan.map((i) => (
+                <li
+                  key={i.itemId}
+                  className="flex items-center gap-3.5 rounded-[16px] px-4 py-3"
+                  style={{ background: 'var(--ghost)' }}
+                >
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ background: 'var(--series-1)' }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">{i.exerciseName}</div>
+                    {i.cues[0] && <div className="text-[11px] ink-2">{i.cues[0]}</div>}
+                  </div>
+                  <span
+                    className="tnum shrink-0 rounded-[9px] px-2.5 py-1.5 text-xs font-medium whitespace-nowrap"
+                    style={{
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--series-1)',
+                    }}
+                  >
+                    {i.sets} × {i.reps}
+                    {i.targetLoadKg ? ` · ${i.targetLoadKg} kg` : ''}
+                  </span>
+                </li>
+              ))}
+              <li className="pt-1 text-xs ink-3">
+                What she was prescribed. Which sets she ticked stays on her phone until
+                set-by-set logs sync — this card does not guess at a per-movement verdict.
+              </li>
+            </ul>
+          )}
+
+          <div className="mt-6 border-t pt-5" style={{ borderColor: 'var(--border)' }}>
+            <SessionResponse
+              clientId={id}
+              sessionId={review.id}
+              sessionTitle={review.title}
+              suggestions={suggestions}
+            />
+          </div>
+        </Card>
+      )}
 
       <Card title="Pain before and after" action={<span className="text-xs ink-3">Last 8 weeks</span>}>
         {completed.length === 0 ? (
