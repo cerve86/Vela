@@ -49,6 +49,18 @@ export function useTheme() {
     /** Track behind the readiness dial and any ring drawn on the band. */
     dialTrack: dark ? '#2A3150' : '#D3E0FA',
     dialTicks: dark ? '#333C5E' : '#BFD2F6',
+
+    /** Two-series trend, stepped per mode. Both modes pass the palette checker. */
+    chartAdherence: dark ? palette.chart.dark.adherence : palette.chart.light.adherence,
+    chartSoreness: dark ? palette.chart.dark.soreness : palette.chart.light.soreness,
+
+    /**
+     * Heatmap states. `missed` lifts in dark mode — the light grey it uses there would
+     * disappear into the card entirely, turning "you missed this" into "nothing here".
+     */
+    heatmapFull: palette.heatmap.full,
+    heatmapPartial: palette.heatmap.partial,
+    heatmapMissed: dark ? '#3A4368' : palette.heatmap.missed,
     /** Tinted fills need to flip in dark mode — a cream card on black reads as a bug. */
     softFill: dark ? 'rgba(255,255,255,0.06)' : palette.tint.chip,
     inputFill: dark ? 'rgba(255,255,255,0.08)' : palette.tint.chip,

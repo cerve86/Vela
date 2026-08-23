@@ -97,6 +97,25 @@ export function useWeek() {
   };
 }
 
+/**
+ * Sessions over the last `weeks`, for the attendance grid and the trend.
+ *
+ * Separate from `useWeek` rather than widening it: Today reloads its week on every focus,
+ * and pulling four months of history each time someone taps back from a session would be
+ * paid for on the screen that can least afford it.
+ */
+export function useHistory(weeks = 16) {
+  const { client } = useSession();
+  const todayIso = today();
+  const from = addDays(startOfWeek(todayIso), -(weeks - 1) * 7);
+
+  return useAsync<ScheduledSession[]>(
+    async () => (client ? listSessions(supabase, { clientId: client.id, from, to: todayIso }) : []),
+    [],
+    [client?.id, from, todayIso],
+  );
+}
+
 /** Everything scheduled from today onwards — used for "what's next" when today is a rest day. */
 export function useUpcoming(limit = 5) {
   const { client } = useSession();

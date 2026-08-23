@@ -83,12 +83,53 @@ export const palette = {
     critical: '#C4184A',
   },
 
-  /** Vitals series, fixed per metric so a line never changes colour between screens. */
+  /**
+   * Vitals identity colours, fixed per metric so a metric never changes colour between
+   * screens.
+   *
+   * These are NEVER drawn adjacent to one another. `hrv` and `weight` sit ΔE 12.7 apart in
+   * normal vision — below the floor of 15, meaning full-colour readers struggle, before
+   * colour vision deficiency is even considered. That is survivable only because the vitals
+   * chart is mono: one metric at a time, and the line is drawn in ink rather than in the
+   * metric's colour. Put two of these in one chart and it fails; `#C026D3` is the tested
+   * replacement for `hrv` if that day comes.
+   */
   vitals: {
     hrv: '#7C3AED',
     weight: '#2D6BF0',
     restingHr: '#0E9F6E',
     steps: '#E8A200',
+  },
+
+  /**
+   * The two-series trend chart: adherence against soreness.
+   *
+   * Blue and pink, stepped per mode from the same two ramps. The prototype ran blue on
+   * pale blue, which passes in light and fails outright in dark — the pale step falls
+   * outside the dark lightness band and below the chroma floor, so it reads as grey on a
+   * near-black card. A hue pair survives both modes where a lightness pair cannot.
+   *
+   * Validated with the palette checker in both modes: lightness, chroma, CVD separation,
+   * normal-vision floor and contrast all pass. Do not hand-edit — re-run it.
+   */
+  chart: {
+    light: { adherence: '#1B4FD8', soreness: '#E0489B' },
+    dark: { adherence: '#5C87F7', soreness: '#DB4F97' },
+  },
+
+  /**
+   * Attendance heatmap states.
+   *
+   * `full` and `partial` are the two that carry meaning and clear CVD separation between
+   * them (ΔE 11.2 protan). `missed` is deliberately a low-chroma grey — absence, not a
+   * third category — which is why it would fail a categorical check and should never be
+   * fed to one. Amber sits at 2.13:1 on white, so the grid ships with a labelled legend
+   * rather than relying on colour.
+   */
+  heatmap: {
+    full: '#0E9F6E',
+    partial: '#E8A200',
+    missed: '#C3CCE4',
   },
 
   /**
