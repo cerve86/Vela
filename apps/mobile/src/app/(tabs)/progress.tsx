@@ -2,16 +2,18 @@ import { useCallback, useMemo, useState } from 'react';
 import { Link, useFocusEffect } from 'expo-router';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight, Trophy } from 'lucide-react-native';
 import { METRIC_META, type MetricType } from '@vela/api';
+import { RECENT_DAYS, deriveMilestones, type Milestone } from '@vela/shared';
 import { Body, Card, Display, Screen } from '@/components/kit';
 import { Rise, Tap } from '@/components/motion';
 import { Heatmap, MonoChart, MonoHeader, TrendChart, type CellState } from '@/components/charts';
+import { MilestoneBlob } from '@/components/blobs';
 import { VelaIcon } from '@/components/brand';
 import { Illustration } from '@/components/Illustration';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
-import { addDays, startOfWeek, today, useHistory, useMetrics } from '@/lib/data';
+import { addDays, startOfWeek, today, useHistory, useMetrics, useNutrition } from '@/lib/data';
 
 /**
  * Progress: consistency first, measurements second.
@@ -43,6 +45,9 @@ export default function ProgressScreen() {
 
   const history = useHistory(WEEKS_SHOWN);
   const metrics = useMetrics(CHART_METRICS, WEEKS_SHOWN * 7);
+  // Two weeks is enough for the fuel streak, which caps at seven days and only ever counts
+  // backwards from today. Pulling sixteen weeks of meals to answer that would be waste.
+  const nutrition = useNutrition(14);
 
   const [metric, setMetric] = useState<MetricType>('resting_hr');
 
@@ -50,6 +55,7 @@ export default function ProgressScreen() {
     useCallback(() => {
       history.reload();
       metrics.reload();
+      nutrition.reload();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );
@@ -74,6 +80,27 @@ export default function ProgressScreen() {
   const soreness = useMemo(() => weeklySoreness(history.data), [history.data]);
   const adherence = useMemo(() => weeks.map(weekRatio), [weeks]);
   const trendReady = soreness.filter((v) => v !== null).length >= 2;
+
+  const todayIso = today();
+
+  /**
+   * Milestones, computed from the record rather than stored.
+   *
+   * `fuelDays` is the set of days that hold at least one meal — the streak asks "was
+   * anything logged", not how much, so a day with one banana counts the same as a day with
+   * four meals. That is the right question for a habit.
+   */
+  const milestones = useMemo(
+    () =>
+      deriveMilestones({
+        sessions: history.data,
+        fuelDays: [...new Set(nutrition.data.entries.map((e) => e.loggedOn))],
+        today: todayIso,
+      }),
+    [history.data, nutrition.data.entries, todayIso],
+  );
+
+  const earnedCount = milestones.filter((m) => m.earned).length;
 
   const loading = history.loading || metrics.loading;
   const meta = METRIC_META[metric];
@@ -118,6 +145,37 @@ export default function ProgressScreen() {
 
             <Rise delay={60}>
               <Card style={{ borderRadius: 22 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 10,
+                      backgroundColor: t.tint.cream,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Trophy size={16} color={t.brand[600]} strokeWidth={2.1} />
+                  </View>
+                  <Body size={13.5} weight="medium" style={{ flex: 1 }}>
+                    Milestones
+                  </Body>
+                  <Body size={12.5} color={t.textSecondary}>
+                    {earnedCount} of {milestones.length} earned
+                  </Body>
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 9, marginTop: 14 }}>
+                  {milestones.map((m, i) => (
+                    <MilestoneTile key={m.key} milestone={m} index={i} today={todayIso} />
+                  ))}
+                </View>
+              </Card>
+            </Rise>
+
+            <Rise delay={120}>
+              <Card style={{ borderRadius: 22 }}>
                 <CardHead icon="trend-wave" title="Sessions against soreness" />
                 {trendReady ? (
                   <>
@@ -137,7 +195,7 @@ export default function ProgressScreen() {
               </Card>
             </Rise>
 
-            <Rise delay={120}>
+            <Rise delay={180}>
               <Card style={{ borderRadius: 22 }}>
                 <CardHead icon="pain-point" title="Vitals over time" />
 
@@ -220,7 +278,7 @@ export default function ProgressScreen() {
             </Rise>
 
             {client?.weeksPostpartum != null && (
-              <Rise delay={180}>
+              <Rise delay={240}>
                 <Link href="/readiness" asChild>
                   <Tap
                     style={{
@@ -253,6 +311,97 @@ export default function ProgressScreen() {
       </ScrollView>
     </Screen>
   );
+}
+
+/**
+ * One milestone tile: title, where it stands, and the character underneath.
+ *
+ * The character is cropped off the bottom-right corner, per the handoff — a full-bleed
+ * figure competes with the copy for the same small space, and the crop is what lets the tile
+ * stay a label with a character in it rather than a picture with a caption.
+ *
+ * Three visual states, and the distinction between the first two is the point of the whole
+ * card. A milestone earned this week hops and throws motes; one earned a month ago keeps its
+ * ring but settles into a drift. Left hopping forever it would stop meaning "this just
+ * happened" — which is the only thing a celebration can mean.
+ */
+function MilestoneTile({
+  milestone,
+  index,
+  today: todayIso,
+}: {
+  milestone: Milestone;
+  index: number;
+  today: string;
+}) {
+  const t = useTheme();
+
+  const fresh = milestone.earned && daysSince(milestone.earnedOn, todayIso) <= RECENT_DAYS;
+  const state = fresh ? 'fresh' : milestone.earned ? 'earned' : 'dormant';
+
+  // The ring is the earned signal that survives Reduce Motion, when none of the animation
+  // does. Tinted to the character so the tile reads correctly at a glance.
+  const ring = milestone.earned ? RING[milestone.character] : t.border;
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: t.dark ? t.softFill : '#F7F8FB',
+        borderRadius: 22,
+        borderWidth: 1.5,
+        borderColor: ring,
+        paddingTop: 13,
+        paddingHorizontal: 11,
+        overflow: 'hidden',
+        minHeight: 126,
+      }}
+    >
+      {/*
+        12.5/15.5 rather than the handoff's 13.5/17. The prototype's frame is 402pt wide and
+        breaks each title over two lines; three tiles inside 375pt leaves ~103pt each, where
+        13.5 pushes "Fuel logged seven days" onto four lines and doubles the tile's height.
+        Dropping a point buys the line back without shrinking the character.
+      */}
+      <Text
+        style={{
+          fontFamily: t.font.displaySemi,
+          fontSize: 12.5,
+          lineHeight: 15.5,
+          color: t.textPrimary,
+        }}
+      >
+        {milestone.title}
+      </Text>
+      <Body
+        size={11}
+        color={milestone.earned ? t.status.good : t.textSecondary}
+        style={{ marginTop: 3 }}
+      >
+        {milestone.label}
+      </Body>
+
+      <View style={{ marginTop: 'auto', alignItems: 'flex-end', marginRight: -8, marginBottom: -12 }}>
+        <MilestoneBlob character={milestone.character} state={state} index={index} width={86} />
+      </View>
+    </View>
+  );
+}
+
+/** Earned-ring tints, at the handoff's .35 alpha over each character's own colour. */
+const RING: Record<Milestone['character'], string> = {
+  athlete: 'rgba(14,159,110,0.35)',
+  star: 'rgba(232,162,0,0.35)',
+  cloud: 'rgba(124,58,237,0.35)',
+};
+
+function daysSince(iso: string | null, todayIso: string): number {
+  if (!iso) return Number.POSITIVE_INFINITY;
+  const [ay, am, ad] = iso.split('-').map(Number);
+  const [by, bm, bd] = todayIso.split('-').map(Number);
+  const a = new Date(ay ?? 1970, (am ?? 1) - 1, ad ?? 1).getTime();
+  const b = new Date(by ?? 1970, (bm ?? 1) - 1, bd ?? 1).getTime();
+  return Math.round((b - a) / 86_400_000);
 }
 
 function CardHead({ icon, title }: { icon: 'trend-wave' | 'pain-point'; title: string }) {

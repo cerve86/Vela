@@ -327,6 +327,36 @@ export const motion = {
   drift: { duration: 11000, easing: 'ease-in-out' },
   barFill: { duration: 600, easing: 'cubic-bezier(0.2,0.8,0.25,1)' },
   press: { duration: 150, scale: 0.965, easing: 'cubic-bezier(0.2,0.7,0.3,1)' },
+  /** The tab pill morphing open around its label. */
+  tab: { pad: 300, fill: 200, easing: 'cubic-bezier(0.2,0.8,0.25,1)' },
+} as const;
+
+/**
+ * The illustration keyframe library, from the design handoff.
+ *
+ * Named for the CSS keyframes in the prototypes so the two can be compared line by line.
+ * The loop durations are deliberately unrelated to each other — 2.1s against 3.4s against
+ * 4.4s never lands on a common multiple, so a grid of characters keeps drifting out of step
+ * instead of settling into a march. Per-instance `stagger` does the same job on mount.
+ *
+ * `hop`, `float` and `blink` loop; `pop` is an entrance that hands off to `float` and must
+ * never repeat. A loop that reads as celebration turns an achievement into wallpaper.
+ */
+export const blobMotion = {
+  /** Idle. ±6px and ±1.5° — visible at a glance, ignorable while reading. */
+  float: { duration: 3400, lift: 6, tilt: 1.5 },
+  /** Earned. Squash, rise 13px, overshoot, settle. */
+  hop: { duration: 2100, lift: 13, squash: 0.05 },
+  /** Entrance, one shot, then float takes over. */
+  pop: { duration: 620, overshoot: 1.12, from: 0.4, rotate: -14 },
+  /** Hard cut, never a fade — a fading eyelid reads as a dissolve, not a blink. */
+  blink: { duration: 4400, shut: 180 },
+  /** Celebration motes, staggered so they do not rise as a wall. */
+  mote: { duration: 2300, rise: 30, stagger: [0, 800, 1500] },
+  /** Applied per instance so a row of tiles never moves in lockstep. */
+  stagger: [0, 700, 1400],
+  /** Dimmed idle for a milestone not yet earned. */
+  dormant: { opacity: 0.34, duration: 4000 },
 } as const;
 
 /** Minimum comfortable touch target. Set-tick rows and slot cards exceed this. */
