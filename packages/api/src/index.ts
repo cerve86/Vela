@@ -6,4 +6,5 @@ export * from './programs';
 export * from './metrics';
 export * from './nutrition';
 export * from './openfoodfacts';
+export * from './messages';
 export type { Database } from './database.types';

@@ -478,6 +478,51 @@ export type Database = {
           },
         ]
       }
+      messages: {
+        Row: {
+          body: string
+          client_id: string
+          created_at: string
+          id: string
+          read_at: string | null
+          sender: Database["public"]["Enums"]["user_role"]
+          session_id: string | null
+        }
+        Insert: {
+          body: string
+          client_id: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          sender: Database["public"]["Enums"]["user_role"]
+          session_id?: string | null
+        }
+        Update: {
+          body?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          sender?: Database["public"]["Enums"]["user_role"]
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       metrics: {
         Row: {
           client_id: string
@@ -850,38 +895,23 @@ export type Database = {
         }
         Returns: string
       }
-      create_client_invite:
-        | {
-            Args: {
-              p_condition?: string
-              p_email: string
-              p_first_name: string
-              p_goal?: string
-              p_last_name: string
-            }
-            Returns: {
-              client_id: string
-              invite_id: string
-              token: string
-            }[]
-          }
-        | {
-            Args: {
-              p_breastfeeding?: boolean
-              p_condition?: string
-              p_delivery_type?: Database["public"]["Enums"]["delivery_type"]
-              p_email: string
-              p_first_name: string
-              p_goal?: string
-              p_last_name: string
-              p_weeks_postpartum?: number
-            }
-            Returns: {
-              client_id: string
-              invite_id: string
-              token: string
-            }[]
-          }
+      create_client_invite: {
+        Args: {
+          p_breastfeeding?: boolean
+          p_condition?: string
+          p_delivery_type?: Database["public"]["Enums"]["delivery_type"]
+          p_email: string
+          p_first_name: string
+          p_goal?: string
+          p_last_name: string
+          p_weeks_postpartum?: number
+        }
+        Returns: {
+          client_id: string
+          invite_id: string
+          token: string
+        }[]
+      }
       delete_my_account: { Args: never; Returns: undefined }
       get_session_plan: {
         Args: { p_session_id: string }

@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (47);
+  plan (59);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -511,6 +511,112 @@ select lives_ok (
       p_goal => 'Walk 5k without pain'
     )$$,
   'the five-argument invite the portal sends resolves and runs'
+);
+
+-- ---------------------------------------------------------------------------
+-- Messages: both sides read the thread, neither can write as the other
+-- ---------------------------------------------------------------------------
+
+reset role;
+
+insert into public.messages (client_id, sender, body)
+values
+  ('00000000-0000-4000-8000-0000000000f1', 'coach', 'How did Friday feel?'),
+  ('00000000-0000-4000-8000-0000000000f2', 'coach', 'Other practice, other client');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select count(*) from public.messages),
+  1::bigint,
+  'client one sees only her own thread (positive control)'
+);
+
+select lives_ok (
+  $$insert into public.messages (client_id, sender, body)
+    values ('00000000-0000-4000-8000-0000000000f1', 'client', 'Sore on the bounds, fine otherwise')$$,
+  'a client can write to her own thread as herself'
+);
+
+-- The forgery guard. Without the sender check on the insert policy, `sender` would be a
+-- decoration the recipient could set, and clinical advice could be fabricated by the
+-- person receiving it.
+select throws_ok (
+  $$insert into public.messages (client_id, sender, body)
+    values ('00000000-0000-4000-8000-0000000000f1', 'coach', 'Cleared to run — signed, your physio')$$,
+  '42501',
+  null,
+  'a client CANNOT post a message that appears to come from her physiotherapist'
+);
+
+select throws_ok (
+  $$insert into public.messages (client_id, sender, body)
+    values ('00000000-0000-4000-8000-0000000000f2', 'client', 'Into another client thread')$$,
+  '42501',
+  null,
+  'a client cannot write into another client thread'
+);
+
+-- Coach A reads her own client's thread and writes as the coach.
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select count(*) from public.messages),
+  2::bigint,
+  'coach A sees the thread for her own client only, both directions'
+);
+
+select lives_ok (
+  $$insert into public.messages (client_id, sender, body)
+    values ('00000000-0000-4000-8000-0000000000f1', 'coach', 'Then we hold the impact work')$$,
+  'a coach can reply as the coach'
+);
+
+-- Coach B owns a different practice and must see none of it.
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+
+select is (
+  (select count(*) from public.messages where client_id = '00000000-0000-4000-8000-0000000000f1'),
+  0::bigint,
+  'coach B cannot read another practice thread'
+);
+
+-- ---------------------------------------------------------------------------
+-- A client sees her own coach, and only her own
+-- ---------------------------------------------------------------------------
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select count(*) from public.coaches where id = '00000000-0000-4000-8000-0000000000a1'),
+  1::bigint,
+  'client one CAN see the practice she belongs to (positive control)'
+);
+
+select is (
+  (select practice_name from public.coaches where id = '00000000-0000-4000-8000-0000000000a1'),
+  'Practice A',
+  'and reads its name, which the invitation email already told her'
+);
+
+select is (
+  (select count(*) from public.coaches where id = '00000000-0000-4000-8000-0000000000a2'),
+  0::bigint,
+  'client one cannot see a practice she has no relationship with'
+);
+
+select is (
+  (select count(*) from public.profiles where id = '00000000-0000-4000-8000-0000000000a2'),
+  0::bigint,
+  'nor that other coach''s profile'
+);
+
+select is (
+  (select count(*) from public.profiles where id = '00000000-0000-4000-8000-0000000000c2'),
+  0::bigint,
+  'and still cannot see another client — the new policy widened nothing else'
 );
 
 -- ---------------------------------------------------------------------------

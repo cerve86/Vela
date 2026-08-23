@@ -477,6 +477,21 @@ export default function SessionScreen() {
               disabled={log.sendState === 'sending'}
               onPress={() => void log.send(painAfter, stopped)}
             />
+            {/*
+              A way to say something the scores cannot. The session travels with the message,
+              so "this one hurt more than usual" arrives attached to the day it is about and
+              the coach does not have to ask which.
+            */}
+            <Button
+              label="Say something about it"
+              variant="secondary"
+              onPress={() =>
+                router.push({
+                  pathname: '/messages',
+                  params: { session: sessionId ?? '', about: title },
+                })
+              }
+            />
             <Button label="Keep for later" variant="secondary" onPress={() => router.back()} />
           </>
         )}

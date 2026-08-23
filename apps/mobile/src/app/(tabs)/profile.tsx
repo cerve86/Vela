@@ -1,11 +1,14 @@
 import { useState } from 'react';
+import { useRouter } from 'expo-router';
 import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { deleteMyAccount, exportMyData, signOut } from '@vela/api';
-import { Body, Card, Display, Pill, Screen } from '@/components/kit';
+import { Body, Button, Card, Display, Pill, Screen } from '@/components/kit';
+import { VelaMark } from '@/components/brand';
 import { useTheme } from '@/theme';
+import { useCoach } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/lib/session';
 
@@ -17,8 +20,10 @@ import { useSession } from '@/lib/session';
  */
 export default function ProfileScreen() {
   const t = useTheme();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { session, client, refresh } = useSession();
+  const coach = useCoach();
 
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -94,33 +99,78 @@ export default function ProfileScreen() {
       >
         <Display size={30}>Profile</Display>
 
-        <Card>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.lg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          <View
+            style={{
+              width: 62,
+              height: 62,
+              borderRadius: 31,
+              backgroundColor: t.brand[100],
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: t.brand[700], fontSize: 24, fontFamily: t.font.displaySemi }}>
+              {name.slice(0, 2).toUpperCase()}
+            </Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontFamily: t.font.displaySemi,
+                fontSize: 24,
+                letterSpacing: -0.7,
+                color: t.textPrimary,
+              }}
+            >
+              {name.charAt(0).toUpperCase() + name.slice(1)}
+            </Text>
+            <Body size={13.5} color={t.textSecondary}>
+              {client?.weeksPostpartum != null
+                ? `Week ${client.weeksPostpartum} postpartum${
+                    client.deliveryType && client.deliveryType !== 'not_applicable'
+                      ? ` · ${client.deliveryType.replace('_', ' ')} delivery`
+                      : ''
+                  }`
+                : email}
+            </Body>
+          </View>
+        </View>
+
+        {/*
+          Who her physiotherapist is, and the way to reach her.
+          Named rather than left as "your physiotherapist": the app asks her to send things
+          to a person, and a person has a name. The database only started allowing this
+          read in 20260823010000 — before that the screen could not have said it.
+        */}
+        <Card style={{ borderRadius: 22 }}>
+          <Body size={11} weight="medium" color={t.textSecondary} style={{ letterSpacing: 0.5 }}>
+            YOUR PHYSIO
+          </Body>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, marginTop: 14 }}>
             <View
               style={{
-                width: 56,
-                height: 56,
-                borderRadius: 28,
-                backgroundColor: t.brand[100],
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: t.brand[600],
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ color: t.brand[800], fontSize: 20, fontFamily: t.font.displayBold }}>
-                {name.slice(0, 2).toUpperCase()}
-              </Text>
+              <VelaMark size={20} mode="onBrand" />
             </View>
             <View style={{ flex: 1 }}>
-              <Body size={18} weight="semibold">
-                {name}
+              <Body size={15} weight="medium">
+                {coach.loading ? '…' : (coach.data?.name ?? 'Your physiotherapist')}
               </Body>
-              <Body size={13} color={t.textSecondary}>
-                {email}
+              <Body size={12.5} color={t.textSecondary}>
+                {coach.data?.practiceName ?? 'Practice details not shared yet'}
               </Body>
-              <View style={{ marginTop: 6 }}>
-                <Pill tone="good">Email verified</Pill>
-              </View>
             </View>
+          </View>
+          <View style={{ marginTop: 16 }}>
+            <Button label="Send a message" onPress={() => router.push('/messages')} />
           </View>
         </Card>
 

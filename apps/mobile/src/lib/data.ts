@@ -116,6 +116,41 @@ export function useHistory(weeks = 16) {
   );
 }
 
+/**
+ * The physiotherapist this client belongs to.
+ *
+ * Two reads rather than a join, because the name and the practice live in different tables
+ * and each is guarded by its own policy — `profiles_client_reads_own_coach` and
+ * `coaches_client_reads_own_coach`. Either can legitimately return nothing (a coach who has
+ * not set a practice name, say), and the screen degrades to "Your physiotherapist" rather
+ * than showing half a card.
+ */
+export function useCoach() {
+  const { client } = useSession();
+
+  return useAsync<{ name: string; practiceName: string | null } | null>(
+    async () => {
+      if (!client) return null;
+
+      // RLS narrows both of these to the one coach who owns this client's row, so neither
+      // needs a filter here — and not writing one is what makes a mistake harmless.
+      const [{ data: profile }, { data: practice }] = await Promise.all([
+        supabase.from('profiles').select('first_name, last_name').eq('role', 'coach').maybeSingle(),
+        supabase.from('coaches').select('practice_name').maybeSingle(),
+      ]);
+
+      if (!profile && !practice) return null;
+      const name = `${profile?.first_name ?? ''} ${profile?.last_name ?? ''}`.trim();
+      return {
+        name: name || 'Your physiotherapist',
+        practiceName: practice?.practice_name ?? null,
+      };
+    },
+    null,
+    [client?.id],
+  );
+}
+
 /** Everything scheduled from today onwards — used for "what's next" when today is a rest day. */
 export function useUpcoming(limit = 5) {
   const { client } = useSession();
