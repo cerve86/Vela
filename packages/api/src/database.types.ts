@@ -113,6 +113,96 @@ export type Database = {
         }
         Relationships: []
       }
+      challenge_participants: {
+        Row: {
+          challenge_id: string
+          client_id: string
+          coach_id: string
+          joined_at: string
+        }
+        Insert: {
+          challenge_id: string
+          client_id: string
+          coach_id: string
+          joined_at?: string
+        }
+        Update: {
+          challenge_id?: string
+          client_id?: string
+          coach_id?: string
+          joined_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_participants_challenge_id_coach_id_fkey"
+            columns: ["challenge_id", "coach_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id", "coach_id"]
+          },
+          {
+            foreignKeyName: "challenge_participants_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenges: {
+        Row: {
+          coach_id: string
+          created_at: string
+          id: string
+          metric: Database["public"]["Enums"]["challenge_metric"]
+          name: string
+          program_id: string | null
+          starts_on: string
+          summary: string | null
+          weekly_target: number
+          weeks: number
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          id?: string
+          metric?: Database["public"]["Enums"]["challenge_metric"]
+          name: string
+          program_id?: string | null
+          starts_on?: string
+          summary?: string | null
+          weekly_target: number
+          weeks: number
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          id?: string
+          metric?: Database["public"]["Enums"]["challenge_metric"]
+          name?: string
+          program_id?: string | null
+          starts_on?: string
+          summary?: string | null
+          weekly_target?: number
+          weeks?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenges_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenges_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_invites: {
         Row: {
           accepted_at: string | null
@@ -936,6 +1026,32 @@ export type Database = {
         }
         Returns: string
       }
+      challenge_board: {
+        Args: { p_challenge: string }
+        Returns: {
+          client_id: string
+          done: number
+          name: string
+          target: number
+        }[]
+      }
+      challenge_standing: {
+        Args: { p_challenge: string }
+        Returns: {
+          group_target: number
+          group_total: number
+          mine: number
+          participants: number
+        }[]
+      }
+      challenge_weeks: {
+        Args: { p_challenge: string }
+        Returns: {
+          target: number
+          total: number
+          week_no: number
+        }[]
+      }
       create_client_invite: {
         Args: {
           p_breastfeeding?: boolean
@@ -1019,6 +1135,7 @@ export type Database = {
       }
     }
     Enums: {
+      challenge_metric: "sessions_completed" | "fuel_days"
       client_status: "invited" | "active" | "paused" | "archived"
       consent_type: "tos" | "privacy" | "health_data_processing"
       delivery_type:
@@ -1181,6 +1298,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      challenge_metric: ["sessions_completed", "fuel_days"],
       client_status: ["invited", "active", "paused", "archived"],
       consent_type: ["tos", "privacy", "health_data_processing"],
       delivery_type: [

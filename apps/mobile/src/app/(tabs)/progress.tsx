@@ -2,8 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { Link, useFocusEffect } from 'expo-router';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronRight, Trophy } from 'lucide-react-native';
-import { METRIC_META, type MetricType } from '@vela/api';
+import { ChevronRight, Trophy, Users } from 'lucide-react-native';
+import { METRIC_META, challengeWeekNow, type MetricType } from '@vela/api';
 import { RECENT_DAYS, deriveMilestones, type Milestone } from '@vela/shared';
 import { Body, Card, Display, Screen } from '@/components/kit';
 import { Rise, Tap } from '@/components/motion';
@@ -14,6 +14,7 @@ import { Illustration } from '@/components/Illustration';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
 import { addDays, startOfWeek, today, useHistory, useMetrics, useNutrition } from '@/lib/data';
+import { useMyChallenges, type ClientChallenge } from '@/lib/challenges';
 
 /**
  * Progress: consistency first, measurements second.
@@ -48,6 +49,7 @@ export default function ProgressScreen() {
   // Two weeks is enough for the fuel streak, which caps at seven days and only ever counts
   // backwards from today. Pulling sixteen weeks of meals to answer that would be waste.
   const nutrition = useNutrition(14);
+  const challenges = useMyChallenges();
 
   const [metric, setMetric] = useState<MetricType>('resting_hr');
 
@@ -173,6 +175,41 @@ export default function ProgressScreen() {
                 </View>
               </Card>
             </Rise>
+
+            {challenges.data.length > 0 && (
+              <Rise delay={90}>
+                <Card style={{ borderRadius: 22 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 10,
+                        backgroundColor: t.tint.mint,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Users size={16} color={t.status.good} strokeWidth={2.1} />
+                    </View>
+                    <Body size={13.5} weight="medium" style={{ flex: 1 }}>
+                      Together
+                    </Body>
+                  </View>
+
+                  <View style={{ gap: 16, marginTop: 14 }}>
+                    {challenges.data.map((c) => (
+                      <ChallengeRow key={c.challenge.id} entry={c} today={todayIso} />
+                    ))}
+                  </View>
+
+                  <Body size={11} color={t.textMuted} style={{ marginTop: 14, lineHeight: 16 }}>
+                    A group total, not a league table. You can see what everyone has done
+                    together and what you added — never anybody else&apos;s name or numbers.
+                  </Body>
+                </Card>
+              </Rise>
+            )}
 
             <Rise delay={120}>
               <Card style={{ borderRadius: 22 }}>
@@ -310,6 +347,73 @@ export default function ProgressScreen() {
         )}
       </ScrollView>
     </Screen>
+  );
+}
+
+/**
+ * One challenge, from the inside.
+ *
+ * Her own contribution is stated first and the group's second, which is the order that
+ * keeps this a personal number with company rather than a ranking. There is deliberately no
+ * position, no "you are 4th of 6", and nothing that could be turned into one — the data
+ * behind this card is four integers, and none of them belongs to a named person.
+ */
+function ChallengeRow({ entry, today: todayIso }: { entry: ClientChallenge; today: string }) {
+  const t = useTheme();
+  const { challenge, standing } = entry;
+
+  const week = challengeWeekNow(challenge.startsOn, challenge.weeks, todayIso);
+  const noun = challenge.metric === 'fuel_days' ? 'days' : 'sessions';
+  const pct =
+    standing.groupTarget > 0
+      ? Math.min(100, Math.round((standing.groupTotal / standing.groupTarget) * 100))
+      : 0;
+
+  return (
+    <View>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+        <Body size={13.5} weight="medium" style={{ flex: 1 }}>
+          {challenge.name}
+        </Body>
+        <Body size={11} color={t.textSecondary}>
+          {week === null ? 'Not started' : `Week ${week} of ${challenge.weeks}`}
+        </Body>
+      </View>
+
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: 8 }}>
+        <Text
+          style={{
+            fontFamily: t.font.displaySemi,
+            fontSize: 26,
+            letterSpacing: -1,
+            color: t.textPrimary,
+            fontVariant: ['tabular-nums'],
+          }}
+        >
+          {standing.mine}
+        </Text>
+        <Body size={12.5} color={t.textSecondary}>
+          {noun} from you
+        </Body>
+      </View>
+
+      <View
+        style={{
+          height: 8,
+          borderRadius: 999,
+          backgroundColor: t.softFill,
+          overflow: 'hidden',
+          marginTop: 10,
+        }}
+      >
+        <View style={{ width: `${pct}%`, height: '100%', backgroundColor: t.status.good }} />
+      </View>
+
+      <Body size={11.5} color={t.textSecondary} style={{ marginTop: 7 }}>
+        {standing.groupTotal} of {standing.groupTarget} together, across{' '}
+        {standing.participants} {standing.participants === 1 ? 'person' : 'people'}
+      </Body>
+    </View>
   );
 }
 

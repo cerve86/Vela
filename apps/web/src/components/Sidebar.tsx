@@ -3,7 +3,7 @@
 import type { ComponentType } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Dumbbell, MessageSquare, Sparkles, Users } from 'lucide-react';
+import { Dumbbell, MessageSquare, Sparkles, Trophy, Users } from 'lucide-react';
 import type { VelaIconName } from '@vela/shared';
 import { palette } from '@vela/shared/tokens';
 import { SignedInAs } from './SignedInAs';
@@ -21,6 +21,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: '/clients', label: 'Clients', Icon: Users },
   { href: '/programs', label: 'Programmes', vela: 'program-block' },
+  { href: '/challenges', label: 'Challenges', Icon: Trophy },
   { href: '/library', label: 'Exercise library', Icon: Dumbbell },
   { href: '/messages', label: 'Messages', Icon: MessageSquare },
   { href: '/preview', label: 'Design preview', Icon: Sparkles },

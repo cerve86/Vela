@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (72);
+  plan (88);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -745,6 +745,159 @@ select is (
   (select onboarded_at from public.clients where id = '00000000-0000-4000-8000-0000000000f2'),
   null,
   'the other practice''s client was left alone'
+);
+
+-- ---------------------------------------------------------------------------
+-- Challenges: a group total may cross clients; nothing else may
+-- ---------------------------------------------------------------------------
+
+-- This is the only feature where one client's activity informs something another client
+-- sees, so the assertions are about the shape of what leaks out, not just who can call
+-- what. Two participants of the same challenge, plus an outsider in another practice.
+
+reset role;
+
+insert into public.clients (id, profile_id, coach_id, email, status, first_name_hint, last_name_hint)
+values
+  ('00000000-0000-4000-8000-0000000000f3', null, '00000000-0000-4000-8000-0000000000a1', 'client.three@test.local', 'active', 'Third', 'Client');
+
+insert into public.challenges (id, coach_id, name, metric, starts_on, weeks, weekly_target)
+values
+  ('00000000-0000-4000-8000-00000000cc01', '00000000-0000-4000-8000-0000000000a1', 'Four weeks, four sessions', 'sessions_completed', '2026-08-03', 4, 4);
+
+insert into public.challenge_participants (challenge_id, coach_id, client_id)
+values
+  ('00000000-0000-4000-8000-00000000cc01', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000f1'),
+  ('00000000-0000-4000-8000-00000000cc01', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000f3');
+
+-- Two completed sessions for client one, three for client three, all inside week 1.
+insert into public.sessions (client_id, title, discipline, scheduled_date, status)
+values
+  ('00000000-0000-4000-8000-0000000000f1', 'S1', 'strength', '2026-08-03', 'completed'),
+  ('00000000-0000-4000-8000-0000000000f1', 'S2', 'strength', '2026-08-05', 'completed'),
+  ('00000000-0000-4000-8000-0000000000f3', 'S3', 'strength', '2026-08-04', 'completed'),
+  ('00000000-0000-4000-8000-0000000000f3', 'S4', 'strength', '2026-08-06', 'completed'),
+  ('00000000-0000-4000-8000-0000000000f3', 'S5', 'strength', '2026-08-07', 'completed');
+
+set local role authenticated;
+
+-- The coach who owns it -----------------------------------------------------
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select total from public.challenge_weeks('00000000-0000-4000-8000-00000000cc01') where week_no = 1),
+  5::bigint,
+  'the owning coach sees the whole group total for week one (positive control)'
+);
+
+select is (
+  (select count(*) from public.challenge_board('00000000-0000-4000-8000-00000000cc01')),
+  2::bigint,
+  'and both participants on the board'
+);
+
+select is (
+  (select target from public.challenge_weeks('00000000-0000-4000-8000-00000000cc01') where week_no = 1),
+  8::bigint,
+  'the weekly target scales with the head count — two people, four each'
+);
+
+-- The other practice --------------------------------------------------------
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+
+select is (
+  (select count(*) from public.challenges),
+  0::bigint,
+  'another coach cannot see the challenge at all'
+);
+
+select is (
+  (select count(*) from public.challenge_board('00000000-0000-4000-8000-00000000cc01')),
+  0::bigint,
+  'nor read its board by naming its id'
+);
+
+select is (
+  (select count(*) from public.challenge_standing('00000000-0000-4000-8000-00000000cc01')),
+  0::bigint,
+  'nor its standing — the guard fails closed for a stranger'
+);
+
+-- A participant -------------------------------------------------------------
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select count(*) from public.challenges),
+  1::bigint,
+  'a participant can read the challenge she is in (positive control)'
+);
+
+select is (
+  (select count(*) from public.challenge_participants),
+  1::bigint,
+  'but only her own membership row — never the roster of who else is in it'
+);
+
+select is (
+  (select group_total from public.challenge_standing('00000000-0000-4000-8000-00000000cc01')),
+  5::bigint,
+  'she gets the group total, which is the point of the feature'
+);
+
+select is (
+  (select mine from public.challenge_standing('00000000-0000-4000-8000-00000000cc01')),
+  2::bigint,
+  'and her own share of it, separated out'
+);
+
+select is (
+  (select participants from public.challenge_standing('00000000-0000-4000-8000-00000000cc01')),
+  2,
+  'and the head count, so the total has a denominator'
+);
+
+-- The shape of the leak. `challenge_standing` returns four integers and no text; a name
+-- column appearing here later is the regression this asserts against.
+select is (
+  (select count(*) from information_schema.routines r
+   join information_schema.parameters p on p.specific_name = r.specific_name
+   where r.routine_name = 'challenge_standing'
+     and p.parameter_mode = 'OUT'
+     and p.data_type not in ('integer', 'bigint')),
+  0::bigint,
+  'challenge_standing returns only integers — no identity can ride out on it'
+);
+
+select is (
+  (select count(*) from public.challenge_board('00000000-0000-4000-8000-00000000cc01')),
+  1::bigint,
+  'the board gives a participant only herself, so it cannot be used to name the others'
+);
+
+-- A participant must not be able to add herself, or anybody else, to a challenge. This is
+-- refused outright rather than silently dropped, which is the better failure: an app that
+-- writes and gets nothing back has no way to tell success from a policy denial.
+select throws_ok (
+  $$insert into public.challenge_participants (challenge_id, coach_id, client_id)
+    values ('00000000-0000-4000-8000-00000000cc01', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000f2')$$,
+  '42501',
+  null,
+  'and cannot enrol anybody — membership is the coach''s to decide'
+);
+
+-- A client in another practice ---------------------------------------------
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c2';
+
+select is (
+  (select count(*) from public.challenges),
+  0::bigint,
+  'a client elsewhere sees no challenge'
+);
+
+select is (
+  (select count(*) from public.challenge_standing('00000000-0000-4000-8000-00000000cc01')),
+  0::bigint,
+  'and gets no standing from one she is not in'
 );
 
 -- ---------------------------------------------------------------------------

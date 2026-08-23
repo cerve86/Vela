@@ -9,4 +9,5 @@ export * from './openfoodfacts';
 export * from './messages';
 export * from './dailyReads';
 export * from './onboarding';
+export * from './challenges';
 export type { Database } from './database.types';
