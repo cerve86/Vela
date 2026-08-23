@@ -1,4 +1,6 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { TriangleAlert } from 'lucide-react';
 import {
   METRIC_META,
   listMetrics,
@@ -6,8 +8,8 @@ import {
   type MetricType,
   type ScheduledSession,
 } from '@vela/api';
-import { adherenceBand } from '@vela/shared';
-import { adherenceStyle } from '@vela/shared/tokens';
+import { adherenceBand, painLabel } from '@vela/shared';
+import { adherenceStyle, palette } from '@vela/shared/tokens';
 import { Card, PainDot, StatTile, StatusPill } from '@/components/ui';
 import { Meter, TimeSeriesPanels, type Panel } from '@/components/charts';
 import { dateWindow } from '@/lib/series';
@@ -91,18 +93,43 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
   const painByDate = new Map(
     sessions.filter((s) => s.painAfter !== null).map((s) => [s.scheduledDate, s.painAfter as number]),
   );
+  const beforeByDate = new Map(
+    sessions
+      .filter((s) => s.painBefore !== null)
+      .map((s) => [s.scheduledDate, s.painBefore as number]),
+  );
+
+  /**
+   * Both halves of the pair, on one axis.
+   *
+   * Plotting only the after-score was the weaker chart: 4/10 after means one thing when she
+   * started at 2 and something else entirely when she started at 5. The gap is the reading,
+   * so both lines are drawn and the eye does the subtraction.
+   *
+   * The two colours are the pair already validated for this app in both light and dark —
+   * blue against pink, which clears CVD separation and the normal-vision floor. Two series
+   * also means the panel renders its legend, so identity never rests on colour alone.
+   */
   const painPanel: Panel[] = [
     {
       id: 'pain',
-      label: 'Reported pain after session (0–10)',
+      label: 'Symptoms before and after each session (0–10)',
       domain: [0, 10],
-      height: 150,
+      height: 160,
       format: { style: 'fixed', decimals: 0 },
       series: [
         {
-          id: 'pain',
-          label: 'Pain',
-          color: 'var(--series-2)',
+          id: 'before',
+          label: 'Before',
+          color: 'var(--series-1)',
+          kind: 'line',
+          points: xLabels.map((d) => ({ x: d, y: beforeByDate.get(d) ?? null })),
+          connectGaps: true,
+        },
+        {
+          id: 'after',
+          label: 'After',
+          color: 'var(--series-5)',
           kind: 'line',
           points: xLabels.map((d) => ({ x: d, y: painByDate.get(d) ?? null })),
           connectGaps: true,
@@ -111,6 +138,58 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
     },
   ];
 
+  /**
+   * The one thing worth surfacing above everything else, or nothing at all.
+   *
+   * Derived only from columns that exist: a high score after a session, a score that rose
+   * sharply across one, or a run of missed work. The symptom flag the prototype leans on
+   * ("she flagged heaviness") is not stored yet — it lives in the daily read on the device
+   * — so it is not claimed here.
+   */
+  const alert = (() => {
+    const finished = sessions
+      .filter((s) => s.status === 'completed' && s.painAfter !== null)
+      .sort((a, b) => (a.scheduledDate < b.scheduledDate ? 1 : -1));
+    const last = finished[0];
+
+    if (last && (last.painAfter as number) >= 6) {
+      return {
+        tone: 'critical' as const,
+        title: `Needs your eye — ${last.painAfter}/10 after ${last.title}`,
+        body: `She finished the session and reported ${painLabel(last.painAfter as number).toLowerCase()} symptoms afterwards${
+          last.painBefore !== null ? `, from ${last.painBefore}/10 before` : ''
+        }. Worth a look before the next one is due.`,
+      };
+    }
+
+    if (last && last.painBefore !== null && (last.painAfter as number) - last.painBefore >= 3) {
+      return {
+        tone: 'warning' as const,
+        title: 'Symptoms rose sharply during her last session',
+        body: `${last.painBefore}/10 before, ${last.painAfter}/10 after ${last.title}. The absolute number is fine; the jump is the part worth reading.`,
+      };
+    }
+
+    const missed = sessions.filter(
+      (s) => s.scheduledDate < todayIso && s.status === 'scheduled' && s.scheduledDate >= daysBack(13),
+    );
+    if (missed.length >= 2) {
+      return {
+        tone: 'warning' as const,
+        title: `${missed.length} sessions passed without being logged`,
+        body: 'Could be a quiet fortnight, could be something she has not said. A message is usually quicker than guessing.',
+      };
+    }
+
+    return null;
+  })();
+
+  const { count: mealsLogged } = await supabase
+    .from('food_logs')
+    .select('id', { count: 'exact', head: true })
+    .eq('client_id', id)
+    .gte('logged_on', daysBack(6));
+
   const recent = sessions
     .filter((s) => s.status !== 'scheduled' || s.scheduledDate < todayIso)
     .slice(-6)
@@ -118,6 +197,39 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
 
   return (
     <div className="space-y-4">
+      {alert && (
+        <div
+          className="surface flex items-center gap-4 rounded-[22px] p-6"
+          style={{ background: 'var(--surface)' }}
+        >
+          <span
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+            style={{ background: 'var(--ghost)' }}
+          >
+            <TriangleAlert
+              size={20}
+              strokeWidth={2.2}
+              aria-hidden
+              style={{
+                color:
+                  alert.tone === 'critical' ? palette.status.critical : palette.status.warning,
+              }}
+            />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="display-face text-lg font-semibold">{alert.title}</div>
+            <p className="mt-0.5 text-sm ink-2">{alert.body}</p>
+          </div>
+          <Link
+            href={`/clients/${id}/training`}
+            className="display-face shrink-0 rounded-full px-4 py-2.5 text-sm font-medium text-white transition-transform hover:-translate-y-px"
+            style={{ background: palette.brand[600] }}
+          >
+            Review sessions
+          </Link>
+        </div>
+      )}
+
       <div className="grid grid-cols-4 gap-3">
         <StatTile
           label="Adherence · 7 days"
@@ -150,7 +262,7 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
         />
       </div>
 
-      <Card title="Reported pain" action={<span className="text-xs ink-3">Last 28 days</span>}>
+      <Card title="Symptoms" action={<span className="text-xs ink-3">Last 28 days</span>}>
         {painByDate.size === 0 ? (
           // An empty 0–10 axis reads like something failed to load. Say what is actually
           // true: she has not finished a session yet, so there is no score to plot.
@@ -162,7 +274,8 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
           <>
             <TimeSeriesPanels xLabels={xLabels} panels={painPanel} />
             <p className="mt-2 text-xs ink-3">
-              Training volume load joins this timeline once set-by-set logs sync in Phase 3.
+              The gap between the two lines is the reading, not either number on its own.
+              Readiness reads are not here yet — they are still kept on her phone.
             </p>
           </>
         )}
@@ -181,6 +294,13 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
               <div className="text-xs ink-2">Scheduled in the last 7 days</div>
               <div className="tnum text-lg font-semibold">
                 {sessions.filter((s) => s.scheduledDate >= daysBack(6) && s.scheduledDate <= todayIso).length}
+              </div>
+            </div>
+            <div className="border-t pt-3">
+              <div className="text-xs ink-2">Meals logged · 7 days</div>
+              <div className="tnum text-lg font-semibold">
+                {mealsLogged ?? 0}
+                <span className="ml-1 text-xs font-normal ink-3">of 28 slots</span>
               </div>
             </div>
             <div>
