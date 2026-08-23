@@ -21,7 +21,13 @@ interface SessionState {
   client: ClientRecord | null;
   /** Health-data consent granted and not revoked. Gates the main app. */
   hasConsent: boolean;
-  refresh: () => Promise<void>;
+  /**
+   * Reloads the session and returns what it found.
+   *
+   * The return value matters: signing in successfully is not the same as getting in, and a
+   * caller that awaits this needs to know which happened without waiting for a re-render.
+   */
+  refresh: () => Promise<{ session: Session | null; client: ClientRecord | null }>;
 }
 
 const Ctx = createContext<SessionState>({
@@ -29,7 +35,7 @@ const Ctx = createContext<SessionState>({
   session: null,
   client: null,
   hasConsent: false,
-  refresh: async () => {},
+  refresh: async () => ({ session: null, client: null }),
 });
 
 export function SessionProvider({ children }: { children: ReactNode }) {
@@ -38,14 +44,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [client, setClient] = useState<ClientRecord | null>(null);
   const [hasConsent, setHasConsent] = useState(false);
 
-  async function load(current: Session | null) {
+  async function load(current: Session | null): Promise<ClientRecord | null> {
     setSession(current);
 
     if (!current) {
       setClient(null);
       setHasConsent(false);
       setLoading(false);
-      return;
+      return null;
     }
 
     // No .eq('profile_id', …) here on purpose: RLS already restricts this to the
@@ -56,20 +62,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       .select('id, email, condition, goal, status, weeks_postpartum, delivery_type, breastfeeding')
       .maybeSingle();
 
-    setClient(
-      row
-        ? {
-            id: row.id,
-            email: row.email,
-            condition: row.condition,
-            goal: row.goal,
-            status: row.status,
-            weeksPostpartum: row.weeks_postpartum,
-            deliveryType: row.delivery_type,
-            breastfeeding: row.breastfeeding,
-          }
-        : null,
-    );
+    const record: ClientRecord | null = row
+      ? {
+          id: row.id,
+          email: row.email,
+          condition: row.condition,
+          goal: row.goal,
+          status: row.status,
+          weeksPostpartum: row.weeks_postpartum,
+          deliveryType: row.delivery_type,
+          breastfeeding: row.breastfeeding,
+        }
+      : null;
+
+    setClient(record);
 
     if (row) {
       const { data: consents } = await supabase
@@ -83,6 +89,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
 
     setLoading(false);
+    return record;
   }
 
   useEffect(() => {
@@ -101,7 +108,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       hasConsent,
       refresh: async () => {
         const { data } = await supabase.auth.getSession();
-        await load(data.session);
+        const next = await load(data.session);
+        return { session: data.session, client: next };
       },
     }),
     [loading, session, client, hasConsent],

@@ -1,5 +1,5 @@
 import { useColorScheme } from 'react-native';
-import { palette, radius, space, typography } from '@vela/shared/tokens';
+import { mealSlots, motion, palette, radius, space, tide, typography } from '@vela/shared/tokens';
 
 /**
  * The iOS side of the same token set the portal uses. Both read from
@@ -29,11 +29,26 @@ export function useTheme() {
     accent: palette.accent,
     status: palette.status,
     tint: palette.tint,
+    vitals: palette.vitals,
     series: dark ? palette.series.dark : palette.series.light,
+    sequential: dark ? palette.sequential.dark : palette.sequential.light,
+    mealSlots,
+    tide,
+    motion,
     space,
     radius,
     typography,
     font,
+    /**
+     * The illustrated band behind the greeting. Light mode is the design's own pale blue;
+     * dark lifts it just clear of the page so the band still reads as a distinct surface
+     * rather than a seam. Both are flat — the line-art inside carries the depth.
+     */
+    bandFill: dark ? '#1A2136' : palette.brand[100],
+    bandLine: dark ? 'rgba(143,174,255,0.16)' : 'rgba(27,79,216,0.10)',
+    /** Track behind the readiness dial and any ring drawn on the band. */
+    dialTrack: dark ? '#2A3150' : '#D3E0FA',
+    dialTicks: dark ? '#333C5E' : '#BFD2F6',
     /** Tinted fills need to flip in dark mode — a cream card on black reads as a bug. */
     softFill: dark ? 'rgba(255,255,255,0.06)' : palette.tint.chip,
     inputFill: dark ? 'rgba(255,255,255,0.08)' : palette.tint.chip,

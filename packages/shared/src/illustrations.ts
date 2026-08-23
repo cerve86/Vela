@@ -149,21 +149,21 @@ export const ILLUSTRATION_NAMES = Object.keys(illustrations) as IllustrationName
  */
 export const ILLUSTRATION_PALETTE = {
   light: {
-    ground: '#FFEFE2',
+    ground: '#EDF1FB',
     paper: '#FFFFFF',
-    primary: '#FF7B63',
-    primaryDeep: '#D93A24',
-    accent: '#7A2FB8',
+    primary: '#5C87F7',
+    primaryDeep: '#1B4FD8',
+    accent: '#7C3AED',
     gold: '#E8A200',
-    ink: '#1F1512',
+    ink: '#12172B',
   },
   dark: {
-    ground: '#2E221C',
-    paper: '#4C3930',
-    primary: '#F0553F',
-    primaryDeep: '#FFC6B9',
+    ground: '#1E2438',
+    paper: '#2E3650',
+    primary: '#5C87F7',
+    primaryDeep: '#B8CCFF',
     accent: '#9A5AD8',
     gold: '#C28900',
-    ink: '#F8EFE9',
+    ink: '#EEF2FF',
   },
 } as const;

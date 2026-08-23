@@ -1,48 +1,48 @@
 import { useCallback } from 'react';
-import { Link, useFocusEffect } from 'expo-router';
-import { Bell, Check } from 'lucide-react-native';
+import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { Utensils } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { adherenceBand, adherenceStyle } from '@vela/shared';
-import type { ScheduledSession } from '@vela/api';
+import { activePlan, planMinutes, temperTone } from '@vela/shared';
 import {
-  Avatar,
   Body,
   Button,
   Card,
   ChipRow,
   Display,
-  Pill,
-  ProgressBar,
+  DosePill,
+  PlanRow,
+  PlanTag,
   Screen,
+  StatTile,
 } from '@/components/kit';
 import { VelaIcon } from '@/components/brand';
+import { HeroBand, HeroChip, HeroStat, ReadinessDial, SlotStrip, Tile, TideBars } from '@/components/hero';
 import { Illustration } from '@/components/Illustration';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
-import {
-  addDays,
-  latestOf,
-  today,
-  useMetrics,
-  useSessionPlan,
-  useUpcoming,
-  useWeek,
-  weekAdherence,
-} from '@/lib/data';
+import { addDays, today, useNutrition, useSessionPlan, useUpcoming, useWeek } from '@/lib/data';
+import { useDailyRead } from '@/lib/daily';
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
+/**
+ * Today, rebuilt to the "Coaching App Flow Redesign" prototype.
+ *
+ * The screen leads with the readiness read rather than the roster of what is scheduled,
+ * because the whole point of the redesign is that readiness gates the prescription. The
+ * band, the two tiles and the plan card are three answers to one question — how is today,
+ * and what does that make of it — in descending order of abstraction.
+ */
 export default function TodayScreen() {
   const t = useTheme();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { client } = useSession();
 
   const week = useWeek();
   const upcoming = useUpcoming(3);
-  const metrics = useMetrics(['weight_kg', 'resting_hr', 'steps'], 30);
-
   const plan = useSessionPlan(week.todaySession?.id ?? null);
+  const nutrition = useNutrition(1);
+  const daily = useDailyRead();
 
   // Coming back from a finished session must not leave "Start session" on screen. The
   // logging screen writes the outcome and pops, so this tab has to refetch on focus
@@ -50,79 +50,232 @@ export default function TodayScreen() {
   useFocusEffect(
     useCallback(() => {
       week.reload();
-      metrics.reload();
+      nutrition.reload();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );
 
-  const adherence = weekAdherence(week.data);
-  const band = adherenceBand(adherence.ratio);
-  const weight = latestOf(metrics.data, 'weight_kg');
-
-  const firstName = client?.email.split('@')[0]?.split('.')[0] ?? 'there';
+  const firstName = client?.email.split('@')[0]?.split('.')[0] || 'there';
   const name = firstName.charAt(0).toUpperCase() + firstName.slice(1);
   const todayIso = today();
 
-  const blocks = [...new Set(plan.data.map((i) => i.block))];
-  const estMinutes = Math.round(
-    plan.data.reduce((n, i) => n + i.sets * 45 + i.sets * i.restSec, 0) / 60,
+  const active = activePlan(plan.data, daily.current, daily.read.symptom);
+  const mins = planMinutes(active.items.map((i) => ({ sets: i.sets, restSec: i.restSec })));
+
+  const started = week.todaySession?.status === 'in_progress';
+  const done = week.todaySession?.status === 'completed';
+
+  // Readiness drives the dial. Unlogged sits the needle at a quarter turn rather than zero —
+  // an empty ring reads as "you are depleted" when it means "you have not said".
+  const dialValue = daily.current === null ? 0.25 : (daily.current + 1) / 5;
+  const dialWord = daily.current === null ? 'Not yet' : t.tide[daily.current]!.label;
+  const dialTone = daily.current === null ? t.textMuted : t.tide[daily.current]!.tone;
+
+  // `useNutrition(1)` windows to today alone, so `days` holds at most one row. Reading the
+  // rolled-up day rather than summing entries here keeps one definition of a daily total.
+  const dayTotals = nutrition.data.days.find((d) => d.day === todayIso);
+  const kcal = Math.round(dayTotals?.kcal ?? 0);
+  const target = nutrition.data.target?.kcal ?? null;
+
+  // `meal` on a log entry is already the four-slot enum the redesign asks for, so the strip
+  // reads real state rather than a placeholder.
+  const loggedSlots = Object.fromEntries(
+    t.mealSlots.map((s) => [s.key, nutrition.data.entries.some((e) => e.meal === s.key)]),
   );
+  const slotCount = Object.values(loggedSlots).filter(Boolean).length;
+
+  const sessionsKept = week.data.filter((s) => s.status === 'completed').length;
 
   return (
     <Screen>
       <ScrollView
         contentContainerStyle={{
-          padding: t.space.lg,
-          paddingTop: insets.top + t.space.md,
-          paddingBottom: t.space.xxl * 2,
-          gap: t.space.md,
+          paddingHorizontal: t.space.lg,
+          paddingBottom: t.space.xxl * 3,
+          gap: 14,
         }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Avatar name={name} size={44} />
-          <View
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              backgroundColor: t.surface,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Bell size={18} color={t.textSecondary} strokeWidth={2} />
+        <HeroBand>
+          <View style={{ paddingTop: insets.top + 22 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 6,
+              }}
+            >
+              <HeroStat
+                value={String(sessionsKept)}
+                label="KEPT"
+                sub="this week"
+                align="right"
+              />
+              <ReadinessDial value={dialValue} word={dialWord} tone={dialTone} />
+              <HeroStat
+                value={done ? '0' : String(active.items.length)}
+                label="MOVES"
+                sub={done ? 'all done' : 'to go'}
+                align="left"
+              />
+            </View>
+
+            <Text
+              style={{
+                fontFamily: t.font.regular,
+                fontSize: 15,
+                lineHeight: 21,
+                color: t.textPrimary,
+                textAlign: 'center',
+                marginTop: 18,
+              }}
+            >
+              {greeting(name, daily.current, done, Boolean(week.todaySession))}
+            </Text>
+
+            <HeroChip
+              label={
+                daily.current === null
+                  ? 'Readiness not logged yet'
+                  : `${active.tag} · ${mins} min`
+              }
+              dot={daily.current === null ? t.textMuted : temperTone[active.temper]}
+            />
           </View>
+        </HeroBand>
+
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+          <Tile
+            icon={<VelaIcon name="readiness" size={14} color={t.brand[600]} strokeWidth={2.2} />}
+            title={`${capitalise(daily.openWindow)} read`}
+            value={daily.current === null ? '—' : String(daily.current + 1)}
+            unit={daily.current === null ? undefined : 'of 5'}
+            pill={daily.allLogged ? 'All three in' : daily.current === null ? 'Not logged' : 'Logged'}
+            pillBg={daily.current === null ? t.softFill : t.tint.mint}
+            pillFg={daily.current === null ? t.textSecondary : t.status.good}
+            meta={daily.read.symptom === 'Nothing' ? 'No symptoms' : daily.read.symptom}
+            strip={<TideBars values={daily.strip} />}
+            onPress={() => router.push('/mood')}
+          />
+
+          <Tile
+            icon={<Utensils size={14} color={t.status.warning} strokeWidth={2.2} />}
+            title="Fuel"
+            value={kcal ? kcal.toLocaleString('en-GB') : '0'}
+            unit="kcal"
+            pill={`${slotCount} of 4`}
+            pillBg={slotCount === 0 ? t.softFill : t.tint.cream}
+            pillFg={slotCount === 0 ? t.textSecondary : t.brand[700]}
+            meta={target ? `of ${target.toLocaleString('en-GB')}` : 'No target set'}
+            strip={<SlotStrip logged={loggedSlots} />}
+            onPress={() => router.push('/(tabs)/nutrition')}
+          />
         </View>
 
-        <View style={{ marginTop: t.space.sm }}>
-          <Text>
-            <Text style={{ fontFamily: t.font.display, fontSize: 34, letterSpacing: -1, color: t.textMuted }}>
-              Hello!{' '}
-            </Text>
-            <Text style={{ fontFamily: t.font.display, fontSize: 34, letterSpacing: -1, color: t.textPrimary }}>
-              {name}
-            </Text>
-          </Text>
-          <Body size={14} color={t.textSecondary} style={{ marginTop: 2 }}>
-            {client?.weeksPostpartum != null
-              ? `Week ${client.weeksPostpartum} postpartum`
-              : client?.goal || 'Welcome back'}
-          </Body>
-        </View>
+        {week.loading ? (
+          <Card>
+            <ActivityIndicator color={t.brand[600]} />
+          </Card>
+        ) : week.todaySession ? (
+          <Card style={{ borderRadius: 22, paddingVertical: 22 }}>
+            <PlanTag label={active.tag} tone={active.tone} />
 
-        <WeekStrip sessions={week.data} weekStart={week.weekStart} todayIso={todayIso} />
+            <Display size={24} style={{ marginTop: 12 }}>
+              {week.todaySession.title}
+            </Display>
+            <Body size={13.5} color={t.textSecondary} style={{ marginTop: 4, lineHeight: 19 }}>
+              {active.note}
+            </Body>
+
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
+              <StatTile label="TIME" value={String(mins)} unit="min" dark flex={1.3} />
+              <StatTile label="MOVES" value={String(active.items.length)} />
+              <StatTile label="SETS" value={String(active.setCount)} />
+            </View>
+
+            <View style={{ marginTop: 12, gap: 6 }}>
+              {active.items.map((i) => (
+                <PlanRow
+                  key={i.itemId}
+                  name={i.exerciseName}
+                  dose={
+                    `${i.sets} × ${i.reps}` +
+                    (!active.dropLoad && i.targetLoadKg ? ` · ${i.targetLoadKg} kg` : '')
+                  }
+                />
+              ))}
+            </View>
+
+            <View style={{ marginTop: 22 }}>
+              {done ? (
+                <ChipRow>
+                  <View
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: t.status.good,
+                    }}
+                  />
+                  <Body size={13} color={t.textSecondary} style={{ flex: 1 }}>
+                    Logged and sent to your physio. Nothing else needed today.
+                  </Body>
+                </ChipRow>
+              ) : (
+                <Link href={`/session/${week.todaySession.id}`} asChild>
+                  <Button label={started ? 'Resume session' : 'Start session'} />
+                </Link>
+              )}
+            </View>
+          </Card>
+        ) : (
+          <Card title="Rest day" style={{ borderRadius: 22 }}>
+            <View style={{ alignItems: 'center', marginBottom: t.space.md }}>
+              <Illustration name="rest" width={168} />
+            </View>
+            <Body size={14} color={t.textSecondary}>
+              Nothing scheduled today. Rest is part of the programme, not a gap in it.
+            </Body>
+            {upcoming.data.length > 0 && (
+              <View style={{ marginTop: t.space.lg, gap: 6 }}>
+                <Body size={11} weight="bold" color={t.textMuted} style={{ letterSpacing: 0.5 }}>
+                  COMING UP
+                </Body>
+                {upcoming.data.map((s) => (
+                  <View
+                    key={s.id}
+                    style={{
+                      backgroundColor: t.softFill,
+                      borderRadius: t.radius.md,
+                      paddingVertical: 11,
+                      paddingHorizontal: 14,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                    }}
+                  >
+                    <Body size={15} weight="medium" style={{ flex: 1 }}>
+                      {s.title}
+                    </Body>
+                    <DosePill>{friendlyDate(s.scheduledDate, todayIso)}</DosePill>
+                  </View>
+                ))}
+              </View>
+            )}
+          </Card>
+        )}
 
         {client?.weeksPostpartum != null && (
           <Link href="/readiness" asChild>
             <Pressable>
-              <Card fill={t.dark ? 'rgba(240,85,63,0.13)' : t.tint.peach}>
+              <Card fill={t.dark ? 'rgba(92,135,247,0.12)' : t.tint.peach} style={{ borderRadius: 22 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.lg }}>
                   <VelaIcon name="readiness" size={28} color={t.brand[600]} strokeWidth={2} />
                   <View style={{ flex: 1 }}>
                     <Text
                       style={{
-                        fontFamily: t.font.displayBold,
+                        fontFamily: t.font.displaySemi,
                         fontSize: 15,
                         letterSpacing: -0.3,
                         color: t.textPrimary,
@@ -143,241 +296,33 @@ export default function TodayScreen() {
             </Pressable>
           </Link>
         )}
-
-        {week.loading ? (
-          <Card>
-            <ActivityIndicator color={t.brand[600]} />
-          </Card>
-        ) : week.todaySession ? (
-          <Card
-            title="Today's session"
-            right={
-              estMinutes > 0 ? (
-                <Body size={12} color={t.textMuted}>
-                  ~{estMinutes} min
-                </Body>
-              ) : undefined
-            }
-          >
-            <Display size={24}>{week.todaySession.title}</Display>
-            <Body size={13} color={t.textSecondary} style={{ marginTop: 3 }}>
-              {plan.data.length} exercises · {plan.data.reduce((n, i) => n + i.sets, 0)} sets
-            </Body>
-
-            <View style={{ marginTop: t.space.lg, gap: t.space.md }}>
-              {blocks.map((b) => (
-                <View key={b} style={{ gap: 6 }}>
-                  <Body size={11} weight="bold" color={t.textMuted}>
-                    BLOCK {b}
-                  </Body>
-                  {plan.data
-                    .filter((i) => i.block === b)
-                    .map((i) => (
-                      <ChipRow key={i.itemId}>
-                        <View
-                          style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: t.brand[400] }}
-                        />
-                        <Body size={14} weight="medium" style={{ flex: 1 }}>
-                          {i.exerciseName}
-                        </Body>
-                        <Body size={13} color={t.textSecondary}>
-                          {i.sets} × {i.reps}
-                          {i.targetLoadKg ? ` · ${i.targetLoadKg} kg` : ''}
-                        </Body>
-                      </ChipRow>
-                    ))}
-                </View>
-              ))}
-            </View>
-
-            <View style={{ marginTop: t.space.xl }}>
-              {week.todaySession.status === 'completed' ? (
-                <View style={{ alignItems: 'flex-start', gap: t.space.md }}>
-                  <Pill tone="good">Done today</Pill>
-                  <Body size={13} color={t.textSecondary}>
-                    Logged and sent to your physio. Nothing else needed today.
-                  </Body>
-                </View>
-              ) : (
-                <Link href={`/session/${week.todaySession.id}`} asChild>
-                  <Button
-                    label={
-                      week.todaySession.status === 'in_progress'
-                        ? 'Resume session'
-                        : 'Start session'
-                    }
-                  />
-                </Link>
-              )}
-            </View>
-          </Card>
-        ) : (
-          <Card title="Rest day">
-            <View style={{ alignItems: 'center', marginBottom: t.space.md }}>
-              <Illustration name="rest" width={168} />
-            </View>
-            <Body size={14} color={t.textSecondary}>
-              Nothing scheduled today. Rest is part of the programme, not a gap in it.
-            </Body>
-            {upcoming.data.length > 0 && (
-              <View style={{ marginTop: t.space.lg, gap: 8 }}>
-                <Body size={11} weight="bold" color={t.textMuted}>
-                  COMING UP
-                </Body>
-                {upcoming.data.map((s) => (
-                  <ChipRow key={s.id}>
-                    <Body size={14} weight="medium" style={{ flex: 1 }}>
-                      {s.title}
-                    </Body>
-                    <Body size={13} color={t.textSecondary}>
-                      {friendlyDate(s.scheduledDate, todayIso)}
-                    </Body>
-                  </ChipRow>
-                ))}
-              </View>
-            )}
-          </Card>
-        )}
-
-        <Card title="This week">
-          <View style={{ gap: t.space.lg }}>
-            <View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                <Body size={13} color={t.textSecondary}>
-                  {adherence.due === 0 ? 'Sessions so far' : 'Sessions completed'}
-                </Body>
-                <Body size={13} weight="semibold">
-                  {adherence.due === 0
-                    ? 'Nothing due yet'
-                    : `${adherence.completed} of ${adherence.due}`}
-                </Body>
-              </View>
-              <ProgressBar value={adherence.ratio} color={adherenceStyle[band].color} />
-            </View>
-
-            <View style={{ flexDirection: 'row' }}>
-              <Stat label="Scheduled" value={String(week.data.length)} />
-              <Stat
-                label="Weight"
-                value={weight ? weight.value.toFixed(1) : '—'}
-                unit={weight ? 'kg' : undefined}
-              />
-              <Stat
-                label="Readings"
-                value={String(metrics.data.length)}
-                unit={metrics.data.length ? '30d' : undefined}
-              />
-            </View>
-          </View>
-        </Card>
-
-        <Link href="/health" asChild>
-          <Pressable>
-            <Card title="Apple Health">
-              <Body size={13} color={t.textSecondary}>
-                {metrics.data.length > 0
-                  ? 'Weight, resting heart rate and steps are syncing.'
-                  : 'Connect Apple Health so your physio can see how training is landing.'}
-              </Body>
-              <View style={{ marginTop: t.space.md }}>
-                <Pill tone={metrics.data.length > 0 ? 'good' : 'warning'}>
-                  {metrics.data.length > 0 ? `${metrics.data.length} readings` : 'Not connected'}
-                </Pill>
-              </View>
-            </Card>
-          </Pressable>
-        </Link>
       </ScrollView>
     </Screen>
   );
 }
 
-function Stat({ label, value, unit }: { label: string; value: string; unit?: string }) {
-  const t = useTheme();
-  return (
-    <View style={{ flex: 1 }}>
-      <Body size={12} color={t.textSecondary}>
-        {label}
-      </Body>
-      <Text
-        style={{
-          fontFamily: t.font.display,
-          fontSize: 22,
-          letterSpacing: -0.6,
-          color: t.textPrimary,
-          marginTop: 2,
-        }}
-      >
-        {value}
-        {unit && (
-          <Text style={{ fontFamily: t.font.medium, fontSize: 12, color: t.textMuted }}> {unit}</Text>
-        )}
-      </Text>
-    </View>
-  );
+function capitalise(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function WeekStrip({
-  sessions,
-  weekStart,
-  todayIso,
-}: {
-  sessions: ScheduledSession[];
-  weekStart: string;
-  todayIso: string;
-}) {
-  const t = useTheme();
-  const byDate = new Map(sessions.map((s) => [s.scheduledDate, s]));
-
-  return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: t.space.sm }}>
-      {WEEKDAYS.map((label, i) => {
-        const iso = addDays(weekStart, i);
-        const s = byDate.get(iso);
-        const isToday = iso === todayIso;
-        const done = s?.status === 'completed';
-        const scheduled = Boolean(s) && !done;
-
-        return (
-          <View key={label} style={{ alignItems: 'center', gap: 6 }}>
-            <View
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                borderWidth: isToday ? 3 : 2,
-                borderColor: done
-                  ? t.brand[600]
-                  : isToday
-                    ? t.accent[500]
-                    : scheduled
-                      ? t.brand[300]
-                      : t.grid,
-                backgroundColor: done ? t.brand[600] : 'transparent',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {done ? (
-                <Check size={14} color="#fff" strokeWidth={3} />
-              ) : scheduled ? (
-                <View
-                  style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: t.brand[500] }}
-                />
-              ) : null}
-            </View>
-            <Body
-              size={11}
-              color={isToday ? t.textPrimary : t.textMuted}
-              weight={isToday ? 'semibold' : 'regular'}
-            >
-              {label}
-            </Body>
-          </View>
-        );
-      })}
-    </View>
-  );
+/**
+ * The one sentence on the band.
+ *
+ * Warm but flat, per the handoff — no exclamation marks and no hype. It states the
+ * situation and stops; the plan card does the explaining.
+ */
+function greeting(
+  name: string,
+  readiness: number | null,
+  done: boolean,
+  hasSession: boolean,
+): string {
+  if (done) return `That's it logged, ${name}. Nothing else needed today.`;
+  if (!hasSession) return `No session today, ${name}. Rest counts as programme.`;
+  if (readiness === null) return `Morning, ${name}. Tell me how today feels and I'll set the session.`;
+  if (readiness <= 1) return `Gently today, ${name}. Something is better than the full thing.`;
+  if (readiness >= 4) return `You're in good shape today, ${name}. There's room if you want it.`;
+  return `Good to see you, ${name}. Today is ready when you are.`;
 }
 
 function friendlyDate(iso: string, todayIso: string): string {

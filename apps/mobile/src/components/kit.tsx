@@ -47,16 +47,20 @@ export function Body({
   weight = 'regular',
   color,
   style,
+  numberOfLines,
 }: {
   children: ReactNode;
   size?: number;
   weight?: 'regular' | 'medium' | 'semibold' | 'bold';
   color?: string;
   style?: TextStyle;
+  /** Truncation, for metadata sharing a row with something that must not be pushed off it. */
+  numberOfLines?: number;
 }) {
   const t = useTheme();
   return (
     <Text
+      numberOfLines={numberOfLines}
       style={[
         { fontFamily: t.font[weight], fontSize: size, color: color ?? t.textPrimary },
         style,
@@ -354,6 +358,154 @@ export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
       >
         {initials}
       </Text>
+    </View>
+  );
+}
+
+/**
+ * The dose badge — "3 × 8-10", "22.5 kg".
+ *
+ * A raised chip rather than plain text, because it sits inside a row that is already tinted
+ * and the prescription is the one thing on that row a client scans for. Tabular numerals
+ * keep a column of doses from jittering as digits change width.
+ */
+export function DosePill({ children }: { children: ReactNode }) {
+  const t = useTheme();
+  return (
+    <View
+      style={{
+        backgroundColor: t.surface,
+        borderWidth: 1,
+        borderColor: t.dark ? t.border : 'rgba(27,79,216,0.18)',
+        borderRadius: t.radius.sm,
+        paddingVertical: 5,
+        paddingHorizontal: 9,
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: t.font.medium,
+          fontSize: 12.5,
+          color: t.brand[600],
+          fontVariant: ['tabular-nums'],
+        }}
+      >
+        {children}
+      </Text>
+    </View>
+  );
+}
+
+/** One prescribed movement, as listed on Today. Dot, name, dose. */
+export function PlanRow({ name, dose }: { name: string; dose: string }) {
+  const t = useTheme();
+  return (
+    <View
+      style={{
+        backgroundColor: t.softFill,
+        borderRadius: t.radius.md,
+        paddingVertical: 11,
+        paddingHorizontal: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+      }}
+    >
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: t.brand[400] }} />
+      <Body size={15} weight="medium" style={{ flex: 1 }}>
+        {name}
+      </Body>
+      <DosePill>{dose}</DosePill>
+    </View>
+  );
+}
+
+/**
+ * One of the three figures summarising a session — time, moves, sets.
+ *
+ * `dark` inverts it. The design fills the first tile with ink/900 so the eye lands on
+ * duration first; the other two stay tinted. That ordering is the point, so the variant
+ * lives here rather than being re-derived at each call site.
+ */
+export function StatTile({
+  label,
+  value,
+  unit,
+  dark: inverted = false,
+  flex = 1,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  dark?: boolean;
+  flex?: number;
+}) {
+  const t = useTheme();
+  const fg = inverted ? '#FFFFFF' : t.textPrimary;
+  const labelFg = inverted ? t.brand[300] : t.textSecondary;
+
+  return (
+    <View
+      style={{
+        flex,
+        backgroundColor: inverted ? (t.dark ? t.brand[900] : '#12172B') : t.softFill,
+        borderRadius: t.radius.md,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: t.font.medium,
+          fontSize: 11,
+          letterSpacing: 0.5,
+          color: labelFg,
+        }}
+      >
+        {label}
+      </Text>
+      <Text
+        style={{
+          fontFamily: t.font.displaySemi,
+          fontSize: 24,
+          letterSpacing: -0.7,
+          color: fg,
+          marginTop: 4,
+          fontVariant: ['tabular-nums'],
+        }}
+      >
+        {value}
+        {unit ? (
+          <Text style={{ fontFamily: t.font.regular, fontSize: 13.5, color: labelFg }}>
+            {' '}
+            {unit}
+          </Text>
+        ) : null}
+      </Text>
+    </View>
+  );
+}
+
+/** The tag above a plan title — "As prescribed", "Trimmed to fit". */
+export function PlanTag({ label, tone }: { label: string; tone: string }) {
+  const t = useTheme();
+  return (
+    <View
+      style={{
+        alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingVertical: 5,
+        paddingHorizontal: 10,
+        borderRadius: t.radius.pill,
+        backgroundColor: t.softFill,
+      }}
+    >
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: tone }} />
+      <Body size={12.5} weight="medium">
+        {label}
+      </Body>
     </View>
   );
 }

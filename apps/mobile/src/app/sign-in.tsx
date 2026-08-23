@@ -26,6 +26,8 @@ export default function SignInScreen() {
   const [code, setCode] = useState('');
   const [stage, setStage] = useState<'email' | 'code' | 'sending' | 'verifying'>('email');
   const [error, setError] = useState<string | null>(null);
+  /** Whether an email actually went out, so the copy on the code step can stay truthful. */
+  const [sent, setSent] = useState(false);
 
   async function send() {
     setStage('sending');
@@ -37,9 +39,13 @@ export default function SignInScreen() {
       shouldCreateUser: false,
     });
     if (err) {
+      // Failing the send used to strand anyone who already had a code: the field for it
+      // only appeared on success, so a working code had nowhere to be typed. Show the
+      // error, and leave the way through open.
       setError(err);
       setStage('email');
     } else {
+      setSent(true);
       setStage('code');
     }
   }
@@ -53,7 +59,23 @@ export default function SignInScreen() {
       setStage('code');
       return;
     }
-    await refresh();
+
+    /**
+     * A correct code is not the same as a way in.
+     *
+     * The routing gate also requires a client row, and an address whose invitation was
+     * never redeemed has none. In that case the gate redirects to sign-in — the screen
+     * already on display — so nothing moves, and this function used to return leaving the
+     * button reading "Verifying…" for ever, with no error and no way back. Waiting on the
+     * refreshed value rather than a re-render is what lets us tell the two apart.
+     */
+    const next = await refresh();
+    if (!next.client) {
+      setStage('code');
+      setError(
+        'That code was right, but this address is not set up as a client yet. Accept your invitation first, or ask your physiotherapist to send a new one.',
+      );
+    }
   }
 
   const inputStyle = {
@@ -82,7 +104,11 @@ export default function SignInScreen() {
           </Display>
           <Body size={14} color={t.textSecondary} style={{ marginTop: 4 }}>
             {stage === 'code' || stage === 'verifying'
-              ? `We sent a six-digit code to ${email}`
+              ? // Only claim to have sent something when we actually did. Arriving here via
+                // "I already have a code" means no email went out on this attempt.
+                sent
+                ? `We sent a six-digit code to ${email}`
+                : `Enter the six-digit code for ${email}`
               : 'Sign in with the email your physiotherapist invited'}
           </Body>
         </View>
@@ -143,15 +169,33 @@ export default function SignInScreen() {
               onPress={() => {
                 setStage('email');
                 setCode('');
+                setSent(false);
+                setError(null);
               }}
             />
           </>
         ) : (
-          <Button
-            label={stage === 'sending' ? 'Sending…' : 'Email me a code'}
-            disabled={email.length < 5 || stage === 'sending'}
-            onPress={send}
-          />
+          <>
+            <Button
+              label={stage === 'sending' ? 'Sending…' : 'Email me a code'}
+              disabled={email.length < 5 || stage === 'sending'}
+              onPress={send}
+            />
+            {/*
+              The way in for anyone already holding a code — from an earlier email, or read
+              out to them. Without it, a client whose send fails is locked out even with a
+              perfectly valid code in front of her, because the field never appears.
+            */}
+            <Button
+              label="I already have a code"
+              variant="secondary"
+              disabled={email.length < 5}
+              onPress={() => {
+                setError(null);
+                setStage('code');
+              }}
+            />
+          </>
         )}
 
         <Button

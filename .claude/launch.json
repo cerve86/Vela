@@ -7,6 +7,14 @@
       "runtimeArgs": ["run", "dev:web"],
       "port": 4310,
       "autoPort": false
+    },
+    {
+      "name": "mobile-web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["expo", "start", "--web", "--port", "4320"],
+      "cwd": "apps/mobile",
+      "port": 4320,
+      "autoPort": false
     }
   ]
 }
