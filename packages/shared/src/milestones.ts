@@ -77,11 +77,18 @@ function firstFullWeek(input: MilestoneInput): Milestone {
     const week = startOfWeekIso(s.scheduledDate);
     if (week >= thisWeek) continue;
 
-    // Due means the day has passed and something was prescribed. A cancelled or
-    // never-started future session is not a miss.
-    const due = s.status === 'completed' || s.status === 'missed' || s.status === 'in_progress';
-    if (!due) continue;
-
+    /**
+     * Every session in a finished week was due.
+     *
+     * This used to test for a 'missed' status, which does not exist: session_status is
+     * ('scheduled','in_progress','completed','skipped') and "missed" is a display state the
+     * heatmap derives from a past date that was never completed. So the test never matched,
+     * a skipped session was not counted as due, and a week where she completed two of three
+     * was awarded as a full week. Exactly the false award this milestone exists to avoid.
+     *
+     * The current week is already excluded above, so there is no future session here to
+     * mistake for a due one and no status check is needed at all.
+     */
     const entry = byWeek.get(week) ?? { due: 0, kept: 0, last: s.scheduledDate };
     entry.due += 1;
     if (s.status === 'completed') {

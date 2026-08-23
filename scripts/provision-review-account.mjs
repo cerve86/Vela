@@ -162,6 +162,18 @@ check('mark_onboarded', await review.rpc('mark_onboarded'));
  * missed, sets actually recorded, symptom scores, sleep and HRV, and meals. Recovery and
  * strain both need history to mean anything, and this is that history.
  */
+/**
+ * Clear what a previous run left, so this is genuinely re-runnable.
+ *
+ * The docstring promises it is safe before a resubmission, and without this it is not:
+ * sessions and food logs would accumulate a second fortnight each time, and the daily read
+ * would collide with its own unique constraint. Each delete goes through the owner who has
+ * the policy for it — the coach owns sessions, the client owns her food logs.
+ */
+console.log('→ clearing anything a previous run left');
+check('clear sessions', await coach.from('sessions').delete().eq('client_id', clientId));
+check('clear food logs', await review.from('food_logs').delete().eq('client_id', clientId));
+
 console.log('→ building a fortnight of history');
 
 const { data: exercises } = await coach.from('exercises').select('id, name').limit(6);
@@ -183,7 +195,9 @@ for (const [offset, done, planned] of [
     title: 'Lower strength',
     discipline: 'strength',
     scheduled_date: day(offset),
-    status: done === 0 ? 'missed' : 'completed',
+    // 'scheduled' left on a past date is what the heatmap renders as missed; there is no
+    // 'missed' status. session_status is ('scheduled','in_progress','completed','skipped').
+    status: done === 0 ? 'scheduled' : 'completed',
     sets_planned: planned,
     sets_done: done,
     pain_before: 2,
@@ -211,7 +225,10 @@ sessions.push({
   status: 'scheduled',
   sets_planned: 12,
 });
-check('sessions', await admin.from('sessions').insert(sessions));
+// As the coach, not the admin: `sessions_coach` is the policy that owns these, and
+// service_role holds no grant on the table at all. Writing them through her means every
+// row is checked on the way in, which is the same discipline seed-demo.mjs follows.
+check('sessions', await coach.from('sessions').insert(sessions));
 
 // Sleep and HRV, as the client's own import — the path the app uses.
 const samples = [];
@@ -239,15 +256,25 @@ for (let i = 14; i >= 0; i--) {
 check('import_health_metrics', await review.rpc('import_health_metrics', { p_samples: samples }));
 
 // A readiness read for today, so recovery has all three inputs rather than two.
+/**
+ * The read is upserted, not deleted and rewritten.
+ *
+ * daily_reads has UPDATE and DELETE revoked from `authenticated` on purpose — a read, once
+ * given, is a record of what she said at that moment and must not be rewritten. So a second
+ * run leaves the first read standing rather than replacing it.
+ */
 check(
   'daily_reads',
-  await review.from('daily_reads').insert({
-    client_id: clientId,
-    read_on: day(0),
-    read_window: 'morning',
-    readiness: 3,
-    symptom: 'Nothing',
-  }),
+  await review.from('daily_reads').upsert(
+    {
+      client_id: clientId,
+      read_on: day(0),
+      read_window: 'morning',
+      readiness: 3,
+      symptom: 'Nothing',
+    },
+    { onConflict: 'client_id,read_on,read_window', ignoreDuplicates: true },
+  ),
 );
 
 // Meals across three of today's four slots, so Fuel is not empty.
@@ -268,7 +295,7 @@ check(
       protein_g: Math.round(kcal * 0.075),
       carbs_g: Math.round(kcal * 0.11),
       fat_g: Math.round(kcal * 0.035),
-      source: 'described',
+      source: 'search',
     })),
   ),
 );

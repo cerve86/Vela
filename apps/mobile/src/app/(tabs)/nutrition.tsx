@@ -417,9 +417,18 @@ export default function FuelScreen() {
   );
 }
 
+/**
+ * How an entry got here, in her words.
+ *
+ * The four cases are the whole of `food_log_source`: ('barcode','search','custom','quick').
+ * This used to name 'described' and 'manual', neither of which exists — so two branches were
+ * unreachable and every real value except a barcode fell through to "From the food list",
+ * including a food she had typed in herself and a one-tap repeat of yesterday.
+ */
 function sourceLabel(source: string): string {
   if (source === 'barcode') return 'Scanned';
-  if (source === 'described') return 'Estimated from a description';
-  if (source === 'manual') return 'Entered by hand';
-  return 'From the food list';
+  if (source === 'custom') return 'Your own food';
+  if (source === 'quick') return 'Same as before';
+  if (source === 'search') return 'From the food list';
+  return 'Logged';
 }
