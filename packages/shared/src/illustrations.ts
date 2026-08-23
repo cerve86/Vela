@@ -11,7 +11,7 @@
  *
  * Colours are semantic slots, not hexes. An illustration appears on a cream page in light
  * mode and a near-black one in dark, so the ground and the paper have to swap with the
- * theme; baking in `#FFEFE2` would leave a bright card glowing on a dark screen.
+ * theme; baking in `#EDF1FB` would leave a bright card glowing on a dark screen.
  */
 
 export type IllustrationSlot =
@@ -145,7 +145,7 @@ export const ILLUSTRATION_NAMES = Object.keys(illustrations) as IllustrationName
  * Slot → hex, per theme.
  *
  * Dark is stepped, not inverted: `primaryDeep` becomes *lighter* than `primary` there,
- * because on a near-black ground the deep coral disappears while the pale one carries.
+ * because on a near-black ground the deep blue disappears while the pale one carries.
  */
 export const ILLUSTRATION_PALETTE = {
   light: {

@@ -33,16 +33,23 @@ export const SAIL_MAIN =
  * ground, where the jib has to stay clearly lighter than the mainsail or the two shapes
  * merge into one blob at icon sizes.
  */
+/**
+ * Sail fills, per background.
+ *
+ * `onLight` draws the mark on a pale surface; `onBrand` reverses it out of the brand blue
+ * for the app icon, the splash and any filled circle. The jib is always the lighter of the
+ * pair — it sits in front, and reversing that relationship makes the boat read inside out.
+ */
 export const BRAND_FILLS = {
-  onLight: { jib: '#FF7B63', main: '#D93A24' },
-  onBrand: { jib: '#FFC6B9', main: '#FFF4F1' },
+  onLight: { jib: '#5C87F7', main: '#1B4FD8' },
+  onBrand: { jib: '#B8CCFF', main: '#FFFFFF' },
   mono: { jib: '#000000', main: '#000000' },
 } as const;
 
 export type BrandFillMode = keyof typeof BRAND_FILLS;
 
-/** The coral ground the reversed mark sits on — app icon, splash, favicon. */
-export const BRAND_GROUND = '#D93A24';
+/** The ground the reversed mark sits on — app icon, splash, favicon. */
+export const BRAND_GROUND = '#1B4FD8';
 
 /**
  * A complete standalone SVG document for the mark, used by the asset generator and

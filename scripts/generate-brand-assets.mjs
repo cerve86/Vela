@@ -29,9 +29,26 @@ const grab = (name) => {
 const SAIL_JIB = grab('SAIL_JIB');
 const SAIL_MAIN = grab('SAIL_MAIN');
 const VIEWBOX = 96;
-const GROUND = '#D93A24';
-const ON_BRAND = { jib: '#FFC6B9', main: '#FFF4F1' };
-const ON_LIGHT = { jib: '#FF7B63', main: '#D93A24' };
+
+/**
+ * Colours come out of the same file as the geometry.
+ *
+ * They used to be copied here as literals, which is how every generated asset stayed coral
+ * through a repaint: `brand.ts` moved to blue, `npm run brand:assets` cheerfully rebuilt
+ * the icon from its own private copy, and the only symptom was a red app icon nobody had
+ * asked for. Two sources of truth for one colour will always drift; the fix is to have one.
+ */
+const grabFill = (mode, sail) => {
+  const block = new RegExp(`${mode}:\\s*\\{([^}]*)\\}`).exec(brandSource);
+  if (!block) throw new Error(`could not find BRAND_FILLS.${mode} in brand.ts`);
+  const m = new RegExp(`${sail}:\\s*'([^']+)'`).exec(block[1]);
+  if (!m) throw new Error(`could not find ${mode}.${sail} in brand.ts`);
+  return m[1];
+};
+
+const GROUND = grab('BRAND_GROUND');
+const ON_BRAND = { jib: grabFill('onBrand', 'jib'), main: grabFill('onBrand', 'main') };
+const ON_LIGHT = { jib: grabFill('onLight', 'jib'), main: grabFill('onLight', 'main') };
 
 function svg({ size, fills, ground, inset = 0 }) {
   const scale = 1 - inset * 2;
