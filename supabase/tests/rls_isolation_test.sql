@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (67);
+  plan (72);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -690,6 +690,61 @@ select is (
   (select count(*) from public.daily_reads),
   0::bigint,
   'another practice sees none of it'
+);
+
+-- ---------------------------------------------------------------------------
+-- Onboarding: mark_onboarded() is the only way in, and it opens nothing else
+-- ---------------------------------------------------------------------------
+
+-- The point of the definer function is that `authenticated` already holds table-wide
+-- UPDATE on clients for the coach's benefit, and RLS cannot narrow an update to one
+-- column. These four assertions are the proof that the function did not become a second
+-- route to the columns a client must never touch.
+
+set local role authenticated;
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select count(*) from public.clients where onboarded_at is not null),
+  0::bigint,
+  'a fresh client has not been onboarded'
+);
+
+select isnt (
+  (select public.mark_onboarded ()),
+  null,
+  'she can stamp her own row through the function'
+);
+
+select is (
+  (select count(*) from public.clients where onboarded_at is not null),
+  1::bigint,
+  'and it took'
+);
+
+-- The negative control. Without RLS permitting a client UPDATE this affects zero rows,
+-- which is what keeps her from reassigning herself to a different physiotherapist.
+update public.clients
+set
+  coach_id = '00000000-0000-4000-8000-0000000000a2'
+where
+  profile_id = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select coach_id from public.clients where id = '00000000-0000-4000-8000-0000000000f1'),
+  '00000000-0000-4000-8000-0000000000a1'::uuid,
+  'but a direct update still cannot move her to another coach'
+);
+
+-- One client's call must not stamp anybody else. Read back as the coach, since c1 cannot
+-- see c2's row at all — checking as c1 would pass on invisibility rather than on truth.
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+
+select is (
+  (select onboarded_at from public.clients where id = '00000000-0000-4000-8000-0000000000f2'),
+  null,
+  'the other practice''s client was left alone'
 );
 
 -- ---------------------------------------------------------------------------

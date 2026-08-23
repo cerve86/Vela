@@ -8,4 +8,5 @@ export * from './nutrition';
 export * from './openfoodfacts';
 export * from './messages';
 export * from './dailyReads';
+export * from './onboarding';
 export type { Database } from './database.types';

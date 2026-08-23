@@ -12,6 +12,8 @@ export interface ClientRecord {
   weeksPostpartum: number | null;
   deliveryType: string;
   breastfeeding: boolean;
+  /** Null until the welcome flow has been finished. Gates onboarding, once. */
+  onboardedAt: string | null;
 }
 
 interface SessionState {
@@ -59,7 +61,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // what makes a bug here harmless.
     const { data: row } = await supabase
       .from('clients')
-      .select('id, email, condition, goal, status, weeks_postpartum, delivery_type, breastfeeding')
+      .select(
+        'id, email, condition, goal, status, weeks_postpartum, delivery_type, breastfeeding, onboarded_at',
+      )
       .maybeSingle();
 
     const record: ClientRecord | null = row
@@ -72,6 +76,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           weeksPostpartum: row.weeks_postpartum,
           deliveryType: row.delivery_type,
           breastfeeding: row.breastfeeding,
+          onboardedAt: row.onboarded_at,
         }
       : null;
 

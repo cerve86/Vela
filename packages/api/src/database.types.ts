@@ -181,6 +181,7 @@ export type Database = {
           height_cm: number | null
           id: string
           last_name_hint: string | null
+          onboarded_at: string | null
           profile_id: string | null
           sex: string | null
           started_on: string
@@ -201,6 +202,7 @@ export type Database = {
           height_cm?: number | null
           id?: string
           last_name_hint?: string | null
+          onboarded_at?: string | null
           profile_id?: string | null
           sex?: string | null
           started_on?: string
@@ -221,6 +223,7 @@ export type Database = {
           height_cm?: number | null
           id?: string
           last_name_hint?: string | null
+          onboarded_at?: string | null
           profile_id?: string | null
           sex?: string | null
           started_on?: string
@@ -972,6 +975,7 @@ export type Database = {
       import_health_metrics: { Args: { p_samples: Json }; Returns: number }
       is_coach_of: { Args: { target_client: string }; Returns: boolean }
       is_the_client: { Args: { target_client: string }; Returns: boolean }
+      mark_onboarded: { Args: never; Returns: string }
       nutrition_days: {
         Args: { p_client: string; p_from: string; p_to: string }
         Returns: {

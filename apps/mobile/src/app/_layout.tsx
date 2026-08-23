@@ -13,15 +13,21 @@ import {
   PlusJakartaSans_700Bold,
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { SessionProvider, useSession } from '@/lib/session';
+import { onboardingDismissed } from '@/lib/onboardingLocal';
 import { palette } from '@vela/shared/tokens';
 
 SplashScreen.preventAutoHideAsync();
 
 /**
- * Routing gate. Three states, in order:
- *   no session            → sign-in (or the invite screen, which is public by design)
- *   session, no consent   → consent
- *   session and consent   → the app
+ * Routing gate. Four states, in order:
+ *   no session              → sign-in (or the invite screen, which is public by design)
+ *   session, no consent     → consent
+ *   consented, not onboarded → welcome
+ *   all three               → the app
+ *
+ * Welcome comes after consent and never instead of it. Consent is Article 9
+ * special-category permission and has to be asked separately and unbundled; an
+ * introduction that collects it in passing produces a record not worth having.
  */
 function Gate() {
   const { loading, session, client, hasConsent } = useSession();
@@ -32,6 +38,7 @@ function Gate() {
   const onInvite = route === 'invite';
   const onSignIn = route === 'sign-in';
   const onConsent = route === 'consent';
+  const onWelcome = route === 'welcome';
   const onAuthCallback = route === 'auth-callback';
 
   useEffect(() => {
@@ -62,8 +69,29 @@ function Gate() {
       return;
     }
 
-    if (onSignIn || onConsent) router.replace('/');
-  }, [loading, session, client, hasConsent, onInvite, onSignIn, onConsent, onAuthCallback, router]);
+    // Once, and recorded on the client row rather than on the device — a reinstall or a
+    // second phone should not walk somebody through the introduction again.
+    // `onboardingDismissed()` is the release valve for a stamp that would not save. Without
+    // it a failed write loops: welcome finishes, the gate still sees null, and she lands
+    // back on the screen she just completed.
+    if (!client.onboardedAt && !onboardingDismissed()) {
+      if (!onWelcome) router.replace('/welcome');
+      return;
+    }
+
+    if (onSignIn || onConsent || onWelcome) router.replace('/');
+  }, [
+    loading,
+    session,
+    client,
+    hasConsent,
+    onInvite,
+    onSignIn,
+    onConsent,
+    onWelcome,
+    onAuthCallback,
+    router,
+  ]);
 
   if (loading) {
     return (
@@ -80,6 +108,7 @@ function Gate() {
       <Stack.Screen name="auth-callback" />
       <Stack.Screen name="invite" />
       <Stack.Screen name="consent" />
+      <Stack.Screen name="welcome" />
       <Stack.Screen name="readiness" options={{ presentation: 'modal' }} />
       <Stack.Screen name="mood" options={{ presentation: 'modal' }} />
       {/* A pushed screen, not a sheet: the keyboard and a sheet fight each other. */}
