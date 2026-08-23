@@ -338,3 +338,87 @@ export async function listSessions(
   const { data } = await q;
   return (data ?? []).map(toSession);
 }
+
+/**
+ * Creates a whole programme from a bundle of movements, in three queries.
+ *
+ * The existing `addDay` / `addItem` pair writes one row per call, which is right when a
+ * coach is editing a single day in the builder and wrong here: a six-week block on three
+ * days with five movements is 18 days and 90 items, and 108 sequential round trips is not
+ * a save, it is a wait. Days first, then items keyed back to the day rows the insert
+ * returned.
+ *
+ * Not a transaction, which is worth being straight about. If the item insert fails the
+ * programme exists with empty days — visible, editable and deletable in the builder rather
+ * than invisible and orphaned. Wrapping it properly needs an RPC; the failure mode here is
+ * recoverable by hand, so it can wait.
+ */
+export async function createBundledProgram(
+  supabase: VelaClient,
+  coachId: string,
+  input: {
+    name: string;
+    description?: string;
+    weeks: number;
+    discipline: Discipline;
+    days: {
+      weekNo: number;
+      dayNo: number;
+      title: string;
+      items: {
+        exerciseId: string;
+        sets: number;
+        reps: string;
+        restSec: number;
+        targetLoadKg: number | null;
+        orderIndex: number;
+      }[];
+    }[];
+  },
+): Promise<{ id: string | null; error: string | null }> {
+  const { id, error: programError } = await createProgram(supabase, coachId, {
+    name: input.name,
+    description: input.description,
+    durationWeeks: input.weeks,
+    isTemplate: false,
+  });
+  if (programError || !id) return { id: null, error: programError ?? 'Could not create programme.' };
+
+  const { data: dayRows, error: dayError } = await supabase
+    .from('program_days')
+    .insert(
+      input.days.map((d) => ({
+        program_id: id,
+        week_no: d.weekNo,
+        day_no: d.dayNo,
+        title: d.title,
+        discipline: input.discipline,
+      })),
+    )
+    .select('id, week_no, day_no');
+
+  if (dayError) return { id, error: dayError.message };
+
+  const dayId = new Map((dayRows ?? []).map((r) => [`${r.week_no}:${r.day_no}`, r.id]));
+
+  const items = input.days.flatMap((d) => {
+    const parent = dayId.get(`${d.weekNo}:${d.dayNo}`);
+    if (!parent) return [];
+    return d.items.map((i) => ({
+      program_day_id: parent,
+      exercise_id: i.exerciseId,
+      order_index: i.orderIndex,
+      sets: i.sets,
+      reps: i.reps,
+      rest_sec: i.restSec,
+      target_load_kg: i.targetLoadKg,
+    }));
+  });
+
+  if (items.length > 0) {
+    const { error: itemError } = await supabase.from('program_items').insert(items);
+    if (itemError) return { id, error: itemError.message };
+  }
+
+  return { id, error: null };
+}

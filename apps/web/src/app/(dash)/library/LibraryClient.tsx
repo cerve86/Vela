@@ -10,6 +10,7 @@ import {
   duplicateExerciseAction,
   saveExerciseAction,
 } from './actions';
+import { BundleDialog } from './BundleDialog';
 
 const field = 'w-full rounded-[14px] px-3.5 py-2.5 text-sm outline-none';
 const fieldStyle = { background: 'var(--ghost)', color: 'var(--ink-primary)' };
@@ -26,7 +27,13 @@ function categoryLabel(c: ExerciseCategory) {
   return EXERCISE_CATEGORIES.find((x) => x.value === c)?.label ?? c;
 }
 
-export function LibraryClient({ exercises }: { exercises: LibraryExercise[] }) {
+export function LibraryClient({
+  exercises,
+  clients,
+}: {
+  exercises: LibraryExercise[];
+  clients: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +44,27 @@ export function LibraryClient({ exercises }: { exercises: LibraryExercise[] }) {
 
   /** Editing state: null = closed, '' = creating, an id = editing that exercise. */
   const [editing, setEditing] = useState<LibraryExercise | 'new' | null>(null);
+
+  /**
+   * Movements picked for a block.
+   *
+   * Held here rather than in the dialog so a coach can filter, search and change category
+   * while building a selection — the whole point is picking five movements that are not
+   * next to each other in the list.
+   */
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [bundling, setBundling] = useState(false);
+
+  const pickedExercises = exercises.filter((e) => picked.has(e.id));
+
+  function togglePick(id: string) {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   // Filtering client-side: the whole library is a few hundred rows at most, and a
   // round-trip per keystroke would feel worse than it looks in a network tab.
@@ -79,7 +107,51 @@ export function LibraryClient({ exercises }: { exercises: LibraryExercise[] }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20">
+      {bundling && (
+        <BundleDialog
+          selected={pickedExercises}
+          clients={clients}
+          onClose={() => setBundling(false)}
+          onDone={() => {
+            setBundling(false);
+            setPicked(new Set());
+          }}
+        />
+      )}
+
+      {/*
+        A docked bar rather than a button at the top of the page: the selection is built by
+        scrolling, and a control that scrolls away is a control that gets forgotten.
+      */}
+      {picked.size > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-40 flex justify-center p-4">
+          <div
+            className="flex items-center gap-4 rounded-full px-5 py-3 shadow-lg"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          >
+            <span className="text-sm">
+              <span className="font-semibold">{picked.size}</span> selected
+            </span>
+            <button
+              type="button"
+              onClick={() => setPicked(new Set())}
+              className="text-xs underline ink-2"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => setBundling(true)}
+              className="display-face rounded-full px-4 py-2 text-sm font-medium text-white transition-transform hover:-translate-y-px"
+              style={{ background: palette.brand[600] }}
+            >
+              Bundle into a block
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <input
           value={search}
@@ -268,6 +340,7 @@ export function LibraryClient({ exercises }: { exercises: LibraryExercise[] }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs ink-3">
+                  <th className="pb-2 font-medium w-8" />
                   <th className="pb-2 font-medium">Exercise</th>
                   <th className="pb-2 font-medium">Muscle groups</th>
                   <th className="pb-2 font-medium">Equipment</th>
@@ -278,6 +351,16 @@ export function LibraryClient({ exercises }: { exercises: LibraryExercise[] }) {
               <tbody>
                 {items.map((e) => (
                   <tr key={e.id} className="border-b last:border-0 align-top">
+                    <td className="py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={picked.has(e.id)}
+                        onChange={() => togglePick(e.id)}
+                        aria-label={`Add ${e.name} to a block`}
+                        className="h-4 w-4 cursor-pointer"
+                        style={{ accentColor: palette.brand[600] }}
+                      />
+                    </td>
                     <td className="py-2.5">
                       <div className="font-medium">{e.name}</div>
                       {e.cues[0] && <div className="text-xs ink-3">{e.cues[0]}</div>}

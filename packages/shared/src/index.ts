@@ -6,4 +6,5 @@ export * from './icons';
 export * from './illustrations';
 export * from './readiness';
 export * from './plan';
+export * from './progression';
 export * from './mock';
