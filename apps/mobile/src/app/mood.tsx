@@ -30,13 +30,16 @@ export default function MoodScreen() {
   const shut = daily.allLogged || already;
   const win = WINDOWS.find((w) => w.key === daily.openWindow)!;
 
-  function lock() {
+  async function lock() {
     if (shut) {
       setRefusal(daily.allLogged ? 'Three reads a day is plenty.' : 'This window is already logged.');
       return;
     }
     if (picked === null) return;
-    const result = daily.lock(picked);
+    // Awaited now that the lock is a write rather than a device setting. The refusal can
+    // come from the database as well as from this screen — two phones, or a reinstall
+    // mid-day, both defeated the old local-only check.
+    const result = await daily.lock(picked);
     if (!result.ok) {
       setRefusal('This window is already logged.');
       return;
@@ -149,7 +152,7 @@ export default function MoodScreen() {
         </View>
 
         <Pressable
-          onPress={lock}
+          onPress={() => void lock()}
           disabled={picked === null && !shut}
           accessibilityRole="button"
           style={({ pressed }) => ({

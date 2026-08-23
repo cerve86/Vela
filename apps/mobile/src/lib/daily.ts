@@ -1,22 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  currentRead,
+  lockDailyRead,
+  listDailyReads,
+  loggedWindows,
+  type DailyRead,
+  type ReadWindow,
+} from '@vela/api';
+import { supabase } from './supabase';
+import { useSession } from './session';
 import { today } from './data';
 
 /**
  * The daily read: readiness, and the symptom that overrides it.
  *
- * LOCAL ONLY, DELIBERATELY. There is no table for this yet — the redesign introduces it and
- * no schema has been designed (the handoff says as much). Storing it on the device keeps
- * Today honest and usable now, and makes the gap obvious rather than hiding it behind
- * plausible-looking numbers.
+ * This was device-only while there was no table for it. There is one now, so it reaches the
+ * coach — which matters more here than for most data, because readiness is what gates the
+ * prescription. The one person qualified to judge whether that gating is working was the
+ * one person who could not see the input.
  *
- * What that costs, so nobody is surprised later: the coach cannot see any of it, and it does
- * not survive reinstalling the app. Both are fixed by the same migration — a `daily_reads`
- * table keyed on (client_id, date, window) — at which point this module keeps its shape and
- * swaps AsyncStorage for the API.
- *
- * Keyed by ISO date, so the day rolls over on its own and yesterday's read never presents
- * itself as today's.
+ * The shape is unchanged from the local version on purpose: `current`, `lock`, `strip`,
+ * `openWindow` and `allLogged` mean exactly what they did, so the screens reading them did
+ * not have to change.
  */
 
 export const WINDOWS = [
@@ -25,28 +30,17 @@ export const WINDOWS = [
   { key: 'evening', label: 'Evening', until: 24 },
 ] as const;
 
-export type WindowKey = (typeof WINDOWS)[number]['key'];
+export type WindowKey = ReadWindow;
 
 /** Readiness 0-4, indexing `tide` in the shared tokens. */
 export type Tide = 0 | 1 | 2 | 3 | 4;
 
-export interface DailyRead {
-  /** Window key -> readiness. A window, once locked, is never rewritten. */
-  reads: Partial<Record<WindowKey, Tide>>;
-  symptom: string;
-  painBefore: number;
-}
-
-const EMPTY: DailyRead = { reads: {}, symptom: 'Nothing', painBefore: 0 };
-
-const key = (iso: string) => `vela.daily.${iso}`;
-
 /**
  * Which window is accepting a read right now.
  *
- * Wall-clock, not "the next empty one": the design's rule is that three reads a day land in
- * three fixed windows, and letting someone fill the morning slot at 9pm would turn a
- * spot-check into a diary entry written from memory.
+ * Wall-clock, not "the next empty one": three reads a day land in three fixed windows, and
+ * letting someone fill the morning slot at 9pm turns a spot-check into a diary entry
+ * written from memory.
  */
 export function openWindow(now = new Date()): WindowKey {
   const h = now.getHours();
@@ -54,82 +48,106 @@ export function openWindow(now = new Date()): WindowKey {
 }
 
 export function useDailyRead() {
+  const { client } = useSession();
   const iso = today();
-  const [read, setRead] = useState<DailyRead>(EMPTY);
+
+  const [reads, setReads] = useState<DailyRead[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const load = useCallback(async () => {
+    if (!client) {
+      setLoading(false);
+      return;
+    }
+    const rows = await listDailyReads(supabase, { clientId: client.id, from: iso, to: iso });
+    setReads(rows);
+    setLoading(false);
+  }, [client, iso]);
+
   useEffect(() => {
-    let cancelled = false;
-    AsyncStorage.getItem(key(iso))
-      .then((raw) => {
-        if (cancelled) return;
-        setRead(raw ? { ...EMPTY, ...(JSON.parse(raw) as DailyRead) } : EMPTY);
-      })
-      .catch(() => {
-        // A corrupt or unreadable entry must not take the screen down with it — an empty
-        // read is a correct starting state, and the next write repairs the record.
-        if (!cancelled) setRead(EMPTY);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [iso]);
+    void load();
+  }, [load]);
 
-  const persist = useCallback(
-    async (next: DailyRead) => {
-      setRead(next);
-      try {
-        await AsyncStorage.setItem(key(iso), JSON.stringify(next));
-      } catch {
-        // Nothing useful to do here: state is already updated, so the screen is correct for
-        // this session even if the write failed. Swallowing beats an alert about storage.
-      }
-    },
-    [iso],
-  );
-
-  /** Locks the currently open window. Refuses if it already holds a value. */
-  const lock = useCallback(
-    (value: Tide) => {
-      const w = openWindow();
-      if (read.reads[w] !== undefined) return { ok: false as const, window: w };
-      void persist({ ...read, reads: { ...read.reads, [w]: value } });
-      return { ok: true as const, window: w };
-    },
-    [read, persist],
-  );
-
-  const setSymptom = useCallback(
-    (symptom: string, painBefore = read.painBefore) => {
-      void persist({ ...read, symptom, painBefore });
-    },
-    [read, persist],
-  );
-
-  const logged = WINDOWS.filter((w) => read.reads[w.key] !== undefined);
+  const logged = loggedWindows(reads, iso);
+  const inForce = currentRead(reads, iso);
 
   /**
-   * The readiness Today acts on: the most recent locked window.
+   * Locks the currently open window.
    *
-   * `null` when nothing has been logged — Today must be able to tell "not asked yet" from
-   * "asked, and the answer was Depleted", because one prompts and the other prescribes.
+   * Returns `ok: false` when the window already holds a value — including when the database
+   * says so rather than this device. Two phones, or a reinstall mid-day, would both have
+   * defeated the old local-only check.
    */
-  const current: Tide | null = logged.length
-    ? read.reads[logged[logged.length - 1]!.key] ?? null
-    : null;
+  const lock = useCallback(
+    async (value: Tide, symptom?: string) => {
+      const w = openWindow();
+      if (!client) return { ok: false as const, window: w };
+      if (logged.includes(w)) return { ok: false as const, window: w };
+
+      const { error, alreadyLogged } = await lockDailyRead(supabase, {
+        clientId: client.id,
+        readOn: iso,
+        window: w,
+        readiness: value,
+        symptom: symptom ?? inForce?.symptom ?? 'Nothing',
+      });
+
+      await load();
+      if (error || alreadyLogged) return { ok: false as const, window: w };
+      return { ok: true as const, window: w };
+    },
+    [client, iso, logged, inForce, load],
+  );
+
+  /**
+   * The symptom in force.
+   *
+   * Written as part of a read rather than on its own, because a symptom without a moment
+   * attached is not much use to a physiotherapist. Setting one before a session records it
+   * against the open window if that window is still free; otherwise the session's own
+   * before-score carries it, which is where the coach reads it from anyway.
+   */
+  const setSymptom = useCallback(
+    async (symptom: string, readiness?: Tide) => {
+      const w = openWindow();
+      if (!client || logged.includes(w)) return;
+      await lockDailyRead(supabase, {
+        clientId: client.id,
+        readOn: iso,
+        window: w,
+        readiness: readiness ?? inForce?.readiness ?? 2,
+        symptom,
+      });
+      await load();
+    },
+    [client, iso, logged, inForce, load],
+  );
 
   return {
     loading,
-    read,
-    current,
+    /** Kept for call-site compatibility: the reads for today, plus the symptom in force. */
+    read: {
+      reads: Object.fromEntries(reads.map((r) => [r.window, r.readiness])) as Partial<
+        Record<WindowKey, Tide>
+      >,
+      symptom: inForce?.symptom ?? 'Nothing',
+      painBefore: 0,
+    },
+    /**
+     * The readiness Today acts on: the most recent locked window.
+     *
+     * `null` when nothing has been logged — Today must be able to tell "not asked yet" from
+     * "asked, and the answer was Depleted", because one prompts and the other prescribes.
+     */
+    current: (inForce?.readiness ?? null) as Tide | null,
     lock,
     setSymptom,
     openWindow: openWindow(),
     allLogged: logged.length === WINDOWS.length,
     /** One slot per window, in order, for the tile strip. */
-    strip: WINDOWS.map((w) => read.reads[w.key] ?? null),
+    strip: WINDOWS.map(
+      (w) => (reads.find((r) => r.window === w.key)?.readiness ?? null) as Tide | null,
+    ),
+    reload: load,
   };
 }

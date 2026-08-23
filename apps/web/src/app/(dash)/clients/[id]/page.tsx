@@ -3,12 +3,13 @@ import { notFound } from 'next/navigation';
 import { TriangleAlert } from 'lucide-react';
 import {
   METRIC_META,
+  listDailyReads,
   listMetrics,
   listSessions,
   type MetricType,
   type ScheduledSession,
 } from '@vela/api';
-import { adherenceBand, painLabel } from '@vela/shared';
+import { adherenceBand, painLabel, tide } from '@vela/shared';
 import { adherenceStyle, palette } from '@vela/shared/tokens';
 import { Card, PainDot, StatTile, StatusPill } from '@/components/ui';
 import { Meter, TimeSeriesPanels, type Panel } from '@/components/charts';
@@ -59,9 +60,10 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
   const todayIso = new Date().toISOString().slice(0, 10);
   const since28 = daysBack(27);
 
-  const [sessions, metrics] = await Promise.all([
+  const [sessions, metrics, reads] = await Promise.all([
     listSessions(supabase, { clientId: id, from: since28 }),
     listMetrics(supabase, { clientId: id, types: VITALS, since: sinceTimestamp(28) }),
+    listDailyReads(supabase, { clientId: id, from: daysBack(6) }),
   ]);
 
   const week = adherenceOver(sessions, daysBack(6), todayIso);
@@ -147,6 +149,28 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
    * — so it is not claimed here.
    */
   const alert = (() => {
+    /**
+     * A blocking symptom outranks everything else on this page.
+     *
+     * This is the signal the prototype's banner was built around and the one the screen
+     * could not use until daily_reads existed. Heaviness, dragging or leaking means the app
+     * withdrew her impact work on its own — the coach needs to know that happened, and why,
+     * before she reads a single adherence figure.
+     */
+    const blocking = reads.filter((r) =>
+      ['Heaviness', 'Dragging', 'Leaking'].includes(r.symptom),
+    );
+    if (blocking.length > 0) {
+      const latest = blocking[blocking.length - 1]!;
+      return {
+        tone: 'critical' as const,
+        title: `Needs your eye — she reported ${latest.symptom.toLowerCase()}`,
+        body: `Logged on her ${latest.window} read${
+          blocking.length > 1 ? `, and on ${blocking.length - 1} other read${blocking.length > 2 ? 's' : ''} this week` : ''
+        }. The app withdrew the impact work for that day on its own. Readiness was ${tide[latest.readiness]?.label.toLowerCase() ?? 'unrecorded'}.`,
+      };
+    }
+
     const finished = sessions
       .filter((s) => s.status === 'completed' && s.painAfter !== null)
       .sort((a, b) => (a.scheduledDate < b.scheduledDate ? 1 : -1));
@@ -184,11 +208,21 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
     return null;
   })();
 
-  const { count: mealsLogged } = await supabase
+  /**
+   * Slots filled, not entries logged.
+   *
+   * Counting rows gave "50 of 28 slots", which is not a typo so much as two different
+   * measures wearing one label — a slot holds as many entries as she cares to add, so the
+   * numerator outran its own denominator. What the panel is asking is how many of the
+   * week's 28 meal slots got anything at all.
+   */
+  const { data: mealRows } = await supabase
     .from('food_logs')
-    .select('id', { count: 'exact', head: true })
+    .select('logged_on, meal')
     .eq('client_id', id)
     .gte('logged_on', daysBack(6));
+
+  const mealsLogged = new Set((mealRows ?? []).map((m) => `${m.logged_on}:${m.meal}`)).size;
 
   const recent = sessions
     .filter((s) => s.status !== 'scheduled' || s.scheduledDate < todayIso)
@@ -275,7 +309,6 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
             <TimeSeriesPanels xLabels={xLabels} panels={painPanel} />
             <p className="mt-2 text-xs ink-3">
               The gap between the two lines is the reading, not either number on its own.
-              Readiness reads are not here yet — they are still kept on her phone.
             </p>
           </>
         )}
@@ -297,9 +330,16 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
               </div>
             </div>
             <div className="border-t pt-3">
+              <div className="text-xs ink-2">Readiness reads · 7 days</div>
+              <div className="tnum text-lg font-semibold">
+                {reads.length}
+                <span className="ml-1 text-xs font-normal ink-3">of 21</span>
+              </div>
+            </div>
+            <div className="border-t pt-3">
               <div className="text-xs ink-2">Meals logged · 7 days</div>
               <div className="tnum text-lg font-semibold">
-                {mealsLogged ?? 0}
+                {mealsLogged}
                 <span className="ml-1 text-xs font-normal ink-3">of 28 slots</span>
               </div>
             </div>

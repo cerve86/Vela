@@ -306,6 +306,44 @@ export type Database = {
           },
         ]
       }
+      daily_reads: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          read_on: string
+          read_window: Database["public"]["Enums"]["read_window"]
+          readiness: number
+          symptom: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          read_on: string
+          read_window: Database["public"]["Enums"]["read_window"]
+          readiness: number
+          symptom?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          read_on?: string
+          read_window?: Database["public"]["Enums"]["read_window"]
+          readiness?: number
+          symptom?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_reads_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exercises: {
         Row: {
           archived_at: string | null
@@ -1006,6 +1044,7 @@ export type Database = {
         | "sleep_min"
         | "steps"
         | "vo2max"
+      read_window: "morning" | "midday" | "evening"
       session_status: "scheduled" | "in_progress" | "completed" | "skipped"
       user_role: "coach" | "client"
     }
@@ -1170,6 +1209,7 @@ export const Constants = {
         "steps",
         "vo2max",
       ],
+      read_window: ["morning", "midday", "evening"],
       session_status: ["scheduled", "in_progress", "completed", "skipped"],
       user_role: ["coach", "client"],
     },

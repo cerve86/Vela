@@ -68,7 +68,10 @@ export default function SessionScreen() {
 
   function begin() {
     log.begin(painBefore, symptom);
-    daily.setSymptom(symptom, painBefore ?? 0);
+    // The symptom only. `painBefore` is a 0-10 symptom score and readiness is a 0-4 step —
+    // passing one as the other would have written nonsense into the read. The before-score
+    // is carried by the session itself, which is where the coach reads it from.
+    void daily.setSymptom(symptom);
     setPhase('log');
   }
 

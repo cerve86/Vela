@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (59);
+  plan (67);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -617,6 +617,79 @@ select is (
   (select count(*) from public.profiles where id = '00000000-0000-4000-8000-0000000000c2'),
   0::bigint,
   'and still cannot see another client — the new policy widened nothing else'
+);
+
+-- ---------------------------------------------------------------------------
+-- Daily reads: hers to write, her coach's to see, nobody's to revise
+-- ---------------------------------------------------------------------------
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select lives_ok (
+  $$insert into public.daily_reads (client_id, read_on, read_window, readiness, symptom)
+    values ('00000000-0000-4000-8000-0000000000f1', '2026-08-23', 'morning', 3, 'Nothing')$$,
+  'a client can log her own morning read (positive control)'
+);
+
+-- The lock. Enforced by the index rather than by the app, because "already logged" is a
+-- fact about the data and an app that forgets it would let a window be overwritten.
+select throws_ok (
+  $$insert into public.daily_reads (client_id, read_on, read_window, readiness)
+    values ('00000000-0000-4000-8000-0000000000f1', '2026-08-23', 'morning', 1)$$,
+  '23505',
+  null,
+  'the same window on the same day cannot be logged twice'
+);
+
+select lives_ok (
+  $$insert into public.daily_reads (client_id, read_on, read_window, readiness)
+    values ('00000000-0000-4000-8000-0000000000f1', '2026-08-23', 'evening', 2)$$,
+  'but a different window the same day is fine'
+);
+
+-- Denied by privilege, not merely filtered to nothing. Default privileges in this schema
+-- hand `authenticated` UPDATE on every new table, so without the explicit revoke this
+-- statement succeeds against zero rows — an immutability guarantee that holds only while
+-- nobody adds a policy, and fails silently when somebody does.
+select throws_ok (
+  $$update public.daily_reads set readiness = 0
+    where client_id = '00000000-0000-4000-8000-0000000000f1'$$,
+  '42501',
+  null,
+  'a locked read cannot be revised, even by the person who wrote it'
+);
+
+select throws_ok (
+  $$delete from public.daily_reads
+    where client_id = '00000000-0000-4000-8000-0000000000f1'$$,
+  '42501',
+  null,
+  'nor deleted — the history is the point'
+);
+
+select throws_ok (
+  $$insert into public.daily_reads (client_id, read_on, read_window, readiness)
+    values ('00000000-0000-4000-8000-0000000000f2', '2026-08-23', 'morning', 4)$$,
+  '42501',
+  null,
+  'and she cannot log a read against another client'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select count(*) from public.daily_reads),
+  2::bigint,
+  'her coach can finally see them — which is the whole reason for the table'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+
+select is (
+  (select count(*) from public.daily_reads),
+  0::bigint,
+  'another practice sees none of it'
 );
 
 -- ---------------------------------------------------------------------------
