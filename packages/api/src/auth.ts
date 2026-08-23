@@ -46,6 +46,32 @@ export async function verifyEmailOtp(
   return { error: error?.message ?? null };
 }
 
+/**
+ * Password sign-in, for accounts provisioned with one.
+ *
+ * Vela's clients do not have passwords — they sign in with an emailed code, and the app
+ * says so. This exists for the one case where a code cannot be received: App Review.
+ * Apple's guideline 2.1 obliges us to hand over working credentials, and a reviewer cannot
+ * open the inbox the code goes to, so the review account carries a password instead.
+ *
+ * Note what this is NOT: there is no sign-up, no password reset, and no path by which a
+ * client acquires a password from inside the app. `signInWithPassword` only ever
+ * authenticates an account that already has one, and the review account is provisioned by
+ * hand against the admin API. A client who taps the password option has no password to
+ * try, and is told to use her code.
+ */
+export async function signInWithPassword(
+  supabase: VelaClient,
+  email: string,
+  password: string,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
+  });
+  return { error: error?.message ?? null };
+}
+
 export async function getSessionUser(supabase: VelaClient): Promise<SessionUser | null> {
   const { data: auth } = await supabase.auth.getUser();
   const user = auth.user;

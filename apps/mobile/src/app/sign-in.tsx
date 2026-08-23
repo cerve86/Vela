@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { ScrollView, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { sendMagicLink, verifyEmailOtp } from '@vela/api';
+import { sendMagicLink, signInWithPassword, verifyEmailOtp } from '@vela/api';
 import { Body, Button, Card, Display, Screen } from '@/components/kit';
 import { VelaMark } from '@/components/VelaMark';
 import { useTheme } from '@/theme';
@@ -24,7 +24,10 @@ export default function SignInScreen() {
 
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
-  const [stage, setStage] = useState<'email' | 'code' | 'sending' | 'verifying'>('email');
+  const [password, setPassword] = useState('');
+  const [stage, setStage] = useState<'email' | 'code' | 'sending' | 'verifying' | 'password' | 'signing'>(
+    'email',
+  );
   const [error, setError] = useState<string | null>(null);
   /** Whether an email actually went out, so the copy on the code step can stay truthful. */
   const [sent, setSent] = useState(false);
@@ -78,6 +81,36 @@ export default function SignInScreen() {
     }
   }
 
+  /**
+   * Password sign-in — the App Review path, and nothing else.
+   *
+   * Vela's clients have no password; this screen says so, and nothing in the app can set
+   * one. It exists because Apple's guideline 2.1 requires working credentials and a
+   * reviewer cannot open the inbox a code is sent to. The failure message therefore points
+   * a real client back to her code rather than offering a reset she has no account for.
+   */
+  async function signInPassword() {
+    setStage('signing');
+    setError(null);
+
+    const { error: err } = await signInWithPassword(supabase, email, password);
+    if (err) {
+      setError(
+        'That did not sign you in. Vela normally uses a six-digit code by email — go back and use "Email me a code".',
+      );
+      setStage('password');
+      return;
+    }
+
+    // Same trap as the code path: a valid credential is not a way in without a client row,
+    // and the gate would leave this button spinning for ever.
+    const next = await refresh();
+    if (!next.client) {
+      setStage('password');
+      setError('Those details worked, but this address is not set up as a client yet.');
+    }
+  }
+
   const inputStyle = {
     backgroundColor: t.inputFill,
     borderRadius: t.radius.md,
@@ -103,18 +136,37 @@ export default function SignInScreen() {
             Welcome back
           </Display>
           <Body size={14} color={t.textSecondary} style={{ marginTop: 4 }}>
-            {stage === 'code' || stage === 'verifying'
-              ? // Only claim to have sent something when we actually did. Arriving here via
-                // "I already have a code" means no email went out on this attempt.
-                sent
-                ? `We sent a six-digit code to ${email}`
-                : `Enter the six-digit code for ${email}`
-              : 'Sign in with the email your physiotherapist invited'}
+            {stage === 'password' || stage === 'signing'
+              ? `Enter the password for ${email}`
+              : stage === 'code' || stage === 'verifying'
+                ? // Only claim to have sent something when we actually did. Arriving here via
+                  // "I already have a code" means no email went out on this attempt.
+                  sent
+                  ? `We sent a six-digit code to ${email}`
+                  : `Enter the six-digit code for ${email}`
+                : 'Sign in with the email your physiotherapist invited'}
           </Body>
         </View>
 
         <Card>
-          {stage === 'code' || stage === 'verifying' ? (
+          {stage === 'password' || stage === 'signing' ? (
+            <>
+              <Body size={12} color={t.textMuted} style={{ marginBottom: 8 }}>
+                PASSWORD
+              </Body>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoComplete="current-password"
+                textContentType="password"
+                autoFocus
+                accessibilityLabel="Password"
+                style={inputStyle}
+              />
+            </>
+          ) : stage === 'code' || stage === 'verifying' ? (
             <>
               <Body size={12} color={t.textMuted} style={{ marginBottom: 8 }}>
                 VERIFICATION CODE
@@ -156,7 +208,24 @@ export default function SignInScreen() {
           )}
         </Card>
 
-        {stage === 'code' || stage === 'verifying' ? (
+        {stage === 'password' || stage === 'signing' ? (
+          <>
+            <Button
+              label={stage === 'signing' ? 'Signing in…' : 'Sign in'}
+              disabled={password.length < 6 || stage === 'signing'}
+              onPress={signInPassword}
+            />
+            <Button
+              label="Back"
+              variant="secondary"
+              onPress={() => {
+                setStage('email');
+                setPassword('');
+                setError(null);
+              }}
+            />
+          </>
+        ) : stage === 'code' || stage === 'verifying' ? (
           <>
             <Button
               label={stage === 'verifying' ? 'Verifying…' : 'Sign in'}
@@ -195,6 +264,27 @@ export default function SignInScreen() {
                 setStage('code');
               }}
             />
+            {/*
+              The password path, and it is deliberately the quietest thing on the screen.
+              No client has a password — the copy above promises a code — and this exists
+              because App Review needs credentials that do not depend on an inbox. A plain
+              link rather than a third button keeps it available without implying that
+              anybody reading this ought to have one.
+            */}
+            <Pressable
+              onPress={() => {
+                setError(null);
+                setStage('password');
+              }}
+              disabled={email.length < 5}
+              accessibilityRole="button"
+              accessibilityLabel="Use a password instead"
+              style={{ alignSelf: 'center', paddingVertical: 8, opacity: email.length < 5 ? 0.4 : 1 }}
+            >
+              <Body size={13} color={t.textSecondary} style={{ textDecorationLine: 'underline' }}>
+                Use a password
+              </Body>
+            </Pressable>
           </>
         )}
 

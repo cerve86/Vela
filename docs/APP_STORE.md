@@ -147,42 +147,92 @@ once its forwarding is live.
 
 ---
 
-## App Review Information — the part that needs a decision
+## App Review Information — resolved
 
 Sign-in is required, so Apple's guideline 2.1 obliges us to supply working credentials.
-Vela signs in with a six-digit code emailed to the client, and **a reviewer cannot
-receive that email.** Handing over an address whose inbox they cannot open is the single
-most common cause of a rejection for apps built this way.
+Vela signs in with a six-digit code emailed to the client, and **a reviewer cannot receive
+that email.** Handing over an address whose inbox they cannot open is the single most common
+cause of a rejection for apps built this way.
 
-It has to be solved before submitting, and there are two honest routes:
+Two routes were on the table. The first is **not available**, and this was checked rather
+than assumed: Supabase's config reference documents `auth.sms.test_otp` and has **no email
+equivalent**, so an address cannot be pinned to a constant code.
 
-1. **A fixed code for one review-only account.** Supabase can pin a chosen address to a
-   constant OTP, so `review@vela-coaching.com` with code `123456` always works and no
-   email is involved. Cheapest by far if this CLI version supports it for email as it
-   does for SMS — needs checking, not assuming.
+Even if it existed it would now be the wrong choice. **This repository is public**
+(`api.github.com/repos/cerve86/Vela` answers unauthenticated), so a fixed code committed to
+`supabase/config.toml` would be a world-readable way into that account, permanently, on
+production auth.
 
-2. **A password option for that one account.** Supabase supports email and password
-   alongside the code. The sign-in screen would need a password field, which is a real
-   if small change to the app, and another build.
+So the answer is **a password on one account**, and it turned out cheaper than expected:
+`enable_signup` is already true at both levels, so password authentication is **already live
+on the project**. Nothing here requires `supabase config push` — which matters, because that
+command overwrites auth settings wholesale and is what silently reverted the SMTP
+configuration earlier in this project.
 
-Either way the review account needs a **programme, some sessions and a few measurements
-already on it** — a reviewer landing on an empty Today has nothing to review and may
-reject for incomplete functionality. The demo seed builds exactly that shape of account.
+### What was built
 
-**Notes for the reviewer**, once an account exists:
+- `signInWithPassword` in `packages/api/src/auth.ts`.
+- A password stage on the app's sign-in screen, reached by a small underlined **"Use a
+  password"** link beneath "I already have a code". Deliberately the quietest thing on the
+  screen: no client has a password, the copy above promises a code, and a failed attempt
+  points back to the code rather than offering a reset for an account that has none.
+- `scripts/provision-review-account.mjs`, which creates the account and the fortnight of
+  history behind it.
+
+There is **no sign-up, no password reset, and no way for a client to acquire a password from
+inside the app.** `signInWithPassword` only authenticates an account that already has one,
+and the review account is provisioned by hand.
+
+### Provisioning it
+
+The password never enters this repository. It is supplied in the environment and typed into
+App Store Connect, and lives nowhere else.
+
+```
+SUPABASE_URL=https://<ref>.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=<from the Supabase dashboard> \
+SUPABASE_ANON_KEY=<from the Supabase dashboard> \
+COACH_EMAIL=<the coach who will own the demo client> \
+REVIEW_PASSWORD='<a real password, 12+ characters>' \
+SEED_ALLOW_REMOTE=1 node scripts/provision-review-account.mjs
+```
+
+Re-running it resets the password, which is what makes it safe to use again before a
+resubmission.
+
+The script signs the review client in **using her password** as step 3 of the real flow, so
+running it is a test of the path a reviewer will take. If password auth were disabled or the
+account had none, it fails there — rather than us finding out from a rejection.
+
+It also builds something to review. A reviewer landing on an empty Today has nothing to look
+at and may reject for incomplete functionality, so the account arrives with a fortnight
+behind it: seven past sessions with one missed so adherence is not a suspicious 100%, real
+recorded set counts, symptom scores, fifteen days of sleep, HRV and resting heart rate, a
+readiness read for today, three meals logged, a part-finished session for today and one
+scheduled ahead. Recovery and strain both need history to mean anything, and that is it.
+
+### Notes for the reviewer
 
 ```
 Vela requires an invitation from a physiotherapy practice, so a demo client has been
 prepared with a programme, completed sessions and measurements already on it.
 
-Sign in with the address and code above. On the sign-in screen enter the email, then the
-six-digit code — for this account the code is fixed and no email is sent.
+To sign in: enter the email address above, then tap "Use a password" below the buttons and
+enter the password. Vela normally emails a six-digit code; this account has a password
+instead so that no inbox is needed.
 
-Apple Health is optional and the app is fully usable without it. Vela only ever reads,
-and only the six measurements named in the permission sheet.
+Apple Health is optional and the app is fully usable without it. Vela only ever reads, and
+only the seven measurements named in the permission sheet. On a device with no Health data
+the recovery figure is computed from the client's own logged readiness and labels itself
+"Estimated".
 ```
 
----
+### Still open
+
+`enable_signup = true` means anyone can register an account against the project without an
+invitation. They reach no patient data — no `clients` row means the routing gate turns them
+away and row level security holds regardless — but it is an open door with no purpose, and
+closing it is a config change worth making separately from a submission.
 
 ## The app icon needs no upload
 
