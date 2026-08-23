@@ -86,6 +86,59 @@ export default async function VitalsTab({ params }: { params: Promise<{ id: stri
     return of.length ? of[of.length - 1]! : null;
   };
 
+  /**
+   * Which direction is the good one, per metric.
+   *
+   * Weight is deliberately absent. In a postpartum and often breastfeeding population a
+   * falling weight is not automatically progress, and colouring it green would be the app
+   * taking a clinical position it has no business taking. It shows the change and says
+   * nothing about it.
+   */
+  const GOOD_DOWN: Partial<Record<MetricType, boolean>> = {
+    resting_hr: true,
+    hrv_ms: false,
+    steps: false,
+    vo2max: false,
+    body_fat_pct: false,
+  };
+
+  /** Change across the window, with a word for the direction — never colour alone. */
+  const change = (type: MetricType) => {
+    const of = metrics.filter((m) => m.type === type);
+    if (of.length < 2) return null;
+
+    const meta = METRIC_META[type];
+    const now = of[of.length - 1]!.value;
+    const delta = now - of[0]!.value;
+    const rounded = Math.round(delta * 10) / 10;
+
+    /**
+     * Meaningful relative to the metric's own scale, not to an absolute number.
+     *
+     * An absolute floor reported "−29 steps over 90 days · worth a look", which is 0.3% of
+     * a nine-thousand-step day and well inside the noise — a warning that fires on nothing
+     * teaches a coach to stop reading warnings. Three percent of the current value is a
+     * crude line but it holds across kilograms, beats, milliseconds and step counts alike.
+     */
+    if (Math.abs(delta) < Math.abs(now) * 0.03) {
+      return { text: 'no real change', good: undefined, word: 'holding steady' };
+    }
+
+    const goodDown = GOOD_DOWN[type];
+    const good = goodDown === undefined ? undefined : goodDown ? rounded < 0 : rounded > 0;
+
+    return {
+      text: `${rounded > 0 ? '+' : ''}${rounded.toFixed(meta.decimals)} over 90 days`,
+      good,
+      word:
+        good === undefined
+          ? 'read alongside energy, not as a goal'
+          : good
+            ? 'going the right way'
+            : 'worth a look',
+    };
+  };
+
   const sources = new Set(metrics.map((m) => m.source));
 
   if (metrics.length === 0) {
@@ -113,13 +166,17 @@ export default async function VitalsTab({ params }: { params: Promise<{ id: stri
                 maximumFractionDigits: meta.decimals,
               }) : '—'}
               unit={meta.unit || undefined}
+              delta={change(type)?.text}
+              deltaGood={change(type)?.good}
               hint={
                 m
-                  ? m.source === 'healthkit'
-                    ? 'Apple Health'
-                    : m.source === 'manual'
-                      ? 'Entered manually'
-                      : 'Recorded in clinic'
+                  ? `${change(type)?.word ?? ''}${change(type) ? ' · ' : ''}${
+                      m.source === 'healthkit'
+                        ? 'Apple Health'
+                        : m.source === 'manual'
+                          ? 'entered manually'
+                          : 'recorded in clinic'
+                    }`
                   : 'No data'
               }
             />

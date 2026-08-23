@@ -4,6 +4,7 @@ import {
   adherence,
   currentTarget,
   listFoodLogs,
+  listSessions,
   listMetrics,
   listTargets,
   nutritionDays,
@@ -46,7 +47,7 @@ export default async function NutritionTab({ params }: { params: Promise<{ id: s
   const today = daysBack(0);
   const from = daysBack(29);
 
-  const [days, target, history, logs, weights] = await Promise.all([
+  const [days, target, history, logs, weights, sessions] = await Promise.all([
     nutritionDays(supabase, id, from, today),
     currentTarget(supabase, id, today),
     listTargets(supabase, id),
@@ -56,6 +57,8 @@ export default async function NutritionTab({ params }: { params: Promise<{ id: s
       types: ['weight_kg'],
       since: `${from}T00:00:00Z`,
     }),
+    // Only to answer "is today a training day", which changes what a shortfall means.
+    listSessions(supabase, { clientId: id, from: today, to: today }),
   ]);
 
   const week = days.slice(-7);
@@ -119,6 +122,53 @@ export default async function NutritionTab({ params }: { params: Promise<{ id: s
   const todayTotals = sumMacros(logs.filter((l) => l.loggedOn === today));
 
   const recentDays = [...week].reverse();
+
+  /**
+   * Energy availability, read against the day rather than against the number.
+   *
+   * A shortfall at 11am is a day in progress; the same shortfall with all four slots filled
+   * is a day she actually ate. Reporting the first as a deficit would train a coach to
+   * ignore the warning, which is worse than not having one.
+   *
+   * The breastfeeding line is not decoration. Low energy availability is the specific risk
+   * in this population, and the phrasing is deliberately a prompt to ask rather than a
+   * conclusion — the coach has the context, this page has arithmetic.
+   */
+  const energyNote = (() => {
+    if (!target) return null;
+
+    const slotsFilled = new Set(
+      logs.filter((l) => l.loggedOn === today).map((l) => l.meal),
+    ).size;
+    if (slotsFilled === 0) return null;
+
+    const shortfall = Math.round(target.kcal - todayTotals.kcal);
+    if (shortfall < 300) return null;
+
+    const trainingToday = sessions.some(
+      (sn) => sn.scheduledDate === today && sn.status !== 'skipped',
+    );
+    const dayDone = slotsFilled >= 4;
+
+    return {
+      title: `${shortfall.toLocaleString('en-GB')} kcal under target${
+        trainingToday ? ' on a training day' : ''
+      }`,
+      body: dayDone
+        ? `All four slots are logged, so this is the day as she ate it${
+            client.breastfeeding
+              ? '. Low energy availability matters more while breastfeeding — worth asking rather than assuming.'
+              : '.'
+          }`
+        : `Only ${slotsFilled} of 4 slots are logged, so this may simply be the day in progress${
+            client.breastfeeding
+              ? '. Low energy availability matters more while breastfeeding — worth asking rather than assuming.'
+              : '.'
+          }`,
+      // A finished day under target is worth more attention than an unfinished one.
+      tone: dayDone ? ('serious' as const) : ('warning' as const),
+    };
+  })();
 
   return (
     <div className="space-y-4">
@@ -224,6 +274,18 @@ export default async function NutritionTab({ params }: { params: Promise<{ id: s
             </Card>
 
             <Card title="Today" className="col-span-2">
+              {energyNote && (
+                <div
+                  className="mb-4 rounded-[16px] p-4"
+                  style={{
+                    background:
+                      energyNote.tone === 'serious' ? 'var(--tint-peach)' : 'var(--tint-cream)',
+                  }}
+                >
+                  <div className="text-sm font-medium">{energyNote.title}</div>
+                  <p className="mt-1 text-sm ink-2">{energyNote.body}</p>
+                </div>
+              )}
               {byMeal.size === 0 ? (
                 <p className="text-sm ink-2">Nothing logged today yet.</p>
               ) : (
