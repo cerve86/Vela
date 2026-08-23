@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   currentTarget,
   getSession,
@@ -25,6 +25,20 @@ export function today(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/**
+ * The local calendar day an instant falls on.
+ *
+ * Not `iso.slice(0, 10)`. A timestamptz arrives as UTC, so slicing takes the UTC date while
+ * `today()` returns the local one — and east of Greenwich those disagree for part of every
+ * day. A 07:00 wake-up in Singapore is stored as 23:00Z the day before, so slicing looked
+ * last night's sleep up under yesterday's key, failed to find it, and dropped recovery to
+ * readiness-only with an "Estimated" label on a night that had synced perfectly.
+ */
+export function localDay(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function addDays(iso: string, n: number): string {
   const [y, m, d] = iso.split('-').map(Number);
   const dt = new Date(y!, (m ?? 1) - 1, d ?? 1);
@@ -43,38 +57,54 @@ interface Async<T> {
   data: T;
   loading: boolean;
   error: string | null;
-  reload: () => void;
+  /**
+   * Refetches, and resolves when the fetch has landed.
+   *
+   * The promise is the point. This used to return void — it bumped a nonce and let an
+   * effect do the work — so `await Promise.all([a.reload(), b.reload()])` resolved on the
+   * same tick and pull-to-refresh dropped its spinner before a single row had arrived.
+   */
+  reload: () => Promise<void>;
 }
 
 function useAsync<T>(fn: () => Promise<T>, initial: T, deps: unknown[]): Async<T> {
   const [data, setData] = useState<T>(initial);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
+
+  /**
+   * Which fetch is allowed to write.
+   *
+   * Replaces the old per-effect `cancelled` flag, which could not cover a reload the caller
+   * triggered directly. A generation counter covers both: any run that is no longer the
+   * latest keeps its result to itself, so a slow response cannot overwrite a newer one.
+   */
+  const generation = useRef(0);
+
+  const run = useCallback(async () => {
+    const mine = ++generation.current;
+    setLoading(true);
+    try {
+      const result = await fn();
+      if (generation.current === mine) {
+        setData(result);
+        setError(null);
+      }
+    } catch (e: unknown) {
+      if (generation.current === mine) {
+        setError(e instanceof Error ? e.message : 'Something went wrong');
+      }
+    } finally {
+      if (generation.current === mine) setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    fn()
-      .then((r) => {
-        if (!cancelled) {
-          setData(r);
-          setError(null);
-        }
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Something went wrong');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, nonce]);
+    void run();
+  }, [run]);
 
-  return { data, loading, error, reload: useCallback(() => setNonce((n) => n + 1), []) };
+  return { data, loading, error, reload: run };
 }
 
 /** The current week's scheduled sessions, plus today's if there is one. */

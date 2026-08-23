@@ -72,12 +72,20 @@ export default function TodayScreen() {
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([week.reload(), nutrition.reload(), daily.reload(), plan.reload(), vitality.reload()]);
+      await Promise.all([
+        week.reload(),
+        nutrition.reload(),
+        daily.reload(),
+        plan.reload(),
+        vitality.reload(),
+      ]);
     } finally {
       setRefreshing(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // Depends on the reloaders rather than on nothing. With an empty list this captured the
+    // closures as they were at mount — and at mount `client` is still null, so every one of
+    // them was a no-op that returned immediately and refreshed precisely nothing.
+  }, [week.reload, nutrition.reload, daily.reload, plan.reload, vitality.reload]);
 
   const firstName = client?.email.split('@')[0]?.split('.')[0] || 'there';
   const name = firstName.charAt(0).toUpperCase() + firstName.slice(1);

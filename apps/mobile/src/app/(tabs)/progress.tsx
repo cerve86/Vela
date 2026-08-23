@@ -13,7 +13,7 @@ import { VelaIcon } from '@/components/brand';
 import { Illustration } from '@/components/Illustration';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
-import { addDays, startOfWeek, today, useHistory, useMetrics, useNutrition } from '@/lib/data';
+import { addDays, localDay, startOfWeek, today, useHistory, useMetrics, useNutrition } from '@/lib/data';
 import { useMyChallenges, type ClientChallenge } from '@/lib/challenges';
 
 /**
@@ -609,7 +609,9 @@ function weekRatio(col: CellState[]): number {
 function weeklyMeans(readings: { recordedAt: string; value: number }[]): number[] {
   const buckets = new Map<string, { sum: number; n: number }>();
   for (const r of readings) {
-    const w = startOfWeek(r.recordedAt.slice(0, 10));
+    // Local day, not the UTC slice — otherwise a reading taken late in the evening east
+    // of Greenwich is bucketed into the following week.
+    const w = startOfWeek(localDay(r.recordedAt));
     const b = buckets.get(w);
     if (b) {
       b.sum += r.value;

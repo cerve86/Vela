@@ -4,7 +4,7 @@ import { listMetrics } from '@vela/api';
 import { median, recovery, strain, type Readiness, type Recovery, type Strain } from '@vela/shared';
 import { supabase } from './supabase';
 import { useSession } from './session';
-import { addDays, today } from './data';
+import { addDays, localDay, today } from './data';
 
 /** Nights of history used for the sleep and HRV baselines. */
 const BASELINE_DAYS = 21;
@@ -16,7 +16,7 @@ interface Vitality {
   recovery: Recovery;
   strain: Strain;
   loading: boolean;
-  reload: () => void;
+  reload: () => Promise<void>;
 }
 
 /**
@@ -83,16 +83,16 @@ export function useVitality(readiness: Readiness | null): Vitality {
      * newest row regardless would quietly show Friday's sleep all weekend, which is worse
      * than showing nothing — the number would look live and be three days stale.
      */
-    const lastSleep = sleep.find((s) => s.recordedAt.slice(0, 10) === todayIso)?.value ?? null;
-    const lastHrv = hrv.find((h) => h.recordedAt.slice(0, 10) === todayIso)?.value ?? null;
+    const lastSleep = sleep.find((s) => localDay(s.recordedAt) === todayIso)?.value ?? null;
+    const lastHrv = hrv.find((h) => localDay(h.recordedAt) === todayIso)?.value ?? null;
 
     // Baselines exclude today, so a bad night is measured against normal rather than
     // dragging its own yardstick down with it.
     const sleepBaseline = median(
-      sleep.filter((s) => s.recordedAt.slice(0, 10) !== todayIso).map((s) => s.value),
+      sleep.filter((s) => localDay(s.recordedAt) !== todayIso).map((s) => s.value),
     );
     const hrvBaseline = median(
-      hrv.filter((h) => h.recordedAt.slice(0, 10) !== todayIso).map((h) => h.value),
+      hrv.filter((h) => localDay(h.recordedAt) !== todayIso).map((h) => h.value),
     );
 
     const byDay = new Map<string, { done: number; planned: number }>();
@@ -122,5 +122,5 @@ export function useVitality(readiness: Readiness | null): Vitality {
     };
   }, [sleep, hrv, volume, readiness, todayIso]);
 
-  return { ...value, loading, reload: () => void load() };
+  return { ...value, loading, reload: load };
 }
