@@ -1,9 +1,9 @@
 <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vela">
   <!-- Favicon. Next's app router picks this up from src/app/icon.svg automatically.
        Rounded here rather than left square: a browser tab does not mask it the way iOS does. -->
-  <rect width="48" height="48" rx="11" fill="#D93A24"/>
+  <rect width="48" height="48" rx="11" fill="#1B4FD8"/>
   <g transform="translate(1.8 3.5) scale(0.845)">
-    <path d="M26.5 4 L26.5 41 L45 41 C42 27 36 13.5 26.5 4 Z" fill="#FFF6EF"/>
-    <path d="M22.5 11 L22.5 41 L7.5 41 C10.8 30.5 16 19.5 22.5 11 Z" fill="#FFC6B9"/>
+    <path d="M26.5 4 L26.5 41 L45 41 C42 27 36 13.5 26.5 4 Z" fill="#FFFFFF"/>
+    <path d="M22.5 11 L22.5 41 L7.5 41 C10.8 30.5 16 19.5 22.5 11 Z" fill="#B8CCFF"/>
   </g>
 </svg>

@@ -5,29 +5,33 @@
  * truth for the iOS app, this block is the same values as CSS custom properties so
  * Tailwind utilities and raw SVG can both reach them.
  *
- * Visual direction "Sunrise": coral leads, plum supports, cream replaces white. Two coral
- * steps do different jobs — brand-500 is the identity colour and the first series slot,
- * brand-600 is the interactive step, darkened until white label text clears 4.5:1.
+ * Visual direction "Poppy blue", ported from the Claude Design redesign. brand-600 is both
+ * the identity colour and the interactive one — white label text clears 4.5:1 on it, which
+ * is what the coral scheme needed a separate darker step for.
+ *
+ * --page is a neutral light grey rather than a tinted one. The warm cream this replaced was
+ * left behind when the components moved to blue, and a peach canvas under a blue card is
+ * the one combination that reads as a mistake rather than a choice.
  *
  * Dark values are declared twice on purpose: the media query follows the OS setting, the
  * [data-theme] scope lets an explicit toggle win in both directions.
  */
 
 @theme {
-  --color-brand-50: #fff4f1;
-  --color-brand-100: #ffe5df;
-  --color-brand-200: #ffc6b9;
-  --color-brand-300: #ff9e8b;
-  --color-brand-400: #ff7b63;
-  --color-brand-500: #ff5a45;
-  --color-brand-600: #d93a24;
-  --color-brand-700: #b32e1b;
-  --color-brand-800: #8c2415;
-  --color-brand-900: #661a0f;
+  --color-brand-50: #f2f6ff;
+  --color-brand-100: #edf1fb;
+  --color-brand-200: #b8ccff;
+  --color-brand-300: #8faeff;
+  --color-brand-400: #5c87f7;
+  --color-brand-500: #3b6be8;
+  --color-brand-600: #1b4fd8;
+  --color-brand-700: #1b3e9e;
+  --color-brand-800: #163788;
+  --color-brand-900: #122c6c;
 
-  --color-accent-100: #f1e9fb;
-  --color-accent-500: #7a2fb8;
-  --color-accent-700: #5a1f8c;
+  --color-accent-100: #ede9fe;
+  --color-accent-500: #7c3aed;
+  --color-accent-700: #5b21b6;
 
   --color-status-good: #0b8f5a;
   --color-status-warning: #b87a00;
@@ -45,88 +49,88 @@
   color-scheme: light;
 
 --surface: #ffffff;
-  --page: #fff6ef;
+  --page: #f3f5f9;
   --raised: #ffffff;
-  --ink-primary: #1f1512;
-  --ink-secondary: #6b5b54;
-  --ink-muted: #8a7a71;
-  --grid: #efe4da;
-  --axis: #dcccc0;
-  --border: rgba(31, 21, 18, 0.09);
+  --ink-primary: #12172b;
+  --ink-secondary: #57608a;
+  --ink-muted: #7c86ae;
+  --grid: #dde3f2;
+  --axis: #c3cce4;
+  --border: rgba(18, 23, 43, 0.09);
   --success-text: #0b7a4b;
-  --ghost: #f6efe8;
+  --ghost: #f3f5f9;
 
-  --tint-cream: #ffefe2;
-  --tint-peach: #fff1ea;
-  --tint-mint: #e9f7f1;
-  --tint-lilac: #f3ecfb;
+  --tint-cream: #edf1fb;
+  --tint-peach: #f5f8ff;
+  --tint-mint: #e4f6f0;
+  --tint-lilac: #ede9fe;
 
   /* Categorical series — fixed order, never cycled. Green and gold are kept apart:
      adjacent, that pair falls below the tritan floor. */
-  --series-1: #ff5a45;
-  --series-2: #7a2fb8;
+  --series-1: #1b4fd8;
+  --series-2: #7c3aed;
   --series-3: #0e9f6e;
   --series-4: #e8a200;
-  --series-5: #2d6bf0;
-  --series-6: #e0489b;
+  --series-5: #e0489b;
+  --series-6: #0ea5b7;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme='light'])) {
     color-scheme: dark;
 
---surface: #241a16;
-    --page: #191310;
-    --raised: #2e221c;
-    --ink-primary: #f8efe9;
-    --ink-secondary: #bcada4;
-    --ink-muted: #8c7d74;
-    --grid: #33261f;
-    --axis: #4a3931;
-    --border: rgba(248, 239, 233, 0.1);
+--surface: #171c2e;
+    --page: #0e1220;
+    --raised: #1e2438;
+    --ink-primary: #eef2ff;
+    --ink-secondary: #a9b3d4;
+    --ink-muted: #7c86ae;
+    --grid: #2a3150;
+    --axis: #3a4368;
+    --border: rgba(238, 242, 255, 0.1);
     --success-text: #12a377;
-    --ghost: rgba(248, 239, 233, 0.07);
+    --ghost: rgba(238, 242, 255, 0.07);
 
-    --tint-cream: rgba(248, 239, 233, 0.05);
-    --tint-peach: rgba(240, 85, 63, 0.13);
+    --tint-cream: rgba(238, 242, 255, 0.05);
+    --tint-peach: rgba(92, 135, 247, 0.14);
     --tint-mint: rgba(18, 163, 119, 0.13);
     --tint-lilac: rgba(154, 90, 216, 0.15);
 
-    --series-1: #f0553f;
+    --series-1: #5c87f7;
     --series-2: #9a5ad8;
     --series-3: #12a377;
     --series-4: #c28900;
-    --series-5: #4a80f0;
-    --series-6: #db4f97;
+    --series-5: #db4f97;
+    --series-6: #22b8cb;
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
 
---surface: #241a16;
-  --page: #191310;
-  --raised: #2e221c;
-  --ink-primary: #f8efe9;
-  --ink-secondary: #bcada4;
-  --ink-muted: #8c7d74;
-  --grid: #33261f;
-  --axis: #4a3931;
-  --border: rgba(248, 239, 233, 0.1);
+--surface: #171c2e;
+  --page: #0e1220;
+  --raised: #1e2438;
+  --ink-primary: #eef2ff;
+  --ink-secondary: #a9b3d4;
+  --ink-muted: #7c86ae;
+  --grid: #2a3150;
+  --axis: #3a4368;
+  --border: rgba(238, 242, 255, 0.1);
   --success-text: #12a377;
-  --ghost: rgba(248, 239, 233, 0.07);
+  --ghost: rgba(238, 242, 255, 0.07);
 
-  --tint-cream: rgba(248, 239, 233, 0.05);
-  --tint-peach: rgba(240, 85, 63, 0.13);
+  --tint-cream: rgba(238, 242, 255, 0.05);
+  --tint-peach: rgba(92, 135, 247, 0.14);
   --tint-mint: rgba(18, 163, 119, 0.13);
   --tint-lilac: rgba(154, 90, 216, 0.15);
 
-  --series-1: #f0553f;
+  --series-1: #5c87f7;
   --series-2: #9a5ad8;
   --series-3: #12a377;
   --series-4: #c28900;
-  --series-5: #4a80f0;
-  --series-6: #db4f97;
+  --series-5: #db4f97;
+  --series-6: #22b8cb;
 }
 
 * {
