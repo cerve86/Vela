@@ -108,6 +108,11 @@ export default function FuelScreen() {
     return map;
   }, [todayEntries, t.mealSlots]);
 
+  const filledSlots = useMemo(
+    () => t.mealSlots.filter((s) => (bySlot[s.key]?.length ?? 0) > 0),
+    [t.mealSlots, bySlot],
+  );
+
   const blocked = isBlocking(daily.read.symptom);
   const slotSpec = t.mealSlots.find((s) => s.key === slot)!;
 
@@ -345,7 +350,7 @@ export default function FuelScreen() {
               </Card>
             </Rise>
 
-            {nutrition.data.entries.length === 0 && (
+            {todayEntries.length === 0 && (
               <Rise delay={120}>
                 <Card style={{ borderRadius: 22 }}>
                   <View style={{ alignItems: 'center', gap: 10, paddingVertical: 8 }}>
@@ -359,7 +364,16 @@ export default function FuelScreen() {
               </Rise>
             )}
 
-            {t.mealSlots.map((s, i) => (
+            {/*
+              Only slots that have something in them.
+
+              Four empty "Add breakfast / Add lunch / Add dinner / Add snack" cards say nothing
+              the card above does not already offer, and on an untouched day they were the
+              entire screen below the fold — four rows of scrolling to be told nothing had
+              happened yet. A slot appears once it holds food, which is the point at which it
+              has something to show and something to delete.
+            */}
+            {filledSlots.map((s, i) => (
               <Rise key={s.key} delay={150 + i * 40}>
                 <SlotSection
                   slot={s.key}
