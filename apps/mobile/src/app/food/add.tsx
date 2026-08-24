@@ -17,6 +17,16 @@ import { supabase } from '@/lib/supabase';
 import { useSession } from '@/lib/session';
 import { today } from '@/lib/data';
 
+/**
+ * Narrows a route param, which arrives as a loose string.
+ *
+ * Derived from the imported MEAL_SLOTS rather than a second literal list — a local copy
+ * would be one more place to forget when a slot is added.
+ */
+function isMealSlot(value: unknown): value is MealSlot {
+  return typeof value === 'string' && MEAL_SLOTS.some((s) => s.value === value);
+}
+
 /** Breakfast before 11, lunch before 16, dinner before 21, otherwise a snack. */
 function mealForNow(): MealSlot {
   const h = new Date().getHours();
@@ -34,9 +44,26 @@ export default function AddFoodScreen() {
 
   // The scanner pushes back here with the food it cached, rather than logging directly:
   // the portion still has to be chosen, and one screen owning that keeps it consistent.
-  const { foodId, barcode } = useLocalSearchParams<{ foodId?: string; barcode?: string }>();
+  const { foodId, barcode, meal: mealParam } = useLocalSearchParams<{
+    foodId?: string;
+    barcode?: string;
+    meal?: string;
+  }>();
 
-  const [meal, setMeal] = useState<MealSlot>(mealForNow());
+  /**
+   * The slot she tapped, not a guess at the hour.
+   *
+   * Fuel has always passed `meal` and this screen never read it, so tapping "Add lunch" at
+   * four in the afternoon opened on lunch by luck and on dinner by clock — and either way
+   * presented the picker again for a choice she had just made. `mealForNow()` is the
+   * fallback for the one entry point that carries no slot: the tab bar's own scan button.
+   */
+  const [meal, setMeal] = useState<MealSlot>(
+    isMealSlot(mealParam) ? mealParam : mealForNow(),
+  );
+
+  /** Whether the slot arrived with her, which decides how loudly to offer changing it. */
+  const mealWasChosen = isMealSlot(mealParam);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Food[]>([]);
   const [searching, setSearching] = useState(false);
@@ -185,7 +212,7 @@ export default function AddFoodScreen() {
       >
         <Display size={28}>Add food</Display>
 
-        <Card title="Which meal">
+        <Card title={mealWasChosen ? `Adding to ${meal}` : 'Which meal'}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {MEAL_SLOTS.map((s) => {
               const on = meal === s.value;
@@ -304,6 +331,7 @@ export default function AddFoodScreen() {
               <TextInput
                 value={query}
                 onChangeText={setQuery}
+                autoFocus
                 placeholder="Porridge, chicken, yoghurt…"
                 placeholderTextColor={t.textMuted}
                 autoCorrect={false}

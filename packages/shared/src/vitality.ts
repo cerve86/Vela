@@ -25,6 +25,13 @@ export interface RecoveryInput {
   readiness: Readiness | null;
   hrvMs: number | null;
   hrvBaselineMs: number | null;
+  /**
+   * Restorative minutes last night — deep plus REM. Null when the watch reported only a
+   * total, which older models and most third-party trackers do.
+   */
+  restorativeMinutes?: number | null;
+  /** Her own median restorative minutes, for the same reason the others need one. */
+  restorativeBaselineMinutes?: number | null;
 }
 
 export interface Recovery {
@@ -43,14 +50,48 @@ export interface Recovery {
 const SLEEP_YARDSTICK_MIN = 450;
 
 /** Weights before renormalising. Only the signals present are counted. */
-const WEIGHTS = { sleep: 0.4, readiness: 0.4, hrv: 0.2 };
+/**
+ * Weights before renormalising. Only the signals present are counted.
+ *
+ * Sleep is split once the stages are known: how long she slept and how much of it was
+ * restorative are different questions, and a long shallow night should not score as a good
+ * one. Where stages are unavailable the duration carries sleep's whole share, so a watch
+ * that reports only a total is not penalised for it.
+ *
+ * Together the two sleep terms outweigh everything else, which is deliberate. How she feels
+ * is the signal she controls and the one most coloured by mood; the night is the one the
+ * body reports without being asked. Readiness still moves the number materially — and
+ * carries it alone when there is no watch, because renormalising over what is present is
+ * what stops a missing signal reading as a bad one.
+ */
+const WEIGHTS = { sleep: 0.3, restorative: 0.25, readiness: 0.3, hrv: 0.15 };
+
+/** Sleep's full share, for when no stage breakdown arrived. */
+const SLEEP_ONLY_WEIGHT = WEIGHTS.sleep + WEIGHTS.restorative;
 
 export function recovery(input: RecoveryInput): Recovery {
   const parts: { weight: number; score: number; label: string }[] = [];
 
+  const hasStages =
+    input.restorativeMinutes != null &&
+    input.restorativeBaselineMinutes != null &&
+    input.restorativeBaselineMinutes > 0;
+
   if (input.sleepMinutes !== null) {
     const base = input.sleepBaselineMinutes ?? SLEEP_YARDSTICK_MIN;
-    parts.push({ weight: WEIGHTS.sleep, score: ratioScore(input.sleepMinutes / base), label: 'sleep' });
+    parts.push({
+      weight: hasStages ? WEIGHTS.sleep : SLEEP_ONLY_WEIGHT,
+      score: ratioScore(input.sleepMinutes / base),
+      label: 'sleep',
+    });
+  }
+
+  if (hasStages) {
+    parts.push({
+      weight: WEIGHTS.restorative,
+      score: ratioScore(input.restorativeMinutes! / input.restorativeBaselineMinutes!),
+      label: 'deep and REM',
+    });
   }
 
   if (input.readiness !== null) {
@@ -166,28 +207,64 @@ export interface StrainInput {
   setsDone: number;
   /** Working sets today's plan asks for. Zero on a rest day. */
   setsPlanned: number;
-  /** Her own busiest day in the recent window. Zero when she has no history. */
+  /** Her own busiest recent day, in sets. Zero when she has no history. */
   peakSets: number;
+  /**
+   * Active energy burned today, in kcal. The whole day's effort, whatever produced it.
+   * Null when there is no watch or no permission.
+   */
+  activeEnergy?: number | null;
+  /** Her own busiest recent day, in active kcal. */
+  peakActiveEnergy?: number | null;
+  /**
+   * What a day she trained normally comes to, in active kcal — the median of her past
+   * completed-session days. The target when energy is the currency.
+   */
+  typicalTrainingEnergy?: number | null;
 }
 
 export interface Strain {
   /** Today, as a percentage of her own hardest recent day. */
   score: number;
-  /** What today's plan comes to on the same scale. Null on a rest day. */
+  /** What today should come to on the same scale. Null when there is nothing to aim at. */
   target: number | null;
   /** True while the scale is today's plan rather than her history. */
   provisional: boolean;
+  /** Which currency the figure is in, so the screen can say so. */
+  basis: 'energy' | 'sets';
 }
 
 /**
  * Today's load, against her own recent ceiling.
  *
- * With no history the ceiling is today's plan, so a full session reads 100% and the target
- * sits at 100% — honest, and it stops a first session reading as either trivial or heroic.
- * Once there is a real busiest day, that becomes the scale and the plan is measured against
- * it, which is what makes a light day look light.
+ * Active energy is used whenever it exists, and that is the whole point of the change: sets
+ * only counted work Vela had prescribed, so an 8k run read as a rest day and a session
+ * swapped for a long walk read as nothing at all. Active energy already contains the
+ * session, the run and the walk, so it answers "what did she actually do today" rather than
+ * "how closely did she follow instructions".
+ *
+ * The target moves currency with the score, because a percentage of one thing measured
+ * against a percentage of another is not a comparison. In energy it is her own typical
+ * training day; in sets it is what the plan asks for.
+ *
+ * Sets remain the fallback, not a legacy path: without a watch they are the only record of
+ * effort there is, and they are better than nothing.
  */
 export function strain(input: StrainInput): Strain {
+  const energy = input.activeEnergy ?? null;
+  const peakEnergy = input.peakActiveEnergy ?? 0;
+
+  if (energy !== null && peakEnergy > 0) {
+    const typical = input.typicalTrainingEnergy ?? null;
+    return {
+      score: Math.min(100, Math.round((energy / peakEnergy) * 100)),
+      target: typical && typical > 0 ? Math.min(100, Math.round((typical / peakEnergy) * 100)) : null,
+      provisional: false,
+      basis: 'energy',
+    };
+  }
+
+  // No energy history yet — or no watch. Fall back to the prescription.
   const provisional = input.peakSets <= 0;
   const scale = provisional ? Math.max(1, input.setsPlanned) : input.peakSets;
 
@@ -195,6 +272,7 @@ export function strain(input: StrainInput): Strain {
     score: Math.min(100, Math.round((input.setsDone / scale) * 100)),
     target: input.setsPlanned > 0 ? Math.min(100, Math.round((input.setsPlanned / scale) * 100)) : null,
     provisional,
+    basis: 'sets',
   };
 }
 

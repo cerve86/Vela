@@ -32,13 +32,30 @@ interface CategoryRow {
 const SLEEP_IDENTIFIER = 'HKCategoryTypeIdentifierSleepAnalysis';
 
 /**
- * The sleep-analysis values that mean asleep.
+ * Sleep-analysis values, mapped to what each one is worth keeping as.
  *
- * 1 asleepUnspecified, 3 core, 4 deep, 5 REM. Deliberately excluding 0 (inBed) and
- * 2 (awake): counting time in bed as sleep is how a restless night reads as eight hours,
- * which would make the recovery number worse than useless — confidently wrong.
+ * The stages are kept separately as well as summed. How a night was composed matters more
+ * than its length — seven hours that were nearly all light sleep is not the same night as
+ * seven with normal deep and REM, and recovery cannot tell them apart from a total alone.
+ *
+ * 0 inBed is dropped entirely: it overlaps the stages and would double-count. 2 awake is
+ * kept, but as its own metric rather than as sleep — time awake in bed is a fact about the
+ * night, and counting it as sleep is how a restless night reads as eight hours.
  */
-const ASLEEP_VALUES: ReadonlySet<number> = new Set([1, 3, 4, 5]);
+const SLEEP_STAGE: Record<number, MetricType | undefined> = {
+  1: 'sleep_core_min', // asleepUnspecified — older watches report only this
+  2: 'sleep_awake_min',
+  3: 'sleep_core_min',
+  4: 'sleep_deep_min',
+  5: 'sleep_rem_min',
+};
+
+/** The stages that count towards the night's total. */
+const ASLEEP_STAGES: ReadonlySet<MetricType> = new Set<MetricType>([
+  'sleep_core_min',
+  'sleep_deep_min',
+  'sleep_rem_min',
+]);
 
 /** The slice of @kingstinct/react-native-healthkit v14 that Vela uses. */
 export interface HealthKitModule {
@@ -83,6 +100,10 @@ const READ_MAP: { identifier: string; type: MetricType; unit: string }[] = [
   { identifier: 'HKQuantityTypeIdentifierHeartRateVariabilitySDNN', type: 'hrv_ms', unit: 'ms' },
   { identifier: 'HKQuantityTypeIdentifierStepCount', type: 'steps', unit: 'count' },
   { identifier: 'HKQuantityTypeIdentifierVO2Max', type: 'vo2max', unit: 'ml/(kg*min)' },
+  // The whole day's effort, whatever produced it. This is what makes strain reflect a run
+  // she went on rather than only the sets Vela had written down for her.
+  { identifier: 'HKQuantityTypeIdentifierActiveEnergyBurned', type: 'active_energy_kcal', unit: 'kcal' },
+  { identifier: 'HKQuantityTypeIdentifierAppleExerciseTime', type: 'exercise_min', unit: 'min' },
 ];
 
 export const READ_PERMISSION_LABELS = [
@@ -92,7 +113,8 @@ export const READ_PERMISSION_LABELS = [
   'Heart rate variability',
   'Steps',
   'VO₂ max',
-  'Sleep',
+  'Sleep, including its stages',
+  'Active energy and exercise minutes',
 ];
 
 let cached: HealthKitModule | null | undefined;
@@ -147,7 +169,16 @@ export async function requestHealthAccess(): Promise<{ granted: boolean; error: 
  * their sum. Weight or HRV are readings of a state at a moment, where a sum would be
  * nonsense and the mean of however many readings that day is the honest summary.
  */
-const CUMULATIVE: ReadonlySet<MetricType> = new Set<MetricType>(['steps', 'sleep_min']);
+const CUMULATIVE: ReadonlySet<MetricType> = new Set<MetricType>([
+  'steps',
+  'sleep_min',
+  'sleep_deep_min',
+  'sleep_rem_min',
+  'sleep_core_min',
+  'sleep_awake_min',
+  'active_energy_kcal',
+  'exercise_min',
+]);
 
 /** `YYYY-MM-DD` in the phone's own timezone — see the note in `syncHealth`. */
 function localDayKey(d: Date): string {
@@ -233,7 +264,8 @@ export async function syncHealth(days = 30): Promise<{
     });
 
     for (const r of sleepRows) {
-      if (!ASLEEP_VALUES.has(r.value)) continue;
+      const stage = SLEEP_STAGE[r.value];
+      if (!stage) continue;
 
       const start = new Date(r.startDate);
       const end = new Date(r.endDate);
@@ -245,14 +277,21 @@ export async function syncHealth(days = 30): Promise<{
 
       scanned++;
       const day = localDayKey(end);
-      const key = `sleep_min:${day}`;
-      const b = buckets.get(key);
-      if (b) {
-        b.total += minutes;
-        b.n++;
-        if (end.getTime() > b.at) b.at = end.getTime();
-      } else {
-        buckets.set(key, { type: 'sleep_min', day, total: minutes, n: 1, at: end.getTime() });
+
+      // The stage, and the total it contributes to. Both are written, so a screen can ask
+      // either "how long" or "how well" without recombining anything.
+      const targets: MetricType[] = ASLEEP_STAGES.has(stage) ? [stage, 'sleep_min'] : [stage];
+
+      for (const type of targets) {
+        const key = `${type}:${day}`;
+        const b = buckets.get(key);
+        if (b) {
+          b.total += minutes;
+          b.n++;
+          if (end.getTime() > b.at) b.at = end.getTime();
+        } else {
+          buckets.set(key, { type, day, total: minutes, n: 1, at: end.getTime() });
+        }
       }
     }
   } catch (e) {

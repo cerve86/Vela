@@ -10,6 +10,12 @@ export type MetricType =
   | 'bp_diastolic'
   | 'spo2_pct'
   | 'sleep_min'
+  | 'sleep_deep_min'
+  | 'sleep_rem_min'
+  | 'sleep_core_min'
+  | 'sleep_awake_min'
+  | 'active_energy_kcal'
+  | 'exercise_min'
   | 'steps'
   | 'vo2max';
 
@@ -28,6 +34,12 @@ export const METRIC_META: Record<
   bp_diastolic: { label: 'BP diastolic', unit: 'mmHg', decimals: 0 },
   spo2_pct: { label: 'SpO₂', unit: '%', decimals: 0 },
   sleep_min: { label: 'Sleep', unit: 'min', decimals: 0 },
+  sleep_deep_min: { label: 'Deep sleep', unit: 'min', decimals: 0 },
+  sleep_rem_min: { label: 'REM sleep', unit: 'min', decimals: 0 },
+  sleep_core_min: { label: 'Core sleep', unit: 'min', decimals: 0 },
+  sleep_awake_min: { label: 'Awake in bed', unit: 'min', decimals: 0 },
+  active_energy_kcal: { label: 'Active energy', unit: 'kcal', decimals: 0 },
+  exercise_min: { label: 'Exercise', unit: 'min', decimals: 0 },
   steps: { label: 'Steps', unit: '', decimals: 0 },
   vo2max: { label: 'VO₂ max', unit: 'ml/kg/min', decimals: 1 },
 };

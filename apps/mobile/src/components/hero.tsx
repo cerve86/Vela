@@ -1,6 +1,17 @@
 import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { useEffect } from 'react';
 import Svg, { Circle, Defs, G, Line, Path, RadialGradient, Rect, Stop, LinearGradient } from 'react-native-svg';
+import Animated, {
+  Easing,
+  cancelAnimation,
+  interpolate,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import { ChevronRight } from 'lucide-react-native';
 import { useTheme } from '@/theme';
 import { Body } from '@/components/kit';
@@ -228,6 +239,7 @@ export function DualDial({
   strain,
   strainTarget,
   tone,
+  toneSoft,
 }: {
   /** 0–100, or null when nothing has been logged or synced yet. */
   recovery: number | null;
@@ -235,10 +247,44 @@ export function DualDial({
   /** Where today's plan sits on the strain scale. Null on a rest day. */
   strainTarget: number | null;
   tone: string;
+  /** The lighter end of the arc's gradient. Falls back to `tone` for a flat stroke. */
+  toneSoft?: string;
 }) {
   const t = useTheme();
+  const reduced = useReducedMotion();
   const rec = recovery === null ? 0 : Math.max(0, Math.min(100, recovery)) / 100;
   const str = Math.max(0, Math.min(100, strain)) / 100;
+
+  /**
+   * The travelling highlight.
+   *
+   * A sheen that runs along the drawn part of the arc and starts again — the "flow" the
+   * design asks for, without a loop that could be mistaken for a value changing. It is a
+   * rotated layer rather than an animated gradient because rotating a view stays on
+   * Reanimated's fast path, where animating SVG gradient stops does not.
+   *
+   * It travels only as far as the arc does, so it never appears over empty track and cannot
+   * imply a recovery figure higher than the real one.
+   */
+  const sweep = useSharedValue(0);
+
+  useEffect(() => {
+    if (reduced || recovery === null) return;
+    sweep.value = 0;
+    sweep.value = withRepeat(
+      withTiming(1, { duration: 5200, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      false,
+    );
+    return () => cancelAnimation(sweep);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reduced, recovery]);
+
+  const sheen = useAnimatedStyle(() => ({
+    // Fades in and out at the ends so it arrives and leaves rather than blinking.
+    opacity: interpolate(sweep.value, [0, 0.15, 0.85, 1], [0, 0.9, 0.9, 0]),
+    transform: [{ rotate: `${sweep.value * rec * 360}deg` }],
+  }));
 
   return (
     <View style={{ width: RING_BOX, height: RING_BOX }}>
@@ -262,13 +308,21 @@ export function DualDial({
                 y1={cx + Math.sin(angle) * inner}
                 x2={cx + Math.cos(angle) * outer}
                 y2={cx + Math.sin(angle) * outer}
-                stroke={i / TICKS <= str ? tone : t.dialTicks}
+                stroke={i / TICKS <= str ? t.brand[300] : t.dialTicks}
                 strokeWidth={i / TICKS <= str ? 2.4 : 1.8}
                 strokeLinecap="round"
               />
             );
           })}
         </G>
+
+        <Defs>
+          {/* Two shades of the band's own blue, so the arc has depth rather than one flat ink. */}
+          <LinearGradient id="recArc" x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0%" stopColor={toneSoft ?? tone} />
+            <Stop offset="100%" stopColor={tone} />
+          </LinearGradient>
+        </Defs>
 
         <Circle cx={94} cy={94} r={RING_R} fill="none" stroke={t.dialTrack} strokeWidth={10} />
 
@@ -278,13 +332,40 @@ export function DualDial({
           cy={94}
           r={RING_R}
           fill="none"
-          stroke={recovery === null ? t.dialTrack : tone}
+          stroke={recovery === null ? t.dialTrack : 'url(#recArc)'}
           strokeWidth={10}
           strokeLinecap="round"
           strokeDasharray={RING_C}
           strokeDashoffset={RING_C * (1 - rec)}
         />
       </Svg>
+
+      {/* The sheen, on its own rotated layer. */}
+      {recovery !== null && !reduced && (
+        <Animated.View
+          pointerEvents="none"
+          style={[{ position: 'absolute', top: 0, left: 0 }, sheen]}
+        >
+          <Svg
+            width={RING_BOX}
+            height={RING_BOX}
+            viewBox={`0 0 ${RING_BOX} ${RING_BOX}`}
+            style={{ transform: [{ rotate: '-90deg' }] }}
+          >
+            <Circle
+              cx={94}
+              cy={94}
+              r={RING_R}
+              fill="none"
+              stroke={toneSoft ?? tone}
+              strokeWidth={10}
+              strokeLinecap="round"
+              // A short bright segment, not a second arc: 20 units drawn, the rest gap.
+              strokeDasharray={`20 ${RING_C}`}
+            />
+          </Svg>
+        </Animated.View>
+      )}
 
       {/* The strain target, as a notch on the tick ring rather than a third arc. */}
       {strainTarget !== null && (
@@ -340,7 +421,16 @@ export function DialStat({
   const t = useTheme();
   return (
     <View style={{ flex: 1 }}>
+      {/*
+        One line, always. At 34px "100%" is wider than the column the flanking stats get, so
+        strain wrapped to "100" over "%" the first time anybody trained hard — the one value
+        a person is most pleased to see, broken across two lines. Shrinking to fit is the
+        right trade here: the figure stays whole and the layout stays put.
+      */}
       <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
         style={{
           fontFamily: t.font.displaySemi,
           fontSize: 34,

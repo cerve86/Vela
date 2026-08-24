@@ -105,6 +105,8 @@ export default function TodayScreen() {
    */
   const recoveryTone =
     vitality.recovery.score === null ? t.textMuted : BAND_TONE(t)[vitality.recovery.band];
+  const recoveryToneSoft =
+    vitality.recovery.score === null ? t.textMuted : BAND_TONE_SOFT(t)[vitality.recovery.band];
 
   /**
    * The chip under the dial: the read she just gave, named and attributed.
@@ -180,6 +182,7 @@ export default function TodayScreen() {
                 strain={vitality.strain.score}
                 strainTarget={vitality.strain.target}
                 tone={recoveryTone}
+                toneSoft={recoveryToneSoft}
               />
               <DialStat
                 value={`${vitality.strain.score}%`}
@@ -391,18 +394,29 @@ const BAND_WORD: Record<RecoveryBand, string> = {
 };
 
 /**
- * Band → the dial's colour.
+ * Band → the dial's colour, in blue.
  *
- * Green at the top and amber in the middle, and deliberately not red at the bottom: a
- * postpartum client opening this app to a red ring has been told she is broken by an
- * average of three numbers. Violet is the palette's recovery colour and says "hold" without
- * saying "alarm".
+ * Traffic-light colour is gone on purpose. Amber and green made a number that is often
+ * simply "an ordinary Tuesday" look like a verdict, and the one thing a postpartum client
+ * does not need on opening an app is her body graded in the colours of a warning sign. The
+ * band word underneath already says LOW or GOOD; the ring only has to be legible.
+ *
+ * So the scale is saturation within one hue: pale for low, full brand blue for strong. It
+ * reads as more or less of the same thing, which is what recovery is.
  */
 const BAND_TONE = (t: ReturnType<typeof useTheme>): Record<RecoveryBand, string> => ({
-  low: t.vitals.hrv,
-  moderate: t.status.warningFill,
-  good: t.status.good,
-  strong: t.status.good,
+  low: t.brand[300],
+  moderate: t.brand[400],
+  good: t.brand[500],
+  strong: t.brand[600],
+});
+
+/** The lighter end of each band's gradient, so the arc has depth rather than one flat ink. */
+const BAND_TONE_SOFT = (t: ReturnType<typeof useTheme>): Record<RecoveryBand, string> => ({
+  low: t.brand[200],
+  moderate: t.brand[300],
+  good: t.brand[400],
+  strong: t.brand[500],
 });
 
 function capitalise(s: string): string {

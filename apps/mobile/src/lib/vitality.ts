@@ -32,7 +32,7 @@ interface Vitality {
  */
 export function useVitality(readiness: Readiness | null): Vitality {
   const { client } = useSession();
-  const [sleep, setSleep] = useState<{ recordedAt: string; value: number }[]>([]);
+  const [sleep, setSleep] = useState<{ recordedAt: string; value: number; type: string }[]>([]);
   const [hrv, setHrv] = useState<{ recordedAt: string; value: number }[]>([]);
   const [volume, setVolume] = useState<{ date: string; done: number; planned: number }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +48,17 @@ export function useVitality(readiness: Readiness | null): Vitality {
     const from = addDays(todayIso, -PEAK_DAYS);
 
     const [sleepRows, hrvRows, sessions] = await Promise.all([
-      listMetrics(supabase, { clientId: client.id, types: ['sleep_min'], since: addDays(todayIso, -BASELINE_DAYS) }),
+      listMetrics(supabase, {
+        clientId: client.id,
+        // One read for everything the night and the day are made of, rather than five.
+        types: [
+          'sleep_min',
+          'sleep_deep_min',
+          'sleep_rem_min',
+          'active_energy_kcal',
+        ],
+        since: addDays(todayIso, -PEAK_DAYS),
+      }),
       listMetrics(supabase, { clientId: client.id, types: ['hrv_ms'], since: addDays(todayIso, -BASELINE_DAYS) }),
       supabase
         .from('sessions')
@@ -57,7 +67,7 @@ export function useVitality(readiness: Readiness | null): Vitality {
         .lte('scheduled_date', todayIso),
     ]);
 
-    setSleep(sleepRows.map((m) => ({ recordedAt: m.recordedAt, value: m.value })));
+    setSleep(sleepRows.map((m) => ({ recordedAt: m.recordedAt, value: m.value, type: m.type })));
     setHrv(hrvRows.map((m) => ({ recordedAt: m.recordedAt, value: m.value })));
     setVolume(
       (sessions.data ?? []).map((s) => ({
@@ -83,13 +93,39 @@ export function useVitality(readiness: Readiness | null): Vitality {
      * newest row regardless would quietly show Friday's sleep all weekend, which is worse
      * than showing nothing — the number would look live and be three days stale.
      */
-    const lastSleep = sleep.find((s) => localDay(s.recordedAt) === todayIso)?.value ?? null;
+    /** Everything of one type, keyed by the local day it belongs to. */
+    const byType = (type: string) => {
+      const map = new Map<string, number>();
+      for (const m of sleep) {
+        if (m.type !== type) continue;
+        map.set(localDay(m.recordedAt), (map.get(localDay(m.recordedAt)) ?? 0) + m.value);
+      }
+      return map;
+    };
+
+    const totals = byType('sleep_min');
+    const deep = byType('sleep_deep_min');
+    const rem = byType('sleep_rem_min');
+    const energy = byType('active_energy_kcal');
+
+    /** Deep plus REM — the part of a night that does the repairing. */
+    const restorativeOn = (day: string) =>
+      deep.has(day) || rem.has(day) ? (deep.get(day) ?? 0) + (rem.get(day) ?? 0) : null;
+
+    const lastSleep = totals.get(todayIso) ?? null;
     const lastHrv = hrv.find((h) => localDay(h.recordedAt) === todayIso)?.value ?? null;
 
     // Baselines exclude today, so a bad night is measured against normal rather than
     // dragging its own yardstick down with it.
     const sleepBaseline = median(
-      sleep.filter((s) => localDay(s.recordedAt) !== todayIso).map((s) => s.value),
+      [...totals.entries()].filter(([d]) => d !== todayIso).map(([, v]) => v),
+    );
+
+    const restorativeBaseline = median(
+      [...totals.keys()]
+        .filter((d) => d !== todayIso)
+        .map(restorativeOn)
+        .filter((v): v is number => v !== null),
     );
     const hrvBaseline = median(
       hrv.filter((h) => localDay(h.recordedAt) !== todayIso).map((h) => h.value),
@@ -113,11 +149,31 @@ export function useVitality(readiness: Readiness | null): Vitality {
         readiness,
         hrvMs: lastHrv,
         hrvBaselineMs: hrvBaseline,
+        restorativeMinutes: restorativeOn(todayIso),
+        restorativeBaselineMinutes: restorativeBaseline,
       }),
       strain: strain({
         setsDone: todayVolume.done,
         setsPlanned: todayVolume.planned,
         peakSets: peak,
+        activeEnergy: energy.get(todayIso) ?? null,
+        // Her own hardest recent day, today excluded so it cannot become its own ceiling.
+        peakActiveEnergy: Math.max(
+          0,
+          ...[...energy.entries()].filter(([d]) => d !== todayIso).map(([, v]) => v),
+        ),
+        /**
+         * What a normal training day costs her, in kcal.
+         *
+         * The median of days she completed a session, which is the only honest target once
+         * the currency is energy: the plan is written in sets and nothing converts sets to
+         * calories for a particular person. Days she trained are the evidence.
+         */
+        typicalTrainingEnergy: median(
+          [...byDay.entries()]
+            .filter(([d, v]) => d !== todayIso && v.done > 0 && energy.has(d))
+            .map(([d]) => energy.get(d)!),
+        ),
       }),
     };
   }, [sleep, hrv, volume, readiness, todayIso]);
