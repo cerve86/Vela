@@ -2,15 +2,25 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CHALLENGE_METRICS, challengeWeekNow } from '@vela/api';
 import { palette } from '@vela/shared/tokens';
-import { Avatar, Card, StatTile } from '@/components/ui';
+import { Card, StatTile } from '@/components/ui';
 import { loadChallengeDashboard } from '../actions';
+import { loadAssignableClients } from '../../programs/actions';
+import { Participants } from './Participants';
 
 export const metadata = { title: 'Challenge — Vela' };
 
 export default async function ChallengePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { challenge, weeks, board, standing } = await loadChallengeDashboard(id);
+  const [{ challenge, weeks, board, standing }, clients] = await Promise.all([
+    loadChallengeDashboard(id),
+    loadAssignableClients(),
+  ]);
   if (!challenge) notFound();
+
+  // Her active clients who are not already in it. Offering somebody already enrolled would
+  // fail on the primary key and read as a bug rather than as a duplicate.
+  const enrolled = new Set(board.map((p) => p.clientId));
+  const eligible = clients.filter((c) => !enrolled.has(c.id));
 
   const today = new Date().toISOString().slice(0, 10);
   const week = challengeWeekNow(challenge.startsOn, challenge.weeks, today);
@@ -119,42 +129,14 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
           </p>
         </Card>
 
-        <Card title="Participation">
-          <div className="flex flex-col gap-3">
-            {board.map((p) => {
-              const pct = p.target > 0 ? Math.min(100, Math.round((p.done / p.target) * 100)) : 0;
-              return (
-                <div key={p.clientId} className="flex items-center gap-3">
-                  <Avatar name={p.name} size={32} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{p.name}</div>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--ghost)' }}>
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: `${pct}%`, background: palette.brand[600] }}
-                      />
-                    </div>
-                  </div>
-                  <span className="tnum text-xs ink-2">
-                    {p.done}/{p.target}
-                  </span>
-                </div>
-              );
-            })}
-            {board.length === 0 && (
-              <p className="text-sm ink-2">
-                Nobody is enrolled yet. The challenge exists but has no participants — add
-                some from the list.
-              </p>
-            )}
-          </div>
-
-          <p className="mt-4 text-[11px] ink-3">
-            Ordered by participation, not performance. Nobody is ranked on pain, weight or
-            load — and none of these names is visible to the other participants, who see the
-            group total and their own share only.
-          </p>
-        </Card>
+        <Participants
+          challengeId={challenge.id}
+          board={board}
+          eligible={eligible}
+          weeks={challenge.weeks}
+          weeklyTarget={challenge.weeklyTarget}
+          noun={noun}
+        />
       </div>
     </div>
   );
