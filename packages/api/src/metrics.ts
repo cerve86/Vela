@@ -76,7 +76,10 @@ export interface HealthSample {
  */
 export async function listMetrics(
   supabase: VelaClient,
-  opts: { clientId?: string; types?: MetricType[]; since?: string; limit?: number } = {},
+  // `readonly` because this only ever reads the list. A caller holding an `as const` array
+  // — the honest way to declare a fixed set of series — should not have to copy it to pass
+  // it in, and nothing here mutates it.
+  opts: { clientId?: string; types?: readonly MetricType[]; since?: string; limit?: number } = {},
 ): Promise<Metric[]> {
   let q = supabase
     .from('metrics')

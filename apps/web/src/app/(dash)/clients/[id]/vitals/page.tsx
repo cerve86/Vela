@@ -5,7 +5,19 @@ import { TimeSeriesPanels, type Panel } from '@/components/charts';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { dateWindow } from '@/lib/series';
 
-const TRACKED: MetricType[] = ['weight_kg', 'resting_hr', 'hrv_ms', 'steps'];
+/**
+ * The four series this page charts.
+ *
+ * `as const` so the colour map below can be exhaustive over these rather than over every
+ * metric type in the schema. That distinction broke a deploy: SERIES_COLOR was typed
+ * `Record<MetricType, string>`, so adding sleep stages and active energy to the enum — for
+ * the phone, which is the only surface that reads them — failed the portal's build demanding
+ * colours for six series it never draws. Now adding a metric type is free, and adding one
+ * here still forces a colour, which is where the compiler's insistence is actually useful.
+ */
+const TRACKED = ['weight_kg', 'resting_hr', 'hrv_ms', 'steps'] as const satisfies readonly MetricType[];
+
+type Tracked = (typeof TRACKED)[number];
 
 /** Full timestamp `n` days back, UTC, for `recorded_at` comparisons. */
 function sinceTimestamp(n: number): string {
@@ -14,21 +26,14 @@ function sinceTimestamp(n: number): string {
   return d.toISOString();
 }
 
-const SERIES_COLOR: Record<MetricType, string> = {
+const SERIES_COLOR: Record<Tracked, string> = {
   weight_kg: 'var(--series-1)',
   resting_hr: 'var(--series-2)',
   hrv_ms: 'var(--series-3)',
   steps: 'var(--series-4)',
-  body_fat_pct: 'var(--series-5)',
-  waist_cm: 'var(--series-6)',
-  bp_systolic: 'var(--series-2)',
-  bp_diastolic: 'var(--series-3)',
-  spo2_pct: 'var(--series-4)',
-  sleep_min: 'var(--series-3)',
-  vo2max: 'var(--series-5)',
 };
 
-function panelFor(type: MetricType, metrics: Metric[], days: number): { xLabels: string[]; panels: Panel[] } {
+function panelFor(type: Tracked, metrics: Metric[], days: number): { xLabels: string[]; panels: Panel[] } {
   const xLabels = dateWindow(days);
   const meta = METRIC_META[type];
 
