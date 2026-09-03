@@ -13,6 +13,7 @@ import {
   PlusJakartaSans_700Bold,
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { SessionProvider, useSession } from '@/lib/session';
+import { useHealthAutoSync } from '@/lib/healthSync';
 import { onboardingDismissed } from '@/lib/onboardingLocal';
 import { palette } from '@vela/shared/tokens';
 
@@ -33,6 +34,11 @@ function Gate() {
   const { loading, session, client, hasConsent } = useSession();
   const segments = useSegments();
   const router = useRouter();
+
+  // Keeps Apple Health current on cold start and on every return to the foreground. It
+  // arms itself only once there is a consented client, so it cannot fire on the sign-in
+  // or consent screens.
+  useHealthAutoSync();
 
   const route = segments[0] ?? '';
   const onInvite = route === 'invite';

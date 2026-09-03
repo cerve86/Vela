@@ -23,6 +23,7 @@ import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
 import { addDays, today, useNutrition, useSessionPlan, useUpcoming, useWeek } from '@/lib/data';
 import { useDailyRead } from '@/lib/daily';
+import { syncHealthNow } from '@/lib/healthSync';
 import { useVitality } from '@/lib/vitality';
 
 /**
@@ -77,7 +78,11 @@ export default function TodayScreen() {
         nutrition.reload(),
         daily.reload(),
         plan.reload(),
-        vitality.reload(),
+        // A pull is an explicit ask, so it bypasses the automatic sync's interval and
+        // re-reads Apple Health before the dials redraw. Without this the gesture claimed
+        // to pick up "an overnight backfill" and did nothing of the kind — it reloaded the
+        // same rows the backfill had not yet been imported into.
+        syncHealthNow().then(() => vitality.reload()),
       ]);
     } finally {
       setRefreshing(false);
@@ -187,10 +192,21 @@ export default function TodayScreen() {
               <DialStat
                 value={`${vitality.strain.score}%`}
                 label="STRAIN"
+                /*
+                 * Three different silences, and they used to read as one.
+                 *
+                 * "No target" meant "rest day" whatever the reason, which was defensible
+                 * while strain counted prescribed sets and nothing else. Now that it counts
+                 * her heart rate, a Saturday with no session but a long walk in it has a
+                 * real figure and no target — and calling that a rest day contradicts the
+                 * number printed directly above it.
+                 */
                 sub={
-                  vitality.strain.target === null
-                    ? 'rest day'
-                    : `target ${vitality.strain.target}%`
+                  vitality.strain.target !== null
+                    ? `target ${vitality.strain.target}%`
+                    : vitality.strain.score === 0
+                      ? 'rest day'
+                      : 'no target yet'
                 }
                 align="left"
               />
@@ -211,13 +227,20 @@ export default function TodayScreen() {
                 : vitality.recovery.note}
             </Text>
 
+            {/*
+              `estimated` used to mean "no sleep last night" and now means something
+              narrower and more important: nothing was measured at all, so this figure is
+              her own answer and nothing else. Saying so is the whole point — a number built
+              from one tap must not sit under the same ring, in the same type, as one built
+              from a night's readings.
+            */}
             {vitality.recovery.score !== null && vitality.recovery.estimated && (
               <Body
                 size={11}
                 color={t.textSecondary}
                 style={{ textAlign: 'center', marginTop: 8 }}
               >
-                Estimated · no sleep recorded last night
+                From how you feel · connect Apple Health for the rest
               </Body>
             )}
 

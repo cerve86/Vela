@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { importHealthSamples, type HealthSample, type MetricType } from '@vela/api';
+import { cardioLoad, maxHeartRate, median, type HeartRateBucket } from '@vela/shared';
 import { supabase } from './supabase';
 
 /**
@@ -32,6 +33,15 @@ interface CategoryRow {
 const SLEEP_IDENTIFIER = 'HKCategoryTypeIdentifierSleepAnalysis';
 
 /**
+ * Instantaneous heart rate. Read through the statistics collection rather than as samples,
+ * and never stored raw — it becomes one `cardio_load` figure per day. See `readCardioLoad`.
+ */
+const HEART_RATE_IDENTIFIER = 'HKQuantityTypeIdentifierHeartRate';
+
+/** How finely the day is cut when weighting heart rate. */
+const HR_BUCKET_MINUTES = 5;
+
+/**
  * Sleep-analysis values, mapped to what each one is worth keeping as.
  *
  * The stages are kept separately as well as summed. How a night was composed matters more
@@ -56,6 +66,14 @@ const ASLEEP_STAGES: ReadonlySet<MetricType> = new Set<MetricType>([
   'sleep_deep_min',
   'sleep_rem_min',
 ]);
+
+/** One five-minute slice of the day, as HealthKit summarised it. */
+interface StatisticsBucket {
+  startDate?: Date | string;
+  endDate?: Date | string;
+  averageQuantity?: { quantity: number; unit: string };
+  maximumQuantity?: { quantity: number; unit: string };
+}
 
 /** The slice of @kingstinct/react-native-healthkit v14 that Vela uses. */
 export interface HealthKitModule {
@@ -84,6 +102,22 @@ export interface HealthKitModule {
       filter?: { date?: { startDate?: Date; endDate?: Date } };
     },
   ) => Promise<readonly CategoryRow[]>;
+  /**
+   * Bucketed statistics, computed by HealthKit rather than here.
+   *
+   * This is the only workable way to read heart rate. A watch records it every few seconds
+   * during a workout, so a month of samples runs to tens of thousands of rows — far past
+   * the `limit` the sample queries take, and a waste of the bridge even if it were not.
+   * Asking HealthKit for a five-minute average returns roughly 288 small objects a day and
+   * does the aggregation in native code where the samples already live.
+   */
+  queryStatisticsCollectionForQuantity: (
+    identifier: string,
+    statistics: readonly string[],
+    anchorDate: Date,
+    intervalComponents: { minute?: number; hour?: number; day?: number },
+    options?: { unit?: string; filter?: { date?: { startDate?: Date; endDate?: Date } } },
+  ) => Promise<readonly StatisticsBucket[]>;
 }
 
 /**
@@ -104,6 +138,10 @@ const READ_MAP: { identifier: string; type: MetricType; unit: string }[] = [
   // she went on rather than only the sets Vela had written down for her.
   { identifier: 'HKQuantityTypeIdentifierActiveEnergyBurned', type: 'active_energy_kcal', unit: 'kcal' },
   { identifier: 'HKQuantityTypeIdentifierAppleExerciseTime', type: 'exercise_min', unit: 'min' },
+  // Recorded by the watch while she sleeps, so a day's samples are one night and the mean
+  // of them is the reading. Rises before an infection is noticed, which is why recovery
+  // wants it.
+  { identifier: 'HKQuantityTypeIdentifierRespiratoryRate', type: 'respiratory_rate', unit: 'count/min' },
 ];
 
 export const READ_PERMISSION_LABELS = [
@@ -115,6 +153,8 @@ export const READ_PERMISSION_LABELS = [
   'VO₂ max',
   'Sleep, including its stages',
   'Active energy and exercise minutes',
+  'Heart rate',
+  'Breathing rate',
 ];
 
 let cached: HealthKitModule | null | undefined;
@@ -151,8 +191,10 @@ export async function requestHealthAccess(): Promise<{ granted: boolean; error: 
   try {
     // No toShare key at all: read-only, explicitly.
     const granted = await hk.requestAuthorization({
-      // Sleep rides along here rather than in READ_MAP, which is quantity types only.
-      toRead: [...READ_MAP.map((r) => r.identifier), SLEEP_IDENTIFIER],
+      // Sleep and heart rate ride along here rather than in READ_MAP. Sleep is a category
+      // type; heart rate is a quantity but is never rolled up as a daily mean, because the
+      // mean of a day's heart rate is a number about nothing.
+      toRead: [...READ_MAP.map((r) => r.identifier), SLEEP_IDENTIFIER, HEART_RATE_IDENTIFIER],
     });
     return { granted, error: null };
   } catch (e) {
@@ -178,6 +220,7 @@ const CUMULATIVE: ReadonlySet<MetricType> = new Set<MetricType>([
   'sleep_awake_min',
   'active_energy_kcal',
   'exercise_min',
+  'cardio_load',
 ]);
 
 /** `YYYY-MM-DD` in the phone's own timezone — see the note in `syncHealth`. */
@@ -302,6 +345,35 @@ export async function syncHealth(days = 30): Promise<{
     };
   }
 
+  /**
+   * Heart rate, in its own try.
+   *
+   * Deliberately not inside the block above: this is the one read that depends on a newer
+   * library call, and everything else here is worth having without it. A phone that cannot
+   * answer the statistics query should lose the effort figure and keep its weight, sleep and
+   * steps, rather than failing the whole sync and reporting that Apple Health is broken.
+   */
+  try {
+    const restingByDay = new Map<string, number>();
+    for (const b of buckets.values()) {
+      if (b.type === 'resting_hr' && b.n > 0) restingByDay.set(b.day, b.total / b.n);
+    }
+
+    const load = await readCardioLoad(hk, from, to, restingByDay);
+    for (const [day, entry] of load) {
+      scanned += entry.samples;
+      buckets.set(`cardio_load:${day}`, {
+        type: 'cardio_load',
+        day,
+        total: entry.load,
+        n: 1,
+        at: entry.at,
+      });
+    }
+  } catch {
+    // See above. Strain falls back to active energy, and then to prescribed sets.
+  }
+
   const samples: HealthSample[] = [];
   for (const [key, b] of buckets) {
     samples.push({
@@ -317,4 +389,112 @@ export async function syncHealth(days = 30): Promise<{
 
   const { written, error } = await importHealthSamples(supabase, samples);
   return { written, scanned, error };
+}
+
+/**
+ * A day-by-day cardiovascular load, from five-minute heart rate averages.
+ *
+ * The shape of the calculation lives in `@vela/shared` so it is testable and so the coach's
+ * portal can one day read it the same way. What belongs here is everything that needs the
+ * device: the timezone the day was actually lived in, and the two personal numbers the
+ * weighting is relative to.
+ *
+ * Returns nothing at all rather than a poor guess. A load computed against a scale we do not
+ * really have is worse than no strain figure, because the screen has an honest fallback and
+ * a wrong number has nothing behind it.
+ */
+async function readCardioLoad(
+  hk: HealthKitModule,
+  from: Date,
+  to: Date,
+  restingByDay: Map<string, number>,
+): Promise<Map<string, { load: number; at: number; samples: number }>> {
+  const empty = new Map<string, { load: number; at: number; samples: number }>();
+
+  // Anchored to local midnight so the buckets line up with clock time rather than with
+  // whatever moment the sync happened to run.
+  const anchor = new Date(from);
+  anchor.setHours(0, 0, 0, 0);
+
+  const rows = await hk.queryStatisticsCollectionForQuantity(
+    HEART_RATE_IDENTIFIER,
+    ['discreteAverage', 'discreteMax'],
+    anchor,
+    { minute: HR_BUCKET_MINUTES },
+    { unit: 'count/min', filter: { date: { startDate: from, endDate: to } } },
+  );
+
+  const perDay = new Map<string, { buckets: HeartRateBucket[]; at: number }>();
+  const averages: number[] = [];
+  let observedMax = 0;
+
+  for (const r of rows) {
+    const avg = r.averageQuantity?.quantity;
+    if (typeof avg !== 'number' || !Number.isFinite(avg) || avg <= 0) continue;
+
+    const stamp = r.endDate ?? r.startDate;
+    if (!stamp) continue;
+    const end = new Date(stamp);
+    if (Number.isNaN(end.getTime())) continue;
+
+    // The peak within the bucket, for the ceiling — the average of a five-minute stretch
+    // never touches the hardest beat in it, and the ceiling is the one place that matters.
+    const peak = r.maximumQuantity?.quantity;
+    observedMax = Math.max(observedMax, typeof peak === 'number' && Number.isFinite(peak) ? peak : avg);
+
+    averages.push(avg);
+
+    const day = localDayKey(end);
+    const entry = perDay.get(day) ?? { buckets: [], at: 0 };
+    // Every bucket that holds a reading is counted as its full five minutes. HealthKit
+    // returns no bucket at all where the watch recorded nothing, so this reads as "her
+    // heart was doing roughly this for these five minutes", which is the claim intended.
+    entry.buckets.push({ minutes: HR_BUCKET_MINUTES, bpm: avg });
+    if (end.getTime() > entry.at) entry.at = end.getTime();
+    perDay.set(day, entry);
+  }
+
+  if (perDay.size === 0) return empty;
+
+  /**
+   * The floor. Apple's own resting figure where there is one, because it is computed from
+   * far more than this window; otherwise the quiet end of her own distribution, which is a
+   * resting measurement in all but name.
+   */
+  const reported = [...restingByDay.values()].filter((v) => v > 0);
+  const restingHr = reported.length > 0 ? median(reported) : percentile(averages, 0.05);
+  if (restingHr === null) return empty;
+
+  const maxHr = maxHeartRate({
+    // Not collected anywhere in the product today — the column exists and nothing fills it.
+    // Passing it explicitly rather than omitting it is what makes this one line to change
+    // if intake ever asks.
+    dateOfBirth: null,
+    observedMaxHr: observedMax > 0 ? observedMax : null,
+    onDate: localDayKey(to),
+  });
+  if (maxHr === null) return empty;
+
+  const scale = { restingHr: Math.round(restingHr), maxHr };
+
+  // A span this narrow means we are looking at a quiet fortnight rather than a real ceiling,
+  // and every reserve computed from it would be overstated. Better to say nothing yet.
+  if (scale.maxHr - scale.restingHr < 40) return empty;
+
+  const out = new Map<string, { load: number; at: number; samples: number }>();
+  for (const [day, entry] of perDay) {
+    const load = cardioLoad(entry.buckets, scale);
+    // Zero is a fact — a day she genuinely rested — and is written, so the chart shows a
+    // rest day rather than a gap that reads as a missing sync.
+    out.set(day, { load: Math.round(load * 10) / 10, at: entry.at, samples: entry.buckets.length });
+  }
+  return out;
+}
+
+/** The value below which `p` of the sorted set falls. Used only for a resting-rate floor. */
+function percentile(values: number[], p: number): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const i = Math.min(sorted.length - 1, Math.max(0, Math.floor(p * (sorted.length - 1))));
+  return sorted[i] ?? null;
 }

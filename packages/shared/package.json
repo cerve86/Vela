@@ -12,7 +12,8 @@
     "./illustrations": "./src/illustrations.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "zod": "^3.24.1"

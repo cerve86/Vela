@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { listMetrics } from '@vela/api';
 import { median, recovery, strain, type Readiness, type Recovery, type Strain } from '@vela/shared';
 import { supabase } from './supabase';
 import { useSession } from './session';
+import { subscribeHealthSync } from './healthSync';
 import { addDays, localDay, today } from './data';
 
 /** Nights of history used for the sleep and HRV baselines. */
@@ -55,7 +56,11 @@ export function useVitality(readiness: Readiness | null): Vitality {
           'sleep_min',
           'sleep_deep_min',
           'sleep_rem_min',
+          'sleep_awake_min',
           'active_energy_kcal',
+          'cardio_load',
+          'resting_hr',
+          'respiratory_rate',
         ],
         since: addDays(todayIso, -PEAK_DAYS),
       }),
@@ -85,6 +90,15 @@ export function useVitality(readiness: Readiness | null): Vitality {
     }, [load]),
   );
 
+  /**
+   * Redraw when a foreground sync lands rows.
+   *
+   * Focus alone is not enough here: coming back from the background does not re-focus the
+   * screen, so the dials would keep showing the pre-sync figures — which for the first
+   * open of the day is the difference between "—" and last night's sleep.
+   */
+  useEffect(() => subscribeHealthSync(() => void load()), [load]);
+
   const value = useMemo(() => {
     /**
      * "Last night" is the reading recorded today, not simply the newest one.
@@ -93,7 +107,7 @@ export function useVitality(readiness: Readiness | null): Vitality {
      * newest row regardless would quietly show Friday's sleep all weekend, which is worse
      * than showing nothing — the number would look live and be three days stale.
      */
-    /** Everything of one type, keyed by the local day it belongs to. */
+    /** Everything of one type, summed into the local day it belongs to. */
     const byType = (type: string) => {
       const map = new Map<string, number>();
       for (const m of sleep) {
@@ -103,10 +117,35 @@ export function useVitality(readiness: Readiness | null): Vitality {
       return map;
     };
 
+    /**
+     * The same, averaged rather than summed.
+     *
+     * Minutes of sleep add up; a heart rate does not. The import writes one row per metric
+     * per day, so in practice these agree — until a manual entry lands beside the imported
+     * one, and then summing turns two readings of 55 bpm into a resting rate of 110 and a
+     * recovery score built on it.
+     */
+    const meanByType = (type: string) => {
+      const acc = new Map<string, { total: number; n: number }>();
+      for (const m of sleep) {
+        if (m.type !== type) continue;
+        const day = localDay(m.recordedAt);
+        const e = acc.get(day) ?? { total: 0, n: 0 };
+        e.total += m.value;
+        e.n += 1;
+        acc.set(day, e);
+      }
+      return new Map([...acc].map(([day, v]) => [day, v.total / v.n] as const));
+    };
+
     const totals = byType('sleep_min');
     const deep = byType('sleep_deep_min');
     const rem = byType('sleep_rem_min');
+    const awake = byType('sleep_awake_min');
     const energy = byType('active_energy_kcal');
+    const load = byType('cardio_load');
+    const resting = meanByType('resting_hr');
+    const breathing = meanByType('respiratory_rate');
 
     /** Deep plus REM — the part of a night that does the repairing. */
     const restorativeOn = (day: string) =>
@@ -151,6 +190,13 @@ export function useVitality(readiness: Readiness | null): Vitality {
         hrvBaselineMs: hrvBaseline,
         restorativeMinutes: restorativeOn(todayIso),
         restorativeBaselineMinutes: restorativeBaseline,
+        // Keyed to today like the rest of the night's readings: sleep is filed under the
+        // morning she woke, and so are the vitals measured through it.
+        awakeMinutes: awake.get(todayIso) ?? null,
+        restingHr: resting.get(todayIso) ?? null,
+        restingHrBaseline: baselineExcludingToday(resting, todayIso),
+        respiratoryRate: breathing.get(todayIso) ?? null,
+        respiratoryRateBaseline: baselineExcludingToday(breathing, todayIso),
       }),
       strain: strain({
         setsDone: todayVolume.done,
@@ -174,9 +220,39 @@ export function useVitality(readiness: Readiness | null): Vitality {
             .filter(([d, v]) => d !== todayIso && v.done > 0 && energy.has(d))
             .map(([d]) => energy.get(d)!),
         ),
+        /**
+         * The same three questions again, in the currency strain now prefers: what today
+         * came to, her own hardest recent day, and what a day she trained normally costs.
+         *
+         * Today is excluded from the peak for the reason it always was — a hard morning must
+         * not become its own ceiling and read as 100% before lunch.
+         */
+        cardioLoad: load.get(todayIso) ?? null,
+        peakCardioLoad: Math.max(
+          0,
+          ...[...load.entries()].filter(([d]) => d !== todayIso).map(([, v]) => v),
+        ),
+        typicalTrainingLoad: median(
+          [...byDay.entries()]
+            .filter(([d, v]) => d !== todayIso && v.done > 0 && load.has(d))
+            .map(([d]) => load.get(d)!),
+        ),
       }),
     };
   }, [sleep, hrv, volume, readiness, todayIso]);
 
   return { ...value, loading, reload: load };
+}
+
+/**
+ * The median of a daily series, with today left out.
+ *
+ * Today is excluded for the reason every baseline here excludes it: a raised resting rate
+ * this morning must be measured against her normal, not against a normal it has just helped
+ * to define. With a short history that is a handful of days, which is exactly when the
+ * comparison is weakest — and why a missing baseline drops the signal from the score
+ * entirely rather than scoring it against a guess.
+ */
+function baselineExcludingToday(series: Map<string, number>, todayIso: string): number | null {
+  return median([...series.entries()].filter(([d]) => d !== todayIso).map(([, v]) => v));
 }

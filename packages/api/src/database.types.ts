@@ -1177,6 +1177,8 @@ export type Database = {
         | "sleep_rem_min"
         | "sleep_core_min"
         | "sleep_awake_min"
+        | "cardio_load"
+        | "respiratory_rate"
       read_window: "morning" | "midday" | "evening"
       session_status: "scheduled" | "in_progress" | "completed" | "skipped"
       user_role: "coach" | "client"
@@ -1348,6 +1350,8 @@ export const Constants = {
         "sleep_rem_min",
         "sleep_core_min",
         "sleep_awake_min",
+        "cardio_load",
+        "respiratory_rate",
       ],
       read_window: ["morning", "midday", "evening"],
       session_status: ["scheduled", "in_progress", "completed", "skipped"],
