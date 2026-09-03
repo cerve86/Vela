@@ -109,8 +109,30 @@ export function useSessionLog(sessionId: string | null, plan: SessionPlanItem[])
       setPainBefore(pain);
       setSymptom(sym);
       persist({ startedAt: now, painBefore: pain, symptom: sym });
+
+      /**
+       * Mark the row started — best effort, and deliberately not awaited.
+       *
+       * The local record above is what the session actually runs on, so a clinic with no
+       * signal must never see Start hesitate. All this write buys is a signal the local
+       * copy cannot give anybody else: until now `in_progress` was in the enum, in the
+       * types and in Today's "Resume session" branch, and was never written by anything —
+       * so a session abandoned at set four was indistinguishable from one never opened,
+       * both to the coach and to this app on a second device.
+       *
+       * Filtered on `status = 'scheduled'` so re-entering a session cannot walk a finished
+       * one backwards.
+       */
+      if (sessionId) {
+        void supabase
+          .from('sessions')
+          .update({ status: 'in_progress', started_at: new Date(now).toISOString() })
+          .eq('id', sessionId)
+          .eq('status', 'scheduled')
+          .then(() => {});
+      }
     },
-    [persist],
+    [persist, sessionId],
   );
 
   /**
@@ -169,6 +191,10 @@ export function useSessionLog(sessionId: string | null, plan: SessionPlanItem[])
           // meant both every set and one set, and nothing could weigh a day's work.
           sets_planned: total,
           sets_done: completed,
+          // Computed from the start stamp rather than read off `elapsed`: the ticking
+          // clock is a display, and its interval does not fire while the app is
+          // backgrounded — which a twenty-minute session spends most of.
+          duration_sec: startedAt === null ? null : Math.round((Date.now() - startedAt) / 1000),
         })
         .eq('id', sessionId);
 
@@ -182,7 +208,7 @@ export function useSessionLog(sessionId: string | null, plan: SessionPlanItem[])
       // Only now is the local copy redundant.
       void AsyncStorage.removeItem(key(sessionId)).catch(() => {});
     },
-    [sessionId, painBefore, completed, total],
+    [sessionId, painBefore, completed, total, startedAt],
   );
 
   return {

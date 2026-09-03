@@ -285,9 +285,21 @@ export interface ScheduledSession {
   /** Null until she logs the session; the before/after pair is what the coach reads. */
   painBefore: number | null;
   painAfter: number | null;
+  /**
+   * How much of the prescription she actually ticked, and how long it took.
+   *
+   * Not set-by-set logs — there is still no row per set, so nothing here says which
+   * movement she stopped on or what load she used. What it does say is the difference
+   * between "completed" meaning nine sets and "completed" meaning three, which the status
+   * alone could never carry.
+   */
+  setsDone: number | null;
+  setsPlanned: number | null;
+  durationSec: number | null;
 }
 
-const SESSION_COLUMNS = 'id, title, discipline, scheduled_date, status, pain_before, pain_after';
+const SESSION_COLUMNS =
+  'id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec';
 
 function toSession(row: {
   id: string;
@@ -297,6 +309,9 @@ function toSession(row: {
   status: string;
   pain_before: number | null;
   pain_after: number | null;
+  sets_done: number | null;
+  sets_planned: number | null;
+  duration_sec: number | null;
 }): ScheduledSession {
   return {
     id: row.id,
@@ -306,6 +321,9 @@ function toSession(row: {
     status: row.status as ScheduledSession['status'],
     painBefore: row.pain_before === null ? null : Number(row.pain_before),
     painAfter: row.pain_after === null ? null : Number(row.pain_after),
+    setsDone: row.sets_done === null ? null : Number(row.sets_done),
+    setsPlanned: row.sets_planned === null ? null : Number(row.sets_planned),
+    durationSec: row.duration_sec === null ? null : Number(row.duration_sec),
   };
 }
 
