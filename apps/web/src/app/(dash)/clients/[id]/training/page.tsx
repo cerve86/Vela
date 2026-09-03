@@ -64,7 +64,18 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
         'How did it feel the next morning?',
       ]
     : [];
-  const upcoming = sessions.filter((s) => s.scheduledDate >= todayIso && s.status === 'scheduled');
+  /**
+   * What is still ahead of her, including anything she has open right now.
+   *
+   * `in_progress` is in this list rather than filtered out with the finished ones: the app
+   * writes that status the moment she taps Start, and a session she opened this morning and
+   * has not sent yet belongs under the coach's eye, not in a gap between two lists. It is
+   * also the one status worth calling out by name — "started, not sent" is a different
+   * conversation from "not started".
+   */
+  const upcoming = sessions.filter(
+    (s) => s.scheduledDate >= todayIso && (s.status === 'scheduled' || s.status === 'in_progress'),
+  );
 
   const xLabels = dateWindow(56);
   const before = new Map(
@@ -168,8 +179,20 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
             <div>
               <h3 className="display-face text-2xl font-semibold">{review.title}</h3>
               <p className="mt-1 text-sm ink-2">
-                {reviewPlan.length} movements ·{' '}
-                {reviewPlan.reduce((n, i) => n + i.sets, 0)} sets prescribed ·{' '}
+                {/*
+                  What she did, then what she was given — in that order, because "3 of 9"
+                  is the fact that changes the conversation and it used to be absent
+                  entirely. A session that stopped a third of the way in and one she
+                  finished both read "Completed" here until the app started sending its
+                  volume.
+                */}
+                {review.setsDone !== null && review.setsPlanned !== null
+                  ? `${review.setsDone} of ${review.setsPlanned} sets`
+                  : `${reviewPlan.reduce((n, i) => n + i.sets, 0)} sets prescribed`}
+                {' · '}
+                {reviewPlan.length} movements
+                {review.durationSec !== null && ` · ${Math.round(review.durationSec / 60)} min`}
+                {' · '}
                 {review.painBefore !== null && review.painAfter !== null
                   ? `symptoms ${review.painBefore}/10 before, ${review.painAfter}/10 after`
                   : 'no symptom scores recorded'}
@@ -266,8 +289,8 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
           <>
             <TimeSeriesPanels xLabels={xLabels} panels={[painPanel]} />
             <p className="mt-2 text-xs ink-3">
-              Set-by-set load, session RPE and duration join this tab when the offline
-              outbox syncs them in Phase 3.
+              Set-by-set load and session RPE join this tab when per-set logs land. How much
+              of each session she completed, and how long it took, are recorded now.
             </p>
           </>
         )}
@@ -284,6 +307,7 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
                   <th className="pb-2 font-medium">Date</th>
                   <th className="pb-2 font-medium">Session</th>
                   <th className="pb-2 font-medium">Type</th>
+                  <th className="pb-2 font-medium">Sets</th>
                   <th className="pb-2 font-medium">Pain before</th>
                   <th className="pb-2 font-medium">Pain after</th>
                 </tr>
@@ -303,6 +327,13 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
                       </td>
                       <td className="py-2.5 font-medium">{s.title}</td>
                       <td className="py-2.5 ink-2">{DISCIPLINE_LABEL[s.discipline]}</td>
+                      {/* Blank for sessions logged before the app sent its volume, rather
+                          than a zero that would read as "she did nothing". */}
+                      <td className="tnum py-2.5 ink-2">
+                        {s.setsDone !== null && s.setsPlanned !== null
+                          ? `${s.setsDone}/${s.setsPlanned}`
+                          : '—'}
+                      </td>
                       <td className="py-2.5">
                         <PainDot score={s.painBefore} />
                       </td>
@@ -332,6 +363,7 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
                   })}
                 </span>
                 <span className="flex-1 text-sm font-medium">{s.title}</span>
+                {s.status === 'in_progress' && <StatusPill tone="warning">Started</StatusPill>}
                 <StatusPill tone="neutral">{DISCIPLINE_LABEL[s.discipline]}</StatusPill>
               </li>
             ))}

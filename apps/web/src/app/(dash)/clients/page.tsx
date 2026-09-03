@@ -268,10 +268,17 @@ function statusTone(status: string): 'good' | 'warning' | 'neutral' {
  * A function rather than an inline expression because the clock is impure, and reading it
  * straight in a component body is what the purity lint rule exists to catch — it renders
  * fine on a server component and rots the moment the same code is used on the client.
+ *
+ * UTC on both sides of the subtraction. It used to step the *local* date and then read the
+ * result back as UTC, which is a day out for part of every day west of Greenwich: at 20:00
+ * in New York, `daysBack(6)` returned a window starting a day later than the deep-dive's,
+ * so the same client's adherence read differently on the roster and on her own page. The
+ * deep-dive and `dateWindow` were already UTC; this is the odd one out being brought into
+ * line rather than a new convention.
  */
 function daysBack(n: number): string {
   const d = new Date();
-  d.setDate(d.getDate() - n);
+  d.setUTCDate(d.getUTCDate() - n);
   return d.toISOString().slice(0, 10);
 }
 
