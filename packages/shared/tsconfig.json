@@ -1,7 +1,13 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    // The unit tests run on Node's own runner, which strips types rather than compiling
+    // them, and its resolver wants the specifier written as it is on disk — `./vitality.ts`.
+    // tsc rejects that by default. Permitted here because this package only ever
+    // typechecks; the apps consume its source through their own bundlers and never see a
+    // test file, which is why the flag belongs here and not in the base config.
+    "allowImportingTsExtensions": true
   },
   "include": ["src/**/*.ts"]
 }

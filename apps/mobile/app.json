@@ -13,7 +13,7 @@
       "bundleIdentifier": "io.velas.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSHealthShareUsageDescription": "Vela reads body weight, body fat percentage, resting heart rate, heart rate variability, steps and VO\u2082 max from Apple Health so your physiotherapist can see how training is affecting your recovery. Your health data is never used for advertising and is never shared with third parties.",
+        "NSHealthShareUsageDescription": "Vela reads body weight, body fat percentage, heart rate, resting heart rate, heart rate variability, breathing rate, steps, VO\u2082 max, sleep and its stages, active energy and exercise minutes from Apple Health, so your physiotherapist can see how training is landing against your sleep and recovery. Your health data is never used for advertising and is never shared with third parties.",
         "NSHealthUpdateUsageDescription": "Vela does not write anything to Apple Health. iOS requires this description because the Health framework Vela uses to read your measurements also provides write access, which Vela never requests."
       },
       "entitlements": {

@@ -16,6 +16,8 @@ export type MetricType =
   | 'sleep_awake_min'
   | 'active_energy_kcal'
   | 'exercise_min'
+  | 'cardio_load'
+  | 'respiratory_rate'
   | 'steps'
   | 'vo2max';
 
@@ -40,6 +42,10 @@ export const METRIC_META: Record<
   sleep_awake_min: { label: 'Awake in bed', unit: 'min', decimals: 0 },
   active_energy_kcal: { label: 'Active energy', unit: 'kcal', decimals: 0 },
   exercise_min: { label: 'Exercise', unit: 'min', decimals: 0 },
+  // Unitless on purpose, and never charted as a bare figure: see the migration. The label
+  // is what a coach would say out loud, not the name of the formula behind it.
+  cardio_load: { label: 'Effort', unit: '', decimals: 0 },
+  respiratory_rate: { label: 'Breathing rate', unit: 'breaths/min', decimals: 1 },
   steps: { label: 'Steps', unit: '', decimals: 0 },
   vo2max: { label: 'VO₂ max', unit: 'ml/kg/min', decimals: 1 },
 };

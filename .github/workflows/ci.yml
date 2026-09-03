@@ -29,6 +29,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # The domain maths — recovery, strain, cardiovascular load. These are pure functions
+      # and they decide numbers a physiotherapist acts on, so a regression here is silent
+      # everywhere else: the screen still renders a tidy percentage.
+      - name: Unit tests
+        run: npm test
+
       # next.config refuses a production build with no Supabase configuration, because a
       # deployment built without it is green and broken. CI has to supply the same public
       # values a real build gets. Neither is a secret: the anon key ships inside the
