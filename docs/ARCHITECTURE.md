@@ -97,11 +97,11 @@ roughly 3–4 extra weeks you don't need to spend yet.
 | Concern | Choice | Notes |
 |---|---|---|
 | Monorepo | **npm workspaces** | Chosen over pnpm: Metro (React Native's bundler) has long-standing friction with pnpm's symlinked `node_modules`, and npm's hoisted layout is the safer foundation for an Expo monorepo. Also avoids a sudo install. |
-| Mobile state | TanStack Query + Zustand | Query = server cache, Zustand = active-workout UI state |
-| Offline | SQLite (`expo-sqlite`) + outbox queue | **Non-negotiable** — gyms and clinics have bad signal |
-| Web data | TanStack Query + Supabase JS | Server Components for the shell, client components for charts |
-| Charts | Recharts (web), Victory Native XL (mobile) | |
-| Forms/validation | React Hook Form + Zod, schemas in `packages/shared` | One schema validates client, server and DB constraint |
+| Mobile state | Hand-rolled `useAsync` + React state | **Diverged from the original choice.** No TanStack Query, no Zustand. `apps/mobile/src/lib/data.ts` holds a small async hook with a generation counter so a slow response cannot overwrite a newer one, and screens refetch on focus. The cost is real and known: there is no shared cache, so Today and the session screen each fetch the same plan. Adopt a query cache when that starts to hurt — but do not describe one as present until it is. |
+| Offline | AsyncStorage scratchpad; **outbox still to build** | An in-progress session is persisted to the device as it goes, so a phone call or a nappy cannot lose twenty minutes of ticks. What does not exist yet is a retry queue: if the final send fails and the app is closed, nothing resends. `expo-sqlite` is not installed. This is the gap that blocks CP3's airplane-mode test. |
+| Web data | Server Components + Supabase JS | Pages are async Server Components reading through RLS; only genuinely interactive pieces (composer, builder, dialogs) are client components. No TanStack Query on the web either. |
+| Charts | Hand-rolled SVG, both surfaces | Neither Recharts nor Victory Native is installed. `components/charts.tsx` in each app draws its own axes and series against the validated palette, which is why the two surfaces agree on colour and on how a gap is rendered. |
+| Forms/validation | Plain controlled inputs + Zod schemas in `packages/shared` | Zod is used; React Hook Form is not installed. Forms are small enough that controlled state has not hurt. |
 | Health data | HealthKit read-only via `@kingstinct/react-native-healthkit` | Background delivery for weight/HR/sleep/steps |
 | Food database | Open Food Facts (free, EU, barcode) | Swap to FatSecret/Nutritionix if coverage disappoints. Called from the device with an identifying User-Agent, as their terms require; every product resolved is cached in `foods` so a second scan of the same tin needs no network. Crowd-sourced, so a product with no energy value is treated as a miss — logging it as 0 kcal would be worse than not logging it |
 | Media | Supabase Storage, signed URLs, private buckets | Exercise video + progress photos |

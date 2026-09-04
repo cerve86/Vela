@@ -70,4 +70,10 @@ npx supabase config push    # auth settings and email templates
 
 Email template customisation requires custom SMTP — Supabase refuses it on the free tier
 with the default email provider, and the app's invite flow depends on a `{{ .Token }}`
-six-digit code that the stock template does not contain.
+six-digit code that the stock template does not contain. This is configured: Resend, via
+`auth.email.smtp` in `supabase/config.toml`, with the key read from `RESEND_API_KEY` rather
+than committed. Rotating that key means updating it in the Supabase dashboard as well.
+
+Both `db push` and `config push` act on the **hosted** project. Check
+`npx supabase migration list --linked` before shipping a build: a binary that writes a
+metric type the hosted enum does not have installs perfectly and then fails every import.

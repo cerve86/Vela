@@ -38,32 +38,43 @@ Typecheck everything:
 npm run typecheck
 ```
 
-## Phase 0 status
+## Status
 
 | | Item | State |
 |---|---|---|
 | ✅ | Monorepo, TypeScript, shared domain package | Done |
-| ✅ | Coach portal — roster, client deep-dive, charts | Done, running on mock data |
-| ✅ | iOS app — Today, session logging, progress, nutrition, profile | Done, running on mock data |
-| ✅ | Supabase schema, RLS policies, pgTAP isolation tests | Written, not yet applied |
-| ✅ | CI: typecheck, lint, build, RLS tests | Written |
-| ⛔ | TestFlight pipeline | Blocked on Apple Developer Program enrolment |
+| ✅ | Coach portal — roster, client deep-dive, programme builder, library, messaging | Live on real data |
+| ✅ | iOS app — Today, session logging, progress, nutrition, profile | Live on real data |
+| ✅ | Supabase schema, RLS policies, pgTAP isolation tests | Applied locally and hosted; 88 assertions green |
+| ✅ | CI: typecheck, lint, unit tests, portal build, RLS tests | Running on every PR |
+| ✅ | TestFlight | 0.2.0 (15) submitted 2026-09-04 |
 
-Everything currently renders from `packages/shared/src/mock.ts` — deterministic seed data,
-no backend. Phase 1 swaps that for Supabase queries; the shapes are already the contract,
-so it is a one-file change per surface.
+Both surfaces read Supabase. `packages/shared/src/mock.ts` still exists but is reached only
+by the portal's `/preview` route, which is a design sandbox — no product screen renders from
+it. Treat a new import of it outside `/preview` as a mistake.
+
+Progress against the plan, and the findings worth keeping from each phase, live in
+[docs/PLAN.md](docs/PLAN.md).
 
 ## Machine prerequisites
 
-Present: Node 24, Xcode 26.6, CocoaPods (installed during first iOS build).
+Node 24, Xcode 26.6, CocoaPods, the Supabase CLI, and a Docker runtime — all installed on
+the development machine. The container runtime here is **OrbStack**, not Docker Desktop, so
+`open -a Docker` finds nothing; start it with `open -a OrbStack`.
 
-Missing, needed later:
+Local stack:
 
 ```bash
-brew install supabase/tap/supabase
+supabase start          # Postgres, auth, storage; Mailpit at :54324 catches every email
+npm run seed            # rebuilds the demo world through the real APIs as the real users
 ```
 
-Docker Desktop is also required for the local Supabase stack (`supabase start`).
+`supabase stop` preserves the database by default, so seeded data survives a restart. Pass
+`--no-backup` to discard it.
+
+Build against an **iOS 26.5** simulator. Xcode 26.6 ships the iOS 26.5 SDK, and a 27.0
+runtime is newer than the SDK — it is not a valid destination. CocoaPods needs a UTF-8
+locale, so prefix build commands with `LANG=en_US.UTF-8` unless it is set in your shell.
 
 ## Rules
 

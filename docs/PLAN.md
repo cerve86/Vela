@@ -408,7 +408,72 @@ from Phase 0 onward, and the details are worth having next time.
 API key both require an interactive Apple login, so those two commands are the operator to
 run. Every build and submit after them can be non-interactive.
 
-**Known limitation at first ship.** Client invites do not work yet: Supabase refuses email
-template customisation on the free tier with the default email provider, and the invite
-flow depends on a six-digit token the stock template omits. Coach sign-in works, because
-the magic link deep-links into the app. Custom SMTP unblocks it.
+**~~Known limitation at first ship~~ — resolved.** Client invites were blocked because
+Supabase refuses email template customisation on the free tier with the default provider,
+and the invite flow depends on a six-digit token the stock template omits. Custom SMTP
+through Resend is now configured (`auth.email.smtp` in `supabase/config.toml`, the API key
+supplied by environment rather than committed), so the templates carrying `{{ .Token }}`
+are accepted and invites reach real addresses.
+
+---
+
+## The dials read the body — 2026-09-04
+
+Not a phase; a correction to two numbers that were being presented as measurements and were
+not. Shipped as **0.2.0 (15)**.
+
+**What was wrong**
+
+- Apple Health synced only when somebody opened Settings and tapped a button. Today's two
+  headline figures are computed from *today's* rows, so on an ordinary morning the app
+  opened to "—" and "Estimated · no sleep recorded last night" on a night that had synced
+  perfectly. The screen looked broken and the fix was a settings screen nobody had a reason
+  to visit.
+- Strain counted prescribed sets, then active energy. Sets saw only what Vela had written
+  down, so a Saturday run read as a rest day. Active energy is derived by Apple mostly from
+  movement and body mass, so it reads a brisk walk and hill repeats as closer together than
+  they are and barely registers strength work.
+- Recovery gave "how you feel" three tenths of the weight and, with no watch, all of it —
+  which is how the dial reported **82% · GOOD** off one tap and no measurement. Meanwhile
+  `resting_hr` and `sleep_awake_min` had been imported on every sync since Phase 4 and were
+  read by nothing.
+- `in_progress`, `started_at` and `duration_sec` were in the enum, in the types and in
+  Today's "Resume session" branch, and nothing ever wrote them.
+
+**Shipped**
+
+- Sync runs on cold start and on every foreground, throttled to thirty minutes, armed only
+  once there is a consented client. Not Apple's background delivery — that is still worth
+  doing, and is the only way an overnight backfill reaches the coach before she opens the app.
+- **Strain** prefers cardiovascular load: minutes weighted by heart rate reserve, Banister's
+  TRIMP with the female coefficients. Read through `queryStatisticsCollectionForQuantity` in
+  five-minute buckets, because a month of raw heart rate is tens of thousands of samples;
+  bucketed on the phone, because only the device knows the timezone the day was lived in.
+- **Recovery** is measured, with the daily read reduced to a bounded ±10 buffer. Now reads
+  resting heart rate, sleep efficiency and overnight respiratory rate alongside duration,
+  restorative sleep and HRV. Where nothing at all was measured her own read still carries it,
+  and `estimated` now means exactly that.
+- Heart rate maximum comes from observation. `date_of_birth` exists in the schema and nothing
+  in the product fills it, so Tanaka is wired and dormant for when intake asks.
+
+**Findings worth keeping**
+
+- **36 unit tests, and CI runs them.** These are pure functions deciding numbers a
+  physiotherapist acts on, and they fail silently — a sign error still renders a tidy
+  percentage. One test caught the author asserting heart rate reserve backwards.
+- A five per cent reserve deadband keeps a night's sleep from accumulating into a training
+  session. Without it eight hours a few beats above resting is not small over ninety-six
+  five-minute buckets, and a genuine rest day never reads as rest.
+- Three migrations were sitting unapplied on the **hosted** project — the sleep stages and
+  active energy from 24 August, plus both from this change. A build shipped against that
+  would have installed fine and failed every health import. `migration list --linked` before
+  a release is now in RELEASE.md.
+- The TRIMP coefficients and the deadband are calibrations, not clinical constants, and are
+  commented as such. An observed maximum is unstable early — one hard week raises it and
+  shrinks every reserve — which largely cancels because today is scored against her own peak
+  on the same scale, but not perfectly.
+
+**Not done** — per-set logs still do not exist, so volume load, e1RM, ACWR and the
+pain-vs-load overlay remain unbuildable and "completed" still cannot say which sets she
+actually did. The return-to-running screen is still local state that reaches nobody. No
+offline outbox, no push, no error reporting.
