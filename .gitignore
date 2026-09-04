@@ -36,3 +36,10 @@ supabase/.temp/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Claude Code — personal, machine-local permission grants.
+# Every allowed command is recorded verbatim, so this file accumulates whatever was
+# typed during a session: local URLs, test addresses, one-off curl bodies. That is
+# not shareable state and this repository is public. The project-wide file
+# (.claude/settings.json) is the one to commit if the team ever needs shared rules.
+.claude/settings.local.json
