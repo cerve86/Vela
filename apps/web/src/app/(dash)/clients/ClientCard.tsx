@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import type { ReactNode } from 'react';
 import {
   adherenceBand,
   adherenceStyle,
@@ -9,6 +8,7 @@ import {
 } from '@vela/shared';
 import { palette } from '@vela/shared/tokens';
 import { MiniTrend } from '@/components/charts';
+import { FillBar, Reading, ScaleBar } from '@/components/readings';
 import { Avatar, StatusPill } from '@/components/ui';
 
 export interface RosterClient {
@@ -129,69 +129,7 @@ export function ClientCard({ client, rollup }: { client: RosterClient; rollup: R
  * The four readings
  * ───────────────────────────────────────────────────────────── */
 
-function Datum({
-  label,
-  value,
-  unit,
-  bar,
-  caption,
-  captionColor,
-}: {
-  label: string;
-  value: string;
-  unit?: string;
-  bar?: ReactNode;
-  caption: string;
-  captionColor?: string;
-}) {
-  return (
-    <div className="rounded-[14px] px-3 py-2.5" style={{ background: 'var(--ghost)' }}>
-      <div className="text-[11px] ink-2">{label}</div>
-      <div className="mt-0.5 flex items-baseline gap-1">
-        <span className="display-face tnum text-[20px] font-bold leading-tight">{value}</span>
-        {unit && <span className="text-[11px] ink-3">{unit}</span>}
-      </div>
-      <div className="mt-2 h-1.5">{bar}</div>
-      <div
-        className="mt-1.5 truncate text-[11px]"
-        style={{ color: captionColor ?? 'var(--ink-muted)' }}
-      >
-        {caption}
-      </div>
-    </div>
-  );
-}
-
-/** A filled proportion of the track. */
-function FillBar({ ratio, color }: { ratio: number; color: string }) {
-  return (
-    <div
-      className="h-1.5 w-full overflow-hidden rounded-full"
-      style={{ background: 'var(--border)' }}
-    >
-      <div
-        className="h-full rounded-full"
-        style={{
-          width: `${Math.round(Math.max(0, Math.min(1, ratio)) * 100)}%`,
-          background: color,
-        }}
-      />
-    </div>
-  );
-}
-
-/** A marker on a scale — where the reading sits, not how much of something there is. */
-function ScaleBar({ ratio, color }: { ratio: number; color: string }) {
-  const left = Math.max(0, Math.min(1, ratio)) * 100;
-  return (
-    <div className="relative h-1.5 w-full rounded-full" style={{ background: 'var(--border)' }}>
-      <span
-        className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full"
-        style={{ left: `${left}%`, background: color, boxShadow: '0 0 0 2px var(--surface)' }}
-      />
-    </div>
-  );
-}
+const Datum = Reading;
 
 function AdherenceDatum({ rollup }: { rollup: RosterRollup }) {
   if (rollup.adherence7d === null) {
