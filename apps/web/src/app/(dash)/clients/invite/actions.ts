@@ -9,6 +9,8 @@ export interface InviteResult {
   ok: boolean;
   error?: string;
   email?: string;
+  /** Something worth telling the coach about a successful invite that took a detour. */
+  note?: string;
 }
 
 /**
@@ -23,7 +25,9 @@ export interface InviteResult {
  * The service-role key is read from a non-public env var and never leaves the server.
  */
 export async function inviteClient(formData: FormData): Promise<InviteResult> {
-  const email = String(formData.get('email') ?? '').trim().toLowerCase();
+  const email = String(formData.get('email') ?? '')
+    .trim()
+    .toLowerCase();
   const firstName = String(formData.get('firstName') ?? '').trim();
   const lastName = String(formData.get('lastName') ?? '').trim();
   const condition = String(formData.get('condition') ?? '').trim();
@@ -67,7 +71,8 @@ export async function inviteClient(formData: FormData): Promise<InviteResult> {
   if (!serviceKey) {
     return {
       ok: false,
-      error: 'Invite created but the email could not be sent: SUPABASE_SERVICE_ROLE_KEY is not set.',
+      error:
+        'Invite created but the email could not be sent: SUPABASE_SERVICE_ROLE_KEY is not set.',
     };
   }
 
@@ -96,9 +101,49 @@ export async function inviteClient(formData: FormData): Promise<InviteResult> {
 
   if (priorUser) {
     if (priorUser.email_confirmed_at) {
+      /**
+       * A verified account is one of two things, and they need different answers.
+       *
+       * Linked — the client row carries her profile — and she is simply a client already:
+       * there is nothing to invite her to. Or verified but never linked: she tapped the
+       * link in the invitation email, or typed the code on the sign-in screen, and was
+       * confirmed without the invitation being accepted. The invite created above is
+       * pending for her, and the app accepts it the moment she signs in — so what she
+       * needs is a sign-in code, not another invitation the auth API would refuse.
+       * Sending that code from here is what turns a dead end into one more email.
+       */
+      const { data: linked } = await supabase
+        .from('clients')
+        .select('profile_id')
+        .eq('email', email)
+        .not('profile_id', 'is', null)
+        .maybeSingle();
+      if (linked) {
+        return {
+          ok: false,
+          error: 'That email is already one of your clients — ask them to sign in to the app.',
+        };
+      }
+
+      const anon = createClient<Database>(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } },
+      );
+      const { error: codeError } = await anon.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: false },
+      });
+      if (codeError) {
+        return {
+          ok: false,
+          error: `They verified their email but never accepted the invitation, and the sign-in code could not be sent: ${codeError.message}`,
+        };
+      }
       return {
-        ok: false,
-        error: 'That email already has a verified Vela account — ask them to sign in instead.',
+        ok: true,
+        email,
+        note: 'They had verified their email without accepting the invitation. A sign-in code has been emailed instead; entering it in the app finishes the link.',
       };
     }
     const { error: updateError } = await admin.auth.admin.updateUserById(priorUser.id, {
@@ -120,7 +165,9 @@ export async function inviteClient(formData: FormData): Promise<InviteResult> {
   return { ok: true, email };
 }
 
-export async function revokeInviteAction(inviteId: string): Promise<{ ok: boolean; error?: string }> {
+export async function revokeInviteAction(
+  inviteId: string,
+): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createServerSupabase();
   const { error } = await supabase
     .from('client_invites')

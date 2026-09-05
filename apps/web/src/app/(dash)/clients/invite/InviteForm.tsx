@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { palette } from '@vela/shared/tokens';
 import { inviteClient } from './actions';
 
-const field =
-  'w-full rounded-[14px] px-3.5 py-3 text-sm outline-none';
+const field = 'w-full rounded-[14px] px-3.5 py-3 text-sm outline-none';
 const fieldStyle = { background: 'var(--ghost)', color: 'var(--ink-primary)' };
 
 export function InviteForm() {
@@ -22,7 +21,7 @@ export function InviteForm() {
     startTransition(async () => {
       const res = await inviteClient(formData);
       if (res.ok) {
-        setResult({ ok: true, message: `Invitation sent to ${res.email}.` });
+        setResult({ ok: true, message: res.note ?? `Invitation sent to ${res.email}.` });
         form.reset();
         router.refresh();
       } else {
@@ -62,8 +61,8 @@ export function InviteForm() {
           placeholder="client@example.com"
         />
         <p className="mt-1.5 text-xs ink-3">
-          They&apos;ll get a six-digit code by email. Entering it in Vela verifies
-          their address, so only the person who controls this inbox can accept.
+          They&apos;ll get a six-digit code by email. Entering it in Vela verifies their address, so
+          only the person who controls this inbox can accept.
         </p>
       </div>
 

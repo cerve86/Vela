@@ -577,3 +577,24 @@ preview, create, read back.
 
 **Not done** — a hosted MCP server for claude.ai in the browser (needs OAuth in front),
 per-set logs, the readiness screen's persistence, the outbox, push, and error reporting.
+
+## 0.2.2 fix — the verified-but-never-linked account (5 September 2026)
+
+Reported as "I deleted my account and now it says one already exists". Deletion was
+clean; the loop was in coming back. Only the invite screen called `accept_my_invite`.
+The link in the invitation email and the sign-in screen's code both verify the address
+and Supabase confirms the account either way — leaving a verified user whose client row
+was never linked. The gate bounced her to sign-in, and the portal refused the coach a
+re-invite because the account "already exists". Reproduced end to end on the local stack.
+
+**The fix.** The app's session loader now calls `accept_my_invite` whenever it finds a
+session and no client row, on every door — it only succeeds when a pending invitation
+matches the verified email, so it is safe to call blind. The portal, on re-inviting a
+verified account, now tells linked from stranded: a linked client is told to sign in; a
+stranded one gets a sign-in code emailed instead of a refusal, and the coach is told so.
+pgTAP asserts what the call does for exactly that state, and that a second call is a
+no-op. 94 assertions.
+
+**Finding worth keeping** — `accept_my_invite` copies name hints onto a blank profile and
+`profiles.last_name` is NOT NULL, so a NULL `last_name_hint` fails the call. The portal
+always sends `''`; a direct caller might not. Worth a `coalesce(…, '')` in the function.
