@@ -259,6 +259,9 @@ function elevationScore(value: number, baseline: number): number {
  * Flat at both ends on purpose. Twice the usual sleep is not twice as recovered, and half
  * of it is bad without being zero — a linear scale would make one short night read as a
  * medical event.
+ *
+ * Returns a float. Rounding happens once, at the end of `recovery`, because rounding each
+ * component to an integer before weighting them added up to a point of noise for nothing.
  */
 function ratioScore(ratio: number): number {
   const stops: [number, number][] = [
@@ -274,7 +277,7 @@ function ratioScore(ratio: number): number {
     const [hi, hiScore] = stops[i]!;
     const [lo, loScore] = stops[i - 1]!;
     if (ratio <= hi) {
-      return Math.round(loScore + ((ratio - lo) / (hi - lo)) * (hiScore - loScore));
+      return loScore + ((ratio - lo) / (hi - lo)) * (hiScore - loScore);
     }
   }
   return 100;
@@ -325,8 +328,22 @@ function noteFor(band: RecoveryBand, input: RecoveryInput): string {
       ? 'A middling day, and you slept less than usual. Train to plan, but stay honest.'
       : 'A middling day. Train to plan, but stay honest with yourself.';
   }
-  if (band === 'good') return 'Good reserves. The session as written should sit fine.';
-  return 'Well recovered. There is room in this if you want it.';
+
+  /**
+   * The raised rate is named in the good bands too — and it matters most here. A resting
+   * rate ten per cent up after an otherwise fine night is the early-infection shape: the one
+   * signal that moved is the one a good night's sleep is masking in the average. Saying
+   * "the session as written should sit fine" over the top of it is the average speaking
+   * for the one reading that disagrees.
+   */
+  if (band === 'good') {
+    return raisedResting
+      ? 'Good reserves, though your resting heart rate is above your usual. Worth noticing.'
+      : 'Good reserves. The session as written should sit fine.';
+  }
+  return raisedResting
+    ? 'Well recovered on most counts. Your resting heart rate is above your usual — worth noticing.'
+    : 'Well recovered. There is room in this if you want it.';
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -423,21 +440,36 @@ export function heartRateReserve(bpm: number, scale: HeartRateScale): number {
 export function bucketLoad(bucket: HeartRateBucket, scale: HeartRateScale): number {
   if (!(bucket.minutes > 0)) return 0;
   const reserve = heartRateReserve(bucket.bpm, scale);
-  if (reserve <= QUIET_RESERVE) return 0;
-  return bucket.minutes * reserve * 0.86 * Math.exp(1.67 * reserve);
+  const gate = quietGate(reserve);
+  if (gate <= 0) return 0;
+  return gate * bucket.minutes * reserve * 0.86 * Math.exp(1.67 * reserve);
 }
 
 /**
- * Below this share of her reserve, a stretch of the day counts as nothing.
+ * The quiet end of her reserve, where a stretch of the day counts for little or nothing.
  *
- * Without it a night's sleep quietly accumulates: eight hours a few beats above resting is
+ * Without this a night's sleep quietly accumulates: eight hours a few beats above resting is
  * small per five minutes and not small over ninety-six of them, and a genuine rest day would
- * never read as rest. Five per cent is deliberately low — on a resting rate of 48 against a
- * ceiling of 185 it excludes anything under about 55 bpm, which is sleeping and sitting. A
- * gentle walk with the pram runs well above it and still counts, which for a woman in her
- * first weeks back is not a detail: that walk is the training.
+ * never read as rest. The band is deliberately low — on a resting rate of 48 against a
+ * ceiling of 185 it is fully closed under about 52 bpm and fully open above 59, which is the
+ * gap between sleeping and standing up. A gentle walk with the pram runs well above it and
+ * counts in full, which for a woman in her first weeks back is not a detail: that walk is
+ * the training.
+ *
+ * A ramp rather than a cliff. A single threshold meant a bucket at 4.9% of reserve scored
+ * zero and one at 5.1% scored its whole weight, and a resting rate that drifted one beat
+ * could move a day's total by moving buckets across that line. Smoothstep over the band
+ * makes the gate continuous, so nothing jumps.
  */
-const QUIET_RESERVE = 0.05;
+const QUIET_FROM = 0.03;
+const QUIET_TO = 0.08;
+
+function quietGate(reserve: number): number {
+  if (reserve <= QUIET_FROM) return 0;
+  if (reserve >= QUIET_TO) return 1;
+  const t = (reserve - QUIET_FROM) / (QUIET_TO - QUIET_FROM);
+  return t * t * (3 - 2 * t);
+}
 
 /**
  * A day's load, summed over however finely the heart rate was sampled.
@@ -569,4 +601,76 @@ export function median(values: number[]): number | null {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!;
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Scales and baselines — the numbers everything else is relative to
+ * ───────────────────────────────────────────────────────────── */
+
+/** The value below which `p` of the sorted set falls. Null on an empty set. */
+export function percentile(values: number[], p: number): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const i = Math.min(sorted.length - 1, Math.max(0, Math.floor(p * (sorted.length - 1))));
+  return sorted[i] ?? null;
+}
+
+/**
+ * Her own hardest day, as the scale strain is read against.
+ *
+ * Not the maximum. A raw maximum hands the whole month to one day: a single race, or a
+ * hike, sets a ceiling that every ordinary day then reads as a fraction of — a typical
+ * training day of 80 against a freak day of 300 is 27%, and the dial never fills. The
+ * ninetieth percentile of her recent days is still "a hard day for her", and it is a day
+ * she has more than one of.
+ *
+ * Below five days there is no distribution to take a percentile of, and the maximum is
+ * the honest answer until there is.
+ */
+export function peakOf(values: number[]): number {
+  if (values.length === 0) return 0;
+  if (values.length < 5) return Math.max(...values);
+  return percentile(values, 0.9) ?? 0;
+}
+
+/**
+ * The ceiling heart rate, from five-minute averages.
+ *
+ * The second-highest, not the highest. A watch strap produces occasional single-sample
+ * artifacts of 200 bpm and more, and at rest the watch samples every few minutes, so one
+ * such reading can be an entire five-minute bucket's average on its own. Taking the maximum
+ * hands the ceiling to that artifact for as long as it stays in the window, and every
+ * reserve computed against it is compressed — a run at 150 bpm scored about forty per cent
+ * lower in the worked example that found this.
+ *
+ * A genuine maximal effort is never a single bucket: there is a climb to it and a descent
+ * from it, so it leaves at least two buckets near the top. Requiring the ceiling to be
+ * reproduced once is the smallest rule that excludes the artifact and keeps the effort.
+ */
+export function heartRateCeiling(bucketAverages: number[]): number | null {
+  const usable = bucketAverages.filter((v) => Number.isFinite(v) && v > 0);
+  if (usable.length < 2) return null;
+  const sorted = [...usable].sort((a, b) => b - a);
+  return sorted[1] ?? null;
+}
+
+/**
+ * Nights of history before "her own normal" means anything.
+ *
+ * A median of two nights is a baseline in name only. It made a bad first week set a floor
+ * against which every ordinary night afterwards read as excellent — the wrong direction
+ * for the first month back, which is exactly when a client is most likely to over-read a
+ * good number.
+ */
+export const MIN_BASELINE_NIGHTS = 5;
+
+/**
+ * A baseline from a daily series, or null while there is not enough of one.
+ *
+ * Callers decide what null means: for sleep it falls back to a fixed yardstick; for the
+ * cardiac signals, which have no defensible population value, it drops the signal.
+ */
+export function baseline(values: number[], minCount = MIN_BASELINE_NIGHTS): number | null {
+  if (values.length < minCount) return null;
+  return median(values);
 }

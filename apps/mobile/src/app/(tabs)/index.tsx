@@ -234,13 +234,22 @@ export default function TodayScreen() {
               from one tap must not sit under the same ring, in the same type, as one built
               from a night's readings.
             */}
-            {vitality.recovery.score !== null && vitality.recovery.estimated && (
+            {vitality.recovery.score !== null && (
               <Body
                 size={11}
                 color={t.textSecondary}
                 style={{ textAlign: 'center', marginTop: 8 }}
               >
-                From how you feel · connect Apple Health for the rest
+                {/*
+                  How much stands behind the number. Fifty per cent from six overnight
+                  readings and fifty per cent from sleep alone rendered identically before,
+                  which is the difference between a measurement and a guess presented in
+                  the same type. `sources` was always computed; it just never reached the
+                  screen.
+                */}
+                {vitality.recovery.estimated
+                  ? 'From how you feel · connect Apple Health for the rest'
+                  : signalLine(vitality.recovery.sources)}
               </Body>
             )}
 
@@ -444,6 +453,19 @@ const BAND_TONE_SOFT = (t: ReturnType<typeof useTheme>): Record<RecoveryBand, st
 
 function capitalise(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
+ * "Read from 6 signals · plus your read" — what stood behind the measured score.
+ *
+ * Counts measurements, not the daily read, and names the one signal when there is only
+ * one, because "read from 1 signal" hides the fact that matters: which one.
+ */
+function signalLine(sources: string[]): string {
+  const measured = sources.filter((s) => s !== 'how you feel');
+  const base =
+    measured.length === 1 ? `Read from ${measured[0]} alone` : `Read from ${measured.length} signals`;
+  return sources.length > measured.length ? `${base} · plus your read` : base;
 }
 
 /**

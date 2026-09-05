@@ -1,10 +1,15 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  MIN_BASELINE_NIGHTS,
+  baseline,
   bucketLoad,
   cardioLoad,
+  heartRateCeiling,
   heartRateReserve,
   maxHeartRate,
+  peakOf,
+  percentile,
   recovery,
   strain,
   type HeartRateScale,
@@ -354,5 +359,122 @@ describe('recovery — what it reads', () => {
     // than be scored against a guess.
     const noBaseline = recovery({ ...GOOD_NIGHT, restingHrBaseline: null, readiness: 2 });
     assert.ok(!noBaseline.sources.includes('resting heart rate'));
+  });
+});
+
+describe('heartRateCeiling — one bad sample must not own the month', () => {
+  it('ignores an isolated spike', () => {
+    // A month of ordinary buckets, one hard run that left three buckets near the top, and
+    // one strap artifact at 212 in a bucket of its own.
+    const ordinary = Array.from({ length: 500 }, (_, i) => 60 + (i % 40));
+    const run = [168, 174, 171];
+    const artifact = [212];
+    assert.equal(heartRateCeiling([...ordinary, ...run, ...artifact]), 174);
+  });
+
+  it('keeps a genuine maximal effort, which always leaves more than one bucket', () => {
+    const ceiling = heartRateCeiling([70, 80, 150, 178, 181, 176]);
+    assert.equal(ceiling, 178);
+  });
+
+  it('will not name a ceiling from a single reading', () => {
+    assert.equal(heartRateCeiling([180]), null);
+    assert.equal(heartRateCeiling([]), null);
+  });
+
+  it('drops readings that cannot be heart rates', () => {
+    assert.equal(heartRateCeiling([0, -5, Number.NaN, 150, 160]), 150);
+  });
+});
+
+describe('peakOf — her hardest day, not her one freak day', () => {
+  it('uses the maximum while there are too few days for a distribution', () => {
+    assert.equal(peakOf([40, 300, 55, 60]), 300);
+  });
+
+  it('takes a high percentile once there are enough days', () => {
+    // Twenty-seven ordinary days and one race. The race must not become the scale.
+    const days = [...Array.from({ length: 27 }, (_, i) => 50 + i), 300];
+    const peak = peakOf(days);
+    assert.ok(peak < 100, `peak ${peak} still dominated by the outlier`);
+    assert.ok(peak >= 70, `peak ${peak} is no longer a hard day`);
+  });
+
+  it('is zero with no history', () => {
+    assert.equal(peakOf([]), 0);
+  });
+});
+
+describe('percentile', () => {
+  it('is null on nothing and the only value on one', () => {
+    assert.equal(percentile([], 0.5), null);
+    assert.equal(percentile([7], 0.05), 7);
+  });
+
+  it('is monotone in p', () => {
+    const v = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    assert.ok(percentile(v, 0.05)! <= percentile(v, 0.5)!);
+    assert.ok(percentile(v, 0.5)! <= percentile(v, 0.9)!);
+  });
+});
+
+describe('baseline — her normal needs enough nights to exist', () => {
+  it('refuses to call a couple of nights a baseline', () => {
+    assert.equal(baseline([300, 310]), null);
+    assert.equal(baseline(Array.from({ length: MIN_BASELINE_NIGHTS - 1 }, () => 450)), null);
+  });
+
+  it('is the median once there are enough', () => {
+    assert.equal(baseline([400, 500, 450, 430, 470]), 450);
+  });
+
+  it('accepts a caller-chosen threshold', () => {
+    assert.equal(baseline([80, 90, 100], 3), 90);
+  });
+});
+
+describe('bucketLoad — the quiet gate is a ramp, not a cliff', () => {
+  const scale: HeartRateScale = { restingHr: 50, maxHr: 150 }; // span 100 → reserve = (bpm-50)/100
+
+  it('is closed below the band and fully open above it', () => {
+    assert.equal(bucketLoad({ minutes: 5, bpm: 52 }, scale), 0); // reserve 0.02
+    const open = bucketLoad({ minutes: 5, bpm: 59 }, scale); // reserve 0.09
+    const raw = 5 * 0.09 * 0.86 * Math.exp(1.67 * 0.09);
+    assert.ok(Math.abs(open - raw) < 1e-9);
+  });
+
+  it('is continuous and increasing across the band', () => {
+    let prev = 0;
+    for (let bpm = 52; bpm <= 59; bpm += 0.25) {
+      const v = bucketLoad({ minutes: 5, bpm }, scale);
+      assert.ok(v >= prev, `dropped at ${bpm} bpm`);
+      // No jump anywhere near the size the old single threshold produced (≈0.23 in one step).
+      assert.ok(v - prev < 0.08, `jump of ${v - prev} at ${bpm} bpm`);
+      prev = v;
+    }
+  });
+});
+
+describe('recovery — after the review', () => {
+  it('names a raised resting rate even when the night was otherwise good', () => {
+    // The early-infection shape: everything fine except the one signal that moves first.
+    // Averaging it away and saying "the session as written should sit fine" was the wrong
+    // sentence for exactly this morning.
+    const r = recovery({ ...GOOD_NIGHT, restingHr: 61, readiness: 3 });
+    assert.ok(r.score! >= 67, `expected a good band, got ${r.score}`);
+    assert.match(r.note, /resting heart rate/i);
+  });
+
+  it('returns an integer score even though the components are no longer rounded', () => {
+    const r = recovery({ ...GOOD_NIGHT, sleepMinutes: 437, hrvMs: 51.3, restingHr: 56.4, readiness: 2 });
+    assert.ok(Number.isInteger(r.score));
+  });
+
+  it('gives a perfectly settled night full credit on efficiency', () => {
+    // Zero minutes awake is a fact the hook now passes as 0 rather than null. It must score
+    // at least as well as a slightly broken night, not drop out of the average.
+    const settled = recovery({ ...GOOD_NIGHT, awakeMinutes: 0, readiness: 2 }).score!;
+    const slightlyBroken = recovery({ ...GOOD_NIGHT, awakeMinutes: 5, readiness: 2 }).score!;
+    assert.ok(settled >= slightlyBroken, `${settled} < ${slightlyBroken}`);
   });
 });

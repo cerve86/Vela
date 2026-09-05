@@ -1,17 +1,26 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { listMetrics } from '@vela/api';
-import { median, recovery, strain, type Readiness, type Recovery, type Strain } from '@vela/shared';
+import {
+  baseline,
+  peakOf,
+  recovery,
+  strain,
+  type Readiness,
+  type Recovery,
+  type Strain,
+} from '@vela/shared';
 import { supabase } from './supabase';
 import { useSession } from './session';
 import { subscribeHealthSync } from './healthSync';
 import { addDays, localDay, today } from './data';
 
-/** Nights of history used for the sleep and HRV baselines. */
-const BASELINE_DAYS = 21;
-
-/** Window for "her own hardest day", which is the scale strain is read against. */
-const PEAK_DAYS = 28;
+/**
+ * One window for everything: the baselines recovery reads against and the peak strain is
+ * scaled by. There used to be a second, shorter constant for HRV alone, with a comment
+ * claiming it covered sleep as well. One number, one meaning.
+ */
+const WINDOW_DAYS = 28;
 
 interface Vitality {
   recovery: Recovery;
@@ -33,10 +42,19 @@ interface Vitality {
  */
 export function useVitality(readiness: Readiness | null): Vitality {
   const { client } = useSession();
-  const [sleep, setSleep] = useState<{ recordedAt: string; value: number; type: string }[]>([]);
-  const [hrv, setHrv] = useState<{ recordedAt: string; value: number }[]>([]);
+  const [metrics, setMetrics] = useState<{ recordedAt: string; value: number; type: string }[]>([]);
   const [volume, setVolume] = useState<{ date: string; done: number; planned: number }[]>([]);
   const [loading, setLoading] = useState(true);
+
+  /**
+   * Which fetch is allowed to write.
+   *
+   * Focus, a sync landing, and pull-to-refresh can all call `load` within a second of each
+   * other, and a slow response arriving after a fast one would overwrite fresh rows with
+   * stale ones. The counter is the same guard `useAsync` in data.ts already has; this hook
+   * simply never had it.
+   */
+  const generation = useRef(0);
 
   const todayIso = today();
 
@@ -45,13 +63,14 @@ export function useVitality(readiness: Readiness | null): Vitality {
       setLoading(false);
       return;
     }
+    const mine = ++generation.current;
 
-    const from = addDays(todayIso, -PEAK_DAYS);
+    const from = addDays(todayIso, -WINDOW_DAYS);
 
-    const [sleepRows, hrvRows, sessions] = await Promise.all([
+    const [rows, sessions] = await Promise.all([
       listMetrics(supabase, {
         clientId: client.id,
-        // One read for everything the night and the day are made of, rather than five.
+        // One read for everything the night and the day are made of.
         types: [
           'sleep_min',
           'sleep_deep_min',
@@ -61,10 +80,10 @@ export function useVitality(readiness: Readiness | null): Vitality {
           'cardio_load',
           'resting_hr',
           'respiratory_rate',
+          'hrv_ms',
         ],
-        since: addDays(todayIso, -PEAK_DAYS),
+        since: from,
       }),
-      listMetrics(supabase, { clientId: client.id, types: ['hrv_ms'], since: addDays(todayIso, -BASELINE_DAYS) }),
       supabase
         .from('sessions')
         .select('scheduled_date, sets_done, sets_planned, status')
@@ -72,8 +91,9 @@ export function useVitality(readiness: Readiness | null): Vitality {
         .lte('scheduled_date', todayIso),
     ]);
 
-    setSleep(sleepRows.map((m) => ({ recordedAt: m.recordedAt, value: m.value, type: m.type })));
-    setHrv(hrvRows.map((m) => ({ recordedAt: m.recordedAt, value: m.value })));
+    if (generation.current !== mine) return;
+
+    setMetrics(rows.map((m) => ({ recordedAt: m.recordedAt, value: m.value, type: m.type })));
     setVolume(
       (sessions.data ?? []).map((s) => ({
         date: s.scheduled_date,
@@ -110,7 +130,7 @@ export function useVitality(readiness: Readiness | null): Vitality {
     /** Everything of one type, summed into the local day it belongs to. */
     const byType = (type: string) => {
       const map = new Map<string, number>();
-      for (const m of sleep) {
+      for (const m of metrics) {
         if (m.type !== type) continue;
         map.set(localDay(m.recordedAt), (map.get(localDay(m.recordedAt)) ?? 0) + m.value);
       }
@@ -127,7 +147,7 @@ export function useVitality(readiness: Readiness | null): Vitality {
      */
     const meanByType = (type: string) => {
       const acc = new Map<string, { total: number; n: number }>();
-      for (const m of sleep) {
+      for (const m of metrics) {
         if (m.type !== type) continue;
         const day = localDay(m.recordedAt);
         const e = acc.get(day) ?? { total: 0, n: 0 };
@@ -146,29 +166,51 @@ export function useVitality(readiness: Readiness | null): Vitality {
     const load = byType('cardio_load');
     const resting = meanByType('resting_hr');
     const breathing = meanByType('respiratory_rate');
+    const hrv = meanByType('hrv_ms');
 
     /** Deep plus REM — the part of a night that does the repairing. */
     const restorativeOn = (day: string) =>
       deep.has(day) || rem.has(day) ? (deep.get(day) ?? 0) + (rem.get(day) ?? 0) : null;
 
     const lastSleep = totals.get(todayIso) ?? null;
-    const lastHrv = hrv.find((h) => localDay(h.recordedAt) === todayIso)?.value ?? null;
+    const lastHrv = hrv.get(todayIso) ?? null;
+
+    /**
+     * Minutes awake last night. Zero when the watch reported stages and no wakes.
+     *
+     * A watch that reports stages reports every wake, so on a night with none there is
+     * simply no awake row — and "no row" used to read as "unknown", which dropped the
+     * efficiency signal for exactly the nights that deserved full marks on it. A night
+     * with five minutes awake scored ~100; a night with none scored nothing.
+     */
+    const awakeToday = awake.get(todayIso) ?? (restorativeOn(todayIso) !== null ? 0 : null);
+
+    /**
+     * Resting heart rate: today's figure if Apple has written it, otherwise yesterday's.
+     *
+     * Apple computes its resting rate per calendar day and stamps it within that day, so
+     * first thing in the morning today's row does not exist yet and the most recent
+     * estimate is yesterday's. Reading only today's key meant the signal vanished for the
+     * hours she was most likely to look. The baseline excludes whichever day is used.
+     *
+     * The stamp semantics are inferred from exported Health data, not verified on a Watch
+     * in this codebase. If a real device shows today's row landing early, the fallback
+     * simply never fires.
+     */
+    const restingDay = resting.has(todayIso) ? todayIso : addDays(todayIso, -1);
+    const lastResting = resting.get(restingDay) ?? null;
 
     // Baselines exclude today, so a bad night is measured against normal rather than
-    // dragging its own yardstick down with it.
-    const sleepBaseline = median(
-      [...totals.entries()].filter(([d]) => d !== todayIso).map(([, v]) => v),
-    );
-
-    const restorativeBaseline = median(
+    // dragging its own yardstick down with it — and they need enough nights to be a
+    // baseline at all. See MIN_BASELINE_NIGHTS.
+    const sleepBaseline = baselineExcluding(totals, todayIso);
+    const restorativeBaseline = baseline(
       [...totals.keys()]
         .filter((d) => d !== todayIso)
         .map(restorativeOn)
         .filter((v): v is number => v !== null),
     );
-    const hrvBaseline = median(
-      hrv.filter((h) => localDay(h.recordedAt) !== todayIso).map((h) => h.value),
-    );
+    const hrvBaseline = baselineExcluding(hrv, todayIso);
 
     const byDay = new Map<string, { done: number; planned: number }>();
     for (const v of volume) {
@@ -179,7 +221,14 @@ export function useVitality(readiness: Readiness | null): Vitality {
     }
 
     const todayVolume = byDay.get(todayIso) ?? { done: 0, planned: 0 };
-    const peak = Math.max(0, ...[...byDay.entries()].filter(([d]) => d !== todayIso).map(([, v]) => v.done));
+
+    /** A daily series with today removed, as a plain list — the shape every peak wants. */
+    const history = (series: Map<string, number>) =>
+      [...series.entries()].filter(([d]) => d !== todayIso).map(([, v]) => v);
+
+    // Peaks are a high percentile of her recent days, not the single largest one. One race
+    // used to set the ceiling for a month and the dial never filled. See `peakOf`.
+    const peak = peakOf(history(new Map([...byDay].map(([d, v]) => [d, v.done]))));
 
     return {
       recovery: recovery({
@@ -190,13 +239,12 @@ export function useVitality(readiness: Readiness | null): Vitality {
         hrvBaselineMs: hrvBaseline,
         restorativeMinutes: restorativeOn(todayIso),
         restorativeBaselineMinutes: restorativeBaseline,
-        // Keyed to today like the rest of the night's readings: sleep is filed under the
-        // morning she woke, and so are the vitals measured through it.
-        awakeMinutes: awake.get(todayIso) ?? null,
-        restingHr: resting.get(todayIso) ?? null,
-        restingHrBaseline: baselineExcludingToday(resting, todayIso),
+        awakeMinutes: awakeToday,
+        restingHr: lastResting,
+        restingHrBaseline: baselineExcluding(resting, restingDay),
+        // Filed to the wake morning by the sync, like sleep, so today's key is last night.
         respiratoryRate: breathing.get(todayIso) ?? null,
-        respiratoryRateBaseline: baselineExcludingToday(breathing, todayIso),
+        respiratoryRateBaseline: baselineExcluding(breathing, todayIso),
       }),
       strain: strain({
         setsDone: todayVolume.done,
@@ -204,10 +252,7 @@ export function useVitality(readiness: Readiness | null): Vitality {
         peakSets: peak,
         activeEnergy: energy.get(todayIso) ?? null,
         // Her own hardest recent day, today excluded so it cannot become its own ceiling.
-        peakActiveEnergy: Math.max(
-          0,
-          ...[...energy.entries()].filter(([d]) => d !== todayIso).map(([, v]) => v),
-        ),
+        peakActiveEnergy: peakOf(history(energy)),
         /**
          * What a normal training day costs her, in kcal.
          *
@@ -215,10 +260,11 @@ export function useVitality(readiness: Readiness | null): Vitality {
          * the currency is energy: the plan is written in sets and nothing converts sets to
          * calories for a particular person. Days she trained are the evidence.
          */
-        typicalTrainingEnergy: median(
+        typicalTrainingEnergy: baseline(
           [...byDay.entries()]
             .filter(([d, v]) => d !== todayIso && v.done > 0 && energy.has(d))
             .map(([d]) => energy.get(d)!),
+          3,
         ),
         /**
          * The same three questions again, in the currency strain now prefers: what today
@@ -228,31 +274,31 @@ export function useVitality(readiness: Readiness | null): Vitality {
          * not become its own ceiling and read as 100% before lunch.
          */
         cardioLoad: load.get(todayIso) ?? null,
-        peakCardioLoad: Math.max(
-          0,
-          ...[...load.entries()].filter(([d]) => d !== todayIso).map(([, v]) => v),
-        ),
-        typicalTrainingLoad: median(
+        peakCardioLoad: peakOf(history(load)),
+        typicalTrainingLoad: baseline(
           [...byDay.entries()]
             .filter(([d, v]) => d !== todayIso && v.done > 0 && load.has(d))
             .map(([d]) => load.get(d)!),
+          // A target needs fewer days than a baseline: three trained days is already a
+          // sensible "usual", and asking for five keeps the target off the dial for a
+          // fortnight of a programme that trains three times a week.
+          3,
         ),
       }),
     };
-  }, [sleep, hrv, volume, readiness, todayIso]);
+  }, [metrics, volume, readiness, todayIso]);
 
   return { ...value, loading, reload: load };
 }
 
 /**
- * The median of a daily series, with today left out.
+ * A baseline from a daily series, with one day left out.
  *
- * Today is excluded for the reason every baseline here excludes it: a raised resting rate
- * this morning must be measured against her normal, not against a normal it has just helped
- * to define. With a short history that is a handful of days, which is exactly when the
- * comparison is weakest — and why a missing baseline drops the signal from the score
- * entirely rather than scoring it against a guess.
+ * The excluded day is the one being scored: a raised resting rate this morning must be
+ * measured against her normal, not against a normal it has just helped to define. `baseline`
+ * then insists on enough remaining days for the median to mean anything, and returns null
+ * otherwise — which drops the signal rather than scoring it against a guess.
  */
-function baselineExcludingToday(series: Map<string, number>, todayIso: string): number | null {
-  return median([...series.entries()].filter(([d]) => d !== todayIso).map(([, v]) => v));
+function baselineExcluding(series: Map<string, number>, day: string): number | null {
+  return baseline([...series.entries()].filter(([d]) => d !== day).map(([, v]) => v));
 }
