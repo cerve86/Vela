@@ -7,6 +7,7 @@ export * from './illustrations';
 export * from './readiness';
 export * from './plan';
 export * from './progression';
+export * from './programImport';
 export * from './milestones';
 export * from './vitality';
 export * from './mock';

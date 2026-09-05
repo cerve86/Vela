@@ -8,7 +8,10 @@ import { createServerClient } from '@supabase/ssr';
  * policy and a reviewer arrives without an account — gating it would fail review while
  * looking, from the inside, like the page worked fine.
  */
-const PUBLIC_PATHS = ['/sign-in', '/auth/callback', '/auth/error', '/privacy'];
+const PUBLIC_PATHS = ['/sign-in', '/auth/callback', '/auth/error', '/privacy', '/api/'];
+// `/api/` is here because route handlers authenticate themselves and answer 401 as JSON.
+// A script posting a programme with a Bearer token has no cookie, and redirecting it to
+// an HTML sign-in page is the wrong answer to a machine.
 
 /**
  * Refreshes the auth cookie on every request and gates the dashboard.

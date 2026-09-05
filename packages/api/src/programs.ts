@@ -1,4 +1,5 @@
 import type { VelaClient } from './client';
+import { listExercises } from './exercises';
 
 export type Discipline = 'strength' | 'run' | 'mobility' | 'rehab';
 
@@ -436,6 +437,152 @@ export async function createBundledProgram(
   if (items.length > 0) {
     const { error: itemError } = await supabase.from('program_items').insert(items);
     if (itemError) return { id, error: itemError.message };
+  }
+
+  return { id, error: null };
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Importing a whole programme — from a spreadsheet or JSON
+ * ───────────────────────────────────────────────────────────── */
+
+/** Library names as a coach types them, made comparable: case, spacing and hyphens aside. */
+export function normaliseExerciseName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[-–—_/]+/g, ' ')
+    .replace(/[^a-z0-9 ]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Matches exercise names to library rows, the coach's own taking precedence over shipped.
+ *
+ * Names rather than ids because that is what a spreadsheet holds and what a script has:
+ * nobody writes a programme in UUIDs. Matching is deliberately forgiving about case,
+ * spacing and hyphens and deliberately strict about everything else — "Single leg bridge"
+ * finds "Single-Leg Bridge", but "SL bridge" does not, because guessing which of three
+ * bridges was meant is how a client ends up doing the wrong exercise.
+ */
+export async function resolveExerciseNames(
+  supabase: VelaClient,
+  coachId: string,
+  names: string[],
+): Promise<{ byName: Map<string, string>; unmatched: string[] }> {
+  const library = await listExercises(supabase, coachId);
+
+  const index = new Map<string, string>();
+  for (const e of library) {
+    const key = normaliseExerciseName(e.name);
+    // A coach's own exercise shadows a shipped one of the same name: she made it on purpose.
+    if (!index.has(key) || e.isMine) index.set(key, e.id);
+  }
+
+  const byName = new Map<string, string>();
+  const unmatched: string[] = [];
+  for (const raw of names) {
+    const key = normaliseExerciseName(raw);
+    const id = index.get(key);
+    if (id) byName.set(key, id);
+    else if (!unmatched.some((u) => normaliseExerciseName(u) === key)) unmatched.push(raw);
+  }
+  return { byName, unmatched };
+}
+
+export interface ImportedProgramInput {
+  name: string;
+  description?: string;
+  isTemplate: boolean;
+  days: {
+    weekNo: number;
+    dayNo: number;
+    title: string;
+    discipline: Discipline;
+    items: {
+      exerciseId: string;
+      block: string;
+      sets: number;
+      reps: string;
+      targetLoadKg: number | null;
+      targetRpe: number | null;
+      tempo: string | null;
+      restSec: number;
+      notes: string | null;
+    }[];
+  }[];
+}
+
+/**
+ * Writes an imported programme in three queries: the programme, its days, its items.
+ *
+ * The same shape as `createBundledProgram`, with the two things an import has that a
+ * bundle does not: a discipline per day rather than per programme, and the full item —
+ * block, RPE, tempo, notes — rather than the bundle's four fields.
+ *
+ * Still not a transaction, but it cleans up after itself where the bundle does not. A
+ * bundle that half-saves is something the coach was in the middle of and can see; an
+ * import that half-saves is a programme she has never looked at, appearing in her list
+ * with empty days. So a failed item insert deletes the programme (days cascade) and
+ * reports the error, and she is back exactly where she started with the file.
+ */
+export async function importProgram(
+  supabase: VelaClient,
+  coachId: string,
+  input: ImportedProgramInput,
+): Promise<{ id: string | null; error: string | null }> {
+  const weeks = Math.max(1, ...input.days.map((d) => d.weekNo));
+
+  const { id, error: programError } = await createProgram(supabase, coachId, {
+    name: input.name,
+    description: input.description,
+    durationWeeks: weeks,
+    isTemplate: input.isTemplate,
+  });
+  if (programError || !id) return { id: null, error: programError ?? 'Could not create the programme.' };
+
+  const rollBack = async (error: string) => {
+    await supabase.from('programs').delete().eq('id', id);
+    return { id: null, error };
+  };
+
+  const { data: dayRows, error: dayError } = await supabase
+    .from('program_days')
+    .insert(
+      input.days.map((d) => ({
+        program_id: id,
+        week_no: d.weekNo,
+        day_no: d.dayNo,
+        title: d.title,
+        discipline: d.discipline,
+      })),
+    )
+    .select('id, week_no, day_no');
+  if (dayError) return rollBack(dayError.message);
+
+  const dayId = new Map((dayRows ?? []).map((r) => [`${r.week_no}:${r.day_no}`, r.id]));
+
+  const items = input.days.flatMap((d) => {
+    const parent = dayId.get(`${d.weekNo}:${d.dayNo}`);
+    if (!parent) return [];
+    return d.items.map((i, orderIndex) => ({
+      program_day_id: parent,
+      exercise_id: i.exerciseId,
+      order_index: orderIndex,
+      block: i.block,
+      sets: i.sets,
+      reps: i.reps,
+      target_load_kg: i.targetLoadKg,
+      target_rpe: i.targetRpe,
+      tempo: i.tempo,
+      rest_sec: i.restSec,
+      notes: i.notes,
+    }));
+  });
+
+  if (items.length > 0) {
+    const { error: itemError } = await supabase.from('program_items').insert(items);
+    if (itemError) return rollBack(itemError.message);
   }
 
   return { id, error: null };
