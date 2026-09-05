@@ -131,7 +131,9 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
         {
           id: 'after',
           label: 'After',
-          color: 'var(--series-5)',
+          // Slot 2 is the validated partner for slot 1 now, so a page no longer has to
+          // reach past the order to find a pair that separates. See tokens.ts `series`.
+          color: 'var(--series-2)',
           kind: 'line',
           points: xLabels.map((d) => ({ x: d, y: painByDate.get(d) ?? null })),
           connectGaps: true,

@@ -87,8 +87,13 @@ export default async function NutritionTab({ params }: { params: Promise<{ id: s
       {
         id: 'target',
         label: 'Target',
-        color: 'var(--series-4)',
+        // A target is a reference, not a second measurement: dashed, in a neutral ink,
+        // taking no categorical slot. It never has to separate from the bars under colour
+        // vision deficiency because it is not competing with them — the same treatment
+        // BoardUI gives its "last year" line.
+        color: 'var(--ink-muted)',
         kind: 'line',
+        dashed: true,
         points: days.map((d) => ({ x: d.day, y: d.targetKcal })),
         connectGaps: true,
       },

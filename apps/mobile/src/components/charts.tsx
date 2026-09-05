@@ -1,5 +1,5 @@
 import { Text, View } from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Defs, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { Body } from '@/components/kit';
 import { useTheme } from '@/theme';
 
@@ -70,7 +70,8 @@ export function MonoChart({
   const x = (i: number) => PAD_X + (i * (W - PAD_X * 2)) / (values.length - 1);
   const y = (v: number) => BASE - ((v - min) / span) * (BASE - TOP);
 
-  const line = values.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+  const pts = values.map((v, i) => ({ x: x(i), y: y(v) }));
+  const line = monotonePath(pts);
   const area = `${line} L${(W - PAD_X).toFixed(1)} ${BASE} L${PAD_X} ${BASE} Z`;
 
   const mean = values.reduce((a, b) => a + b, 0) / values.length;
@@ -81,9 +82,21 @@ export function MonoChart({
 
   return (
     <Svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 118 }}>
-      {/* Baseline and ceiling: hairline, solid, one step off the surface. */}
-      <Line x1={PAD_X} y1={BASE} x2={W - PAD_X} y2={BASE} stroke={t.grid} strokeWidth={1} />
-      <Line x1={PAD_X} y1={TOP} x2={W - PAD_X} y2={TOP} stroke={t.tint.cream} strokeWidth={1} />
+      <Defs>
+        {/* The wash fades to nothing, so it reads as a shadow under the line rather than a
+            block of colour — the same gradient the portal's panels use. */}
+        <LinearGradient id="mono-wash" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={t.brand[600]} stopOpacity={t.dark ? 0.32 : 0.28} />
+          <Stop offset="1" stopColor={t.brand[600]} stopOpacity={0} />
+        </LinearGradient>
+      </Defs>
+
+      {/* Three recessive rules — floor, middle, ceiling — and no axis lines. The ceiling
+          used to be drawn in a tint that read as a second baseline; a grid step is what
+          it is. */}
+      {[BASE, (BASE + TOP) / 2, TOP].map((gy) => (
+        <Line key={gy} x1={PAD_X} y1={gy} x2={W - PAD_X} y2={gy} stroke={t.grid} strokeWidth={1} />
+      ))}
 
       {/* The period mean, dashed so it reads as reference rather than measurement. */}
       <Line
@@ -93,10 +106,10 @@ export function MonoChart({
         y2={meanY}
         stroke={t.axis}
         strokeWidth={1}
-        strokeDasharray="3 6"
+        strokeDasharray="5 5"
       />
 
-      <Path d={area} fill={t.brand[600]} fillOpacity={t.dark ? 0.14 : 0.08} />
+      <Path d={area} fill="url(#mono-wash)" />
       <Path
         d={line}
         stroke={t.textPrimary}
@@ -106,9 +119,10 @@ export function MonoChart({
         fill="none"
       />
 
-      {/* End marker: 9px across, with a 2px surface ring so it survives any background. */}
-      <Circle cx={lastX} cy={lastY} r={6.5} fill={t.surface} />
-      <Circle cx={lastX} cy={lastY} r={4.5} fill={t.textPrimary} />
+      {/* End marker: a soft halo under a ringed core, so it stays legible over the wash
+          and survives crossing the mean rule. */}
+      <Circle cx={lastX} cy={lastY} r={7} fill={t.textPrimary} fillOpacity={0.18} />
+      <Circle cx={lastX} cy={lastY} r={4} fill={t.textPrimary} stroke={t.surface} strokeWidth={2} />
     </Svg>
   );
 }
@@ -287,19 +301,32 @@ export function TrendChart({
 
   const x = (i: number) => padX + (i * (w - padX * 2)) / (n - 1);
   const y = (v: number) => base - Math.max(0, Math.min(1, v)) * (base - top);
-  const path = (vals: number[]) =>
-    vals.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+  const path = (vals: number[]) => monotonePath(vals.map((v, i) => ({ x: x(i), y: y(v) })));
 
   const areaPath = `${path(adherence)} L${x(adherence.length - 1).toFixed(1)} ${base} L${padX} ${base} Z`;
+
+  const marker = (cx: number, cy: number, color: string) => (
+    <>
+      <Circle cx={cx} cy={cy} r={7} fill={color} fillOpacity={0.22} />
+      <Circle cx={cx} cy={cy} r={4} fill={color} stroke={t.surface} strokeWidth={2} />
+    </>
+  );
 
   return (
     <View>
       <Svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 132 }}>
-        {[top, 34, 56, 78, base].map((gy) => (
-          <Line key={gy} x1={padX} y1={gy} x2={w - padX} y2={gy} stroke={t.softFill} strokeWidth={1} />
+        <Defs>
+          <LinearGradient id="trend-wash" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={t.chartAdherence} stopOpacity={0.28} />
+            <Stop offset="1" stopColor={t.chartAdherence} stopOpacity={0} />
+          </LinearGradient>
+        </Defs>
+
+        {[top, (top + base) / 2, base].map((gy) => (
+          <Line key={gy} x1={padX} y1={gy} x2={w - padX} y2={gy} stroke={t.grid} strokeWidth={1} />
         ))}
 
-        <Path d={areaPath} fill={t.chartAdherence} fillOpacity={0.07} />
+        <Path d={areaPath} fill="url(#trend-wash)" />
         <Path
           d={path(adherence)}
           stroke={t.chartAdherence}
@@ -317,10 +344,8 @@ export function TrendChart({
           fill="none"
         />
 
-        <Circle cx={x(adherence.length - 1)} cy={y(adherence[adherence.length - 1]!)} r={6} fill={t.surface} />
-        <Circle cx={x(adherence.length - 1)} cy={y(adherence[adherence.length - 1]!)} r={4} fill={t.chartAdherence} />
-        <Circle cx={x(soreness.length - 1)} cy={y(soreness[soreness.length - 1]!)} r={6} fill={t.surface} />
-        <Circle cx={x(soreness.length - 1)} cy={y(soreness[soreness.length - 1]!)} r={4} fill={t.chartSoreness} />
+        {marker(x(adherence.length - 1), y(adherence[adherence.length - 1]!), t.chartAdherence)}
+        {marker(x(soreness.length - 1), y(soreness[soreness.length - 1]!), t.chartSoreness)}
       </Svg>
 
       <View style={{ flexDirection: 'row', gap: 16, marginTop: 8 }}>
@@ -336,3 +361,58 @@ function trim(n: number): string {
   const r = Math.round(n * 10) / 10;
   return Number.isInteger(r) ? String(r) : r.toFixed(1);
 }
+
+/* ─────────────────────────────────────────────────────────────
+ * Curves
+ * ───────────────────────────────────────────────────────────── */
+
+/**
+ * A monotone cubic path through the points — the same curve the portal's charts draw.
+ *
+ * "Monotone" is the property that makes a smoothed line honest: between two readings the
+ * curve never rises above the higher one or dips below the lower, so it cannot invent a
+ * peak that was not measured. A plain Catmull-Rom or Bézier spline can, and on a pain or
+ * weight series an invented peak is a lie the eye reads as data. This is d3's monotoneX,
+ * transcribed, for a strictly increasing x.
+ */
+export function monotonePath(pts: { x: number; y: number }[]): string {
+  if (pts.length === 0) return '';
+  const f = (n: number) => n.toFixed(1);
+  const first = pts[0]!;
+  let d = `M${f(first.x)} ${f(first.y)}`;
+  if (pts.length === 1) return d;
+  if (pts.length === 2) return `${d} L${f(pts[1]!.x)} ${f(pts[1]!.y)}`;
+
+  let t0: number | undefined;
+  for (let i = 1; i < pts.length; i++) {
+    const p0 = pts[i - 1]!;
+    const p1 = pts[i]!;
+    const t1 =
+      i < pts.length - 1 ? slope3(p0, p1, pts[i + 1]!) : slope2(p0, p1, t0 as number);
+    if (t0 === undefined) t0 = slope2(p0, p1, t1);
+    const dx = (p1.x - p0.x) / 3;
+    d += ` C${f(p0.x + dx)} ${f(p0.y + dx * t0)} ${f(p1.x - dx)} ${f(p1.y - dx * t1)} ${f(p1.x)} ${f(p1.y)}`;
+    t0 = t1;
+  }
+  return d;
+}
+
+type Pt = { x: number; y: number };
+
+/** Tangent at the middle of three points, limited so the curve stays between them. */
+function slope3(p0: Pt, p1: Pt, p2: Pt): number {
+  const h0 = p1.x - p0.x;
+  const h1 = p2.x - p1.x;
+  if (!(h0 > 0) || !(h1 > 0)) return 0;
+  const s0 = (p1.y - p0.y) / h0;
+  const s1 = (p2.y - p1.y) / h1;
+  const p = (s0 * h1 + s1 * h0) / (h0 + h1);
+  return (Math.sign(s0) + Math.sign(s1)) * Math.min(Math.abs(s0), Math.abs(s1), 0.5 * Math.abs(p)) || 0;
+}
+
+/** Tangent at an end point, given the tangent at its neighbour. */
+function slope2(p0: Pt, p1: Pt, t: number): number {
+  const h = p1.x - p0.x;
+  return h > 0 ? (3 * (p1.y - p0.y)) / h - t : t;
+}
+
