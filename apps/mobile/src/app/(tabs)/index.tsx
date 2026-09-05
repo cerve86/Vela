@@ -17,7 +17,15 @@ import {
   StatTile,
 } from '@/components/kit';
 import { VelaIcon } from '@/components/brand';
-import { DialStat, DualDial, HeroBand, HeroChip, SlotStrip, Tile, TideBars } from '@/components/hero';
+import {
+  DialStat,
+  DualDial,
+  HeroBand,
+  HeroChip,
+  SlotStrip,
+  Tile,
+  TideBars,
+} from '@/components/hero';
 import { Illustration } from '@/components/Illustration';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
@@ -25,6 +33,8 @@ import { addDays, today, useNutrition, useSessionPlan, useUpcoming, useWeek } fr
 import { useDailyRead } from '@/lib/daily';
 import { syncHealthNow } from '@/lib/healthSync';
 import { useVitality } from '@/lib/vitality';
+import { useActivities } from '@/lib/integrations';
+import { ActivityCard } from '@/components/activity-card';
 
 /**
  * Today, rebuilt to the "Coaching App Flow Redesign" prototype.
@@ -46,6 +56,11 @@ export default function TodayScreen() {
   const nutrition = useNutrition(1);
   const daily = useDailyRead();
   const vitality = useVitality(daily.current);
+  const activities = useActivities(7);
+  /** Today's session came from a recorded activity rather than the plan: no prescription to show. */
+  const recorded = Boolean(
+    week.todaySession && activities.data.some((a) => a.sessionId === week.todaySession!.id),
+  );
 
   // Coming back from a finished session must not leave "Start session" on screen. The
   // logging screen writes the outcome and pops, so this tab has to refetch on focus
@@ -178,7 +193,9 @@ export default function TodayScreen() {
               <DialStat
                 value={vitality.recovery.score === null ? '—' : `${vitality.recovery.score}%`}
                 label="RECOVERY"
-                sub={vitality.recovery.score === null ? 'not yet' : BAND_WORD[vitality.recovery.band]}
+                sub={
+                  vitality.recovery.score === null ? 'not yet' : BAND_WORD[vitality.recovery.band]
+                }
                 align="right"
                 tone={vitality.recovery.score === null ? t.textMuted : undefined}
               />
@@ -235,11 +252,7 @@ export default function TodayScreen() {
               from a night's readings.
             */}
             {vitality.recovery.score !== null && (
-              <Body
-                size={11}
-                color={t.textSecondary}
-                style={{ textAlign: 'center', marginTop: 8 }}
-              >
+              <Body size={11} color={t.textSecondary} style={{ textAlign: 'center', marginTop: 8 }}>
                 {/*
                   How much stands behind the number. Fifty per cent from six overnight
                   readings and fifty per cent from sleep alone rendered identically before,
@@ -267,7 +280,9 @@ export default function TodayScreen() {
             title={`${capitalise(daily.openWindow)} read`}
             value={daily.current === null ? '—' : String(daily.current + 1)}
             unit={daily.current === null ? undefined : 'of 5'}
-            pill={daily.allLogged ? 'All three in' : daily.current === null ? 'Not logged' : 'Logged'}
+            pill={
+              daily.allLogged ? 'All three in' : daily.current === null ? 'Not logged' : 'Logged'
+            }
             pillBg={daily.current === null ? t.softFill : t.tint.mint}
             pillFg={daily.current === null ? t.textSecondary : t.status.good}
             meta={daily.read.symptom === 'Nothing' ? 'No symptoms' : daily.read.symptom}
@@ -304,24 +319,32 @@ export default function TodayScreen() {
               {active.note}
             </Body>
 
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
-              <StatTile label="TIME" value={String(mins)} unit="min" dark flex={1.3} />
-              <StatTile label="MOVES" value={String(active.items.length)} />
-              <StatTile label="SETS" value={String(active.setCount)} />
-            </View>
+            {recorded ? (
+              <Body size={13} color={t.textSecondary} style={{ marginTop: 14 }}>
+                Recorded on Strava — the details are in the activity card below.
+              </Body>
+            ) : (
+              <>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
+                  <StatTile label="TIME" value={String(mins)} unit="min" dark flex={1.3} />
+                  <StatTile label="MOVES" value={String(active.items.length)} />
+                  <StatTile label="SETS" value={String(active.setCount)} />
+                </View>
 
-            <View style={{ marginTop: 12, gap: 6 }}>
-              {active.items.map((i) => (
-                <PlanRow
-                  key={i.itemId}
-                  name={i.exerciseName}
-                  dose={
-                    `${i.sets} × ${i.reps}` +
-                    (!active.dropLoad && i.targetLoadKg ? ` · ${i.targetLoadKg} kg` : '')
-                  }
-                />
-              ))}
-            </View>
+                <View style={{ marginTop: 12, gap: 6 }}>
+                  {active.items.map((i) => (
+                    <PlanRow
+                      key={i.itemId}
+                      name={i.exerciseName}
+                      dose={
+                        `${i.sets} × ${i.reps}` +
+                        (!active.dropLoad && i.targetLoadKg ? ` · ${i.targetLoadKg} kg` : '')
+                      }
+                    />
+                  ))}
+                </View>
+              </>
+            )}
 
             <View style={{ marginTop: 22 }}>
               {done ? (
@@ -382,10 +405,28 @@ export default function TodayScreen() {
           </Card>
         )}
 
+        {activities.data[0] && (
+          <ActivityCard
+            activity={activities.data[0]}
+            note={
+              activities.data[0].sessionId &&
+              week.todaySession &&
+              activities.data[0].sessionId === week.todaySession.id
+                ? `Counted as today's ${week.todaySession.title.toLowerCase()}.`
+                : activities.data[0].sessionId
+                  ? 'Counted as a session in your plan.'
+                  : undefined
+            }
+          />
+        )}
+
         {client?.weeksPostpartum != null && (
           <Link href="/readiness" asChild>
             <Pressable>
-              <Card fill={t.dark ? 'rgba(92,135,247,0.12)' : t.tint.peach} style={{ borderRadius: 22 }}>
+              <Card
+                fill={t.dark ? 'rgba(92,135,247,0.12)' : t.tint.peach}
+                style={{ borderRadius: 22 }}
+              >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.lg }}>
                   <VelaIcon name="readiness" size={28} color={t.brand[600]} strokeWidth={2} />
                   <View style={{ flex: 1 }}>
@@ -464,7 +505,9 @@ function capitalise(s: string): string {
 function signalLine(sources: string[]): string {
   const measured = sources.filter((s) => s !== 'how you feel');
   const base =
-    measured.length === 1 ? `Read from ${measured[0]} alone` : `Read from ${measured.length} signals`;
+    measured.length === 1
+      ? `Read from ${measured[0]} alone`
+      : `Read from ${measured.length} signals`;
   return sources.length > measured.length ? `${base} · plus your read` : base;
 }
 
@@ -482,7 +525,8 @@ function greeting(
 ): string {
   if (done) return `That's it logged, ${name}. Nothing else needed today.`;
   if (!hasSession) return `No session today, ${name}. Rest counts as programme.`;
-  if (readiness === null) return `Morning, ${name}. Tell me how today feels and I'll set the session.`;
+  if (readiness === null)
+    return `Morning, ${name}. Tell me how today feels and I'll set the session.`;
   if (readiness <= 1) return `Gently today, ${name}. Something is better than the full thing.`;
   if (readiness >= 4) return `You're in good shape today, ${name}. There's room if you want it.`;
   return `Good to see you, ${name}. Today is ready when you are.`;

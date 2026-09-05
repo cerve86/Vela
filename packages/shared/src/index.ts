@@ -9,6 +9,8 @@ export * from './plan';
 export * from './progression';
 export * from './programImport';
 export * from './roster';
+export * from './activities';
+export * from './ics';
 export * from './milestones';
 export * from './vitality';
 export * from './mock';

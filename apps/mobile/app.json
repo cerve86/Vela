@@ -2,7 +2,7 @@
   "expo": {
     "name": "Vela",
     "slug": "vela",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "vela",
@@ -55,9 +55,7 @@
       "url": "https://u.expo.dev/420c2299-3e45-4943-aa35-3fae1546f904"
     },
     "android": {
-      "permissions": [
-        "android.permission.CAMERA"
-      ]
+      "permissions": ["android.permission.CAMERA"]
     }
   }
 }

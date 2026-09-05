@@ -623,3 +623,34 @@ and a link into the tab that explains it. The before/after symptoms panel and th
 sessions list stay; the "This week" column and the "Latest vitals" strip were absorbed.
 The reading card lives in `components/readings.tsx` and the roster card uses the same one
 at its compact size, so the two pages cannot drift.
+
+## Training from outside the app (6 September 2026)
+
+Two integrations that share an idea: training that happens away from the app still
+belongs in the record, and the record says who wrote it (`sessions.logged_via`).
+
+**Strava.** OAuth brokered by the portal, tokens in a table nothing signed-in can read,
+imports run as the client through RLS with a minted session — the same mechanism as
+personal API keys, now in `impersonate.ts`. An activity completes the planned session of
+the same discipline on the same local day, or becomes a completed session of its own.
+Cadence in steps per minute, power where the device has it. A card on Today, a table on
+the coach's Training tab, a reading on the overview. Webhook for arrivals; _Sync now_
+otherwise. Built and tested against a stand-in Strava; the real application still has to
+be registered and its keys set in Vercel.
+
+**Calendars.** One iCalendar feed per client, keyed by a token, with every session's
+exercises in the notes and a link that marks the whole session done from a page that
+needs no sign-in. Apple subscribes from `webcal://`; Google from its add-by-URL page.
+The feed is hand-written (`ics.ts`, tested) because the format is small and the rules
+that break clients are three: CRLF, folding at 75 octets, escaping.
+
+**Findings worth keeping**
+
+- This schema's default privileges hand every new table to `authenticated`. A table
+  meant to be unreadable must be revoked explicitly; RLS with no policy only makes it
+  look empty. The isolation test asserts the refusal.
+- A new native module means a new dev-client build. The in-app browser sheet was dropped
+  for the system browser and a deep link back, which the build already on phones can do.
+
+**Not done** — Strava's official button asset, cardiovascular load from Strava heart
+rate, device-calendar writes, and the earlier list.

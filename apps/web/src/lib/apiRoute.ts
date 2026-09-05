@@ -11,7 +11,15 @@ import { createRequestSupabase } from '@/lib/supabase/server';
  * routes read as "authenticate, then do the thing" and the wording of the refusal — which
  * an assistant on the other end will relay to the coach — is the same everywhere.
  */
-export async function requireCoach(
+export const requireCoach = requireUser;
+
+/** A client row for the signed-in user, when she is one. RLS returns only her own. */
+export async function clientIdFor(supabase: VelaClient): Promise<string | null> {
+  const { data } = await supabase.from('clients').select('id').maybeSingle();
+  return data?.id ?? null;
+}
+
+export async function requireUser(
   req: Request,
 ): Promise<
   | { supabase: VelaClient; userId: string; refused: null }

@@ -8,7 +8,7 @@ import { createServerClient } from '@supabase/ssr';
  * policy and a reviewer arrives without an account — gating it would fail review while
  * looking, from the inside, like the page worked fine.
  */
-const PUBLIC_PATHS = ['/sign-in', '/auth/callback', '/auth/error', '/privacy', '/api/'];
+const PUBLIC_PATHS = ['/sign-in', '/auth/callback', '/auth/error', '/privacy', '/api/', '/done/'];
 // `/api/` is here because route handlers authenticate themselves and answer 401 as JSON.
 // A script posting a programme with a Bearer token has no cookie, and redirecting it to
 // an HTML sign-in page is the wrong answer to a machine.
@@ -76,5 +76,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   // csv is in the list for the programme template: a public file with nothing in it but
   // column headings and a sample block, and a link a coach may well forward.
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|csv)$).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|csv)$).*)',
+  ],
 };
