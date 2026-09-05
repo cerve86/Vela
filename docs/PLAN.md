@@ -598,3 +598,20 @@ no-op. 94 assertions.
 **Finding worth keeping** — `accept_my_invite` copies name hints onto a blank profile and
 `profiles.last_name` is NOT NULL, so a NULL `last_name_hint` fails the call. The portal
 always sends `''`; a direct caller might not. Worth a `coalesce(…, '')` in the function.
+
+## Roster as cards (5 September 2026)
+
+The clients page was a table with everything compressed into a row. It is now a grid of
+cards, one per client, in the idiom of a parameter dashboard: the name and standing, the
+alerts that put her at the top, a month of symptoms after sessions as a small area
+chart with a dot per recorded score, and four readings — adherence this week with its
+band, pain after sessions on a 0–10 scale, weight change over the month, and resting
+heart rate with HRV (or the latest morning read where there is no watch). "Needs
+attention" stays above, sorted by severity. Invited clients who have not signed in sit
+in their own short list rather than as cards with nothing in them.
+
+The arithmetic moved out of the page into `rosterRollups` in the shared package, pure
+and tested: four queries for the whole roster, one pass per client, and the alert that
+ranks a client and the number on her card come from the same function. Node's test
+runner does not guess extensions, so the module reaches `domain` through the package's
+own export map — one spelling that Node, tsc and the bundlers all resolve.

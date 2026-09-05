@@ -64,9 +64,7 @@ export type Series = {
  * function cannot cross the server/client boundary. The client resolves the spec.
  */
 export type NumberFormat =
-  | { style: 'fixed'; decimals: number }
-  | { style: 'thousands' }
-  | { style: 'compactK' };
+  { style: 'fixed'; decimals: number } | { style: 'thousands' } | { style: 'compactK' };
 
 export function formatValue(n: number, fmt?: NumberFormat): string {
   if (!fmt) return String(Math.round(n));
@@ -150,7 +148,9 @@ function ActiveDot({ cx, cy, color }: { cx?: number; cy?: number; color: string 
  * session, not per day — because then the dots are the sampling made visible. A dense
  * daily series gets no dots at all: fifty-six markers on a weight line is noise.
  */
-function dotRenderer(s: Series): (props: { cx?: number; cy?: number; index?: number }) => ReactElement {
+function dotRenderer(
+  s: Series,
+): (props: { cx?: number; cy?: number; index?: number }) => ReactElement {
   if (s.dashed) {
     return function NoDot() {
       return <g />;
@@ -159,15 +159,37 @@ function dotRenderer(s: Series): (props: { cx?: number; cy?: number; index?: num
 
   const present = s.points.map((p) => p.y !== null);
   const lastIdx = present.lastIndexOf(true);
-  const sparse = s.connectGaps === true && present.filter(Boolean).length / Math.max(present.length, 1) < 0.5;
+  const sparse =
+    s.connectGaps === true && present.filter(Boolean).length / Math.max(present.length, 1) < 0.5;
 
   return function Dot({ cx, cy, index }) {
-    if (cx === undefined || cy === undefined || index === undefined || !present[index]) return <g />;
+    if (cx === undefined || cy === undefined || index === undefined || !present[index])
+      return <g />;
     if (index === lastIdx) {
-      return <circle key={index} cx={cx} cy={cy} r={4} fill={s.color} stroke="var(--surface)" strokeWidth={2} />;
+      return (
+        <circle
+          key={index}
+          cx={cx}
+          cy={cy}
+          r={4}
+          fill={s.color}
+          stroke="var(--surface)"
+          strokeWidth={2}
+        />
+      );
     }
     if (sparse) {
-      return <circle key={index} cx={cx} cy={cy} r={3.5} fill={s.color} stroke="var(--surface)" strokeWidth={2} />;
+      return (
+        <circle
+          key={index}
+          cx={cx}
+          cy={cy}
+          r={3.5}
+          fill={s.color}
+          stroke="var(--surface)"
+          strokeWidth={2}
+        />
+      );
     }
     return <g />;
   };
@@ -220,7 +242,8 @@ export function TimeSeriesPanels({
     () =>
       xLabels.map((x, i) => {
         const r: Row = { x };
-        for (const p of panels) for (const s of p.series) r[keyOf(p.id, s.id)] = s.points[i]?.y ?? null;
+        for (const p of panels)
+          for (const s of p.series) r[keyOf(p.id, s.id)] = s.points[i]?.y ?? null;
         return r;
       }),
     [panels, xLabels],
@@ -245,7 +268,14 @@ export function TimeSeriesPanels({
       panel.series.flatMap((s) => {
         const v = row[keyOf(panel.id, s.id)];
         if (typeof v !== 'number') return [];
-        return [{ key: `${panel.id}-${s.id}`, color: s.color, label: s.label, value: formatValue(v, panel.format) }];
+        return [
+          {
+            key: `${panel.id}-${s.id}`,
+            color: s.color,
+            label: s.label,
+            value: formatValue(v, panel.format),
+          },
+        ];
       }),
     );
     if (lines.length === 0) return null;
@@ -258,7 +288,11 @@ export function TimeSeriesPanels({
         {lines.map((l) => (
           <div key={l.key} className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-1.5 ink-2">
-              <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: l.color }} />
+              <span
+                aria-hidden
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ background: l.color }}
+              />
               {l.label}
             </span>
             <span className="tnum font-medium">{l.value}</span>
@@ -272,7 +306,9 @@ export function TimeSeriesPanels({
     <div className={className}>
       {panels.map((panel, pi) => {
         const height = panel.height ?? 160;
-        const all = panel.series.flatMap((s) => s.points.map((p) => p.y).filter((v): v is number => v !== null));
+        const all = panel.series.flatMap((s) =>
+          s.points.map((p) => p.y).filter((v): v is number => v !== null),
+        );
         const hasBars = panel.series.some((s) => s.kind === 'bar');
         const [lo, hi] = niceDomain(all, panel.domain, hasBars);
         const ticks = [lo, lo + (hi - lo) / 2, hi];
@@ -290,7 +326,11 @@ export function TimeSeriesPanels({
                 <div className="flex gap-3">
                   {legend.map((s) => (
                     <span key={s.id} className="flex items-center gap-1.5 text-xs ink-3">
-                      <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: s.color }} />
+                      <span
+                        aria-hidden
+                        className="inline-block h-2 w-2 rounded-full"
+                        style={{ background: s.color }}
+                      />
                       {s.label}
                     </span>
                   ))}
@@ -318,7 +358,11 @@ export function TimeSeriesPanels({
                 a background tab, a print preview — because a hidden document never
                 delivers a resize. The observer still corrects the width the moment it can.
               */}
-              <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 600, height }}>
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                initialDimension={{ width: 600, height }}
+              >
                 <ComposedChart
                   data={rows}
                   syncId={syncId}
@@ -329,7 +373,14 @@ export function TimeSeriesPanels({
                     {panel.series
                       .filter((s) => s.kind === 'area')
                       .map((s) => (
-                        <linearGradient key={s.id} id={`${gradientBase}-${panel.id}-${s.id}`} x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient
+                          key={s.id}
+                          id={`${gradientBase}-${panel.id}-${s.id}`}
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
                           <stop offset="0%" stopColor={s.color} stopOpacity={0.35} />
                           <stop offset="100%" stopColor={s.color} stopOpacity={0} />
                         </linearGradient>
@@ -439,7 +490,12 @@ export function Sparkline({
   const data = values.map((y, i) => ({ i, y }));
   return (
     <div aria-hidden style={{ width, height }}>
-      <LineChart width={width} height={height} data={data} margin={{ top: 3, right: 2, bottom: 3, left: 2 }}>
+      <LineChart
+        width={width}
+        height={height}
+        data={data}
+        margin={{ top: 3, right: 2, bottom: 3, left: 2 }}
+      >
         <YAxis hide domain={['dataMin', 'dataMax']} />
         <Line
           dataKey="y"
@@ -476,9 +532,99 @@ export function Meter({
         <span className="text-xs ink-2">{label}</span>
         <span className="tnum text-xs font-medium">{valueLabel}</span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: 'var(--ghost)' }}>
-        <div className="h-full rounded-full" style={{ width: `${pct * 100}%`, background: color }} />
+      <div
+        className="h-2 w-full overflow-hidden rounded-full"
+        style={{ background: 'var(--ghost)' }}
+      >
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${pct * 100}%`, background: color }}
+        />
       </div>
+    </div>
+  );
+}
+
+/**
+ * The markers on a MiniTrend. Recharts clones this element with `cx`, `cy`, `index` and
+ * the point's `payload` for every point. A rehab client trains two or three times a week,
+ * so a month of scores is a sparse series: each recorded value gets a small dot, or a
+ * single session in the window would draw nothing but the line's absence. The latest
+ * value gets the halo.
+ */
+function TrendDot(props: {
+  cx?: number;
+  cy?: number;
+  index?: number;
+  payload?: { y: number | null };
+  lastIndex: number;
+  color: string;
+}) {
+  if (
+    props.cx === undefined ||
+    props.cy === undefined ||
+    props.payload?.y === null ||
+    props.payload?.y === undefined
+  )
+    return <g />;
+  if (props.index === props.lastIndex) {
+    return (
+      <g>
+        <circle cx={props.cx} cy={props.cy} r={6} fill="var(--surface)" />
+        <circle cx={props.cx} cy={props.cy} r={3.5} fill={props.color} />
+      </g>
+    );
+  }
+  return <circle cx={props.cx} cy={props.cy} r={2.5} fill={props.color} />;
+}
+
+/**
+ * A card-sized trend: the area wash and monotone line of the big panels, with no axes,
+ * no grid and no tooltip, plus the latest value ringed in the surface colour so the eye
+ * lands where the reading is. For a roster card, where the question is "which way is
+ * this going", not "what was it on the 14th".
+ */
+export function MiniTrend({
+  points,
+  color = 'var(--series-1)',
+  domain,
+  height = 64,
+}: {
+  points: Point[];
+  color?: string;
+  domain?: [number, number];
+  height?: number;
+}) {
+  const gradientId = useId();
+  const data = points.map((p, i) => ({ i, x: p.x, y: p.y }));
+  const lastIndex = data.reduce((last, d) => (d.y !== null ? d.i : last), -1);
+  if (lastIndex < 0) return null;
+
+  return (
+    <div aria-hidden style={{ width: '100%', height }}>
+      <ResponsiveContainer width="100%" height={height} initialDimension={{ width: 420, height }}>
+        <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 8 }}>
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.26} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <YAxis hide domain={domain ?? ['dataMin', 'dataMax']} />
+          <Area
+            dataKey="y"
+            type="monotone"
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+            fill={`url(#${gradientId})`}
+            connectNulls
+            dot={<TrendDot lastIndex={lastIndex} color={color} />}
+            activeDot={false}
+            isAnimationActive={false}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
     </div>
   );
 }

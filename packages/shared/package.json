@@ -10,7 +10,8 @@
     "./brand": "./src/brand.ts",
     "./icons": "./src/icons.ts",
     "./illustrations": "./src/illustrations.ts",
-    "./programImport": "./src/programImport.ts"
+    "./programImport": "./src/programImport.ts",
+    "./domain": "./src/domain.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

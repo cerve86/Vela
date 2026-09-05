@@ -1,10 +1,20 @@
 import Link from 'next/link';
-import { adherenceBand, adherenceStyle, painColor, painLabel } from '@vela/shared';
+import {
+  adherenceBand,
+  adherenceStyle,
+  rosterRollups,
+  shiftDate,
+  type RosterRollup,
+} from '@vela/shared';
 import { palette } from '@vela/shared/tokens';
+import { Meter } from '@/components/charts';
 import { Avatar, Card, EmptyState, StatTile, StatusPill } from '@/components/ui';
 import { createServerSupabase } from '@/lib/supabase/server';
+import { ClientCard, sinceWords, type RosterClient } from './ClientCard';
 
 export const metadata = { title: 'Clients — Vela' };
+
+const SEVERITY_RANK = { critical: 0, warn: 1, info: 2 } as const;
 
 /**
  * The roster.
@@ -13,70 +23,98 @@ export const metadata = { title: 'Clients — Vela' };
  * query here, because the database applies it. Not writing one is what makes a mistake in
  * this file harmless rather than a disclosure.
  *
- * The columns are chosen to answer one question on sight: who needs me this week. A name
- * and a status cannot answer it, which is why adherence and the last symptom score sit on
- * the row rather than two clicks inside it.
+ * Four queries for the whole roster rather than four per client: a roster of thirty would
+ * otherwise open a hundred round trips to draw one page. The per-client arithmetic lives
+ * in `rosterRollups`, pure and tested, so the number on a card and the alert that put the
+ * client at the top of the page can never disagree.
  */
 export default async function ClientsPage() {
   const supabase = await createServerSupabase();
 
-  const since = daysBack(6);
+  const today = new Date().toISOString().slice(0, 10);
+  const since28 = shiftDate(today, -27);
+  const since7 = shiftDate(today, -6);
 
-  const [{ data: clients }, { data: sessions }, { count: logged }] = await Promise.all([
+  const [
+    { data: clients },
+    { data: sessions },
+    { data: metrics },
+    { data: reads },
+    { count: logged },
+  ] = await Promise.all([
     supabase
       .from('clients')
       .select(
-        'id, email, first_name_hint, last_name_hint, condition, goal, status, started_on, weeks_postpartum, profile_id',
+        'id, email, first_name_hint, last_name_hint, condition, goal, status, weeks_postpartum, created_at',
       )
       .order('created_at', { ascending: false }),
-    // One query for every client's week rather than one per row: a roster of thirty would
-    // otherwise open thirty round trips to render a single table.
     supabase
       .from('sessions')
       .select('client_id, status, scheduled_date, pain_after, completed_at')
-      .gte('scheduled_date', since),
-    supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('status', 'completed'),
+      .gte('scheduled_date', since28),
+    supabase
+      .from('metrics')
+      .select('client_id, type, value, recorded_at')
+      .in('type', ['weight_kg', 'resting_hr', 'hrv_ms'])
+      .gte('recorded_at', `${since28}T00:00:00Z`)
+      .order('recorded_at', { ascending: true }),
+    supabase
+      .from('daily_reads')
+      .select('client_id, read_on, readiness, created_at')
+      .gte('read_on', since7),
+    supabase
+      .from('sessions')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'completed'),
   ]);
 
-  const rows = clients ?? [];
-  const week = sessions ?? [];
-  const active = rows.filter((c) => c.status === 'active');
-  const invited = rows.filter((c) => c.status === 'invited');
+  const rows = (clients ?? []).map<RosterClient & { email: string; createdAt: string }>((c) => ({
+    id: c.id,
+    name: `${c.first_name_hint ?? ''} ${c.last_name_hint ?? ''}`.trim() || c.email,
+    email: c.email,
+    condition: c.condition,
+    goal: c.goal,
+    status: c.status,
+    weeksPostpartum: c.weeks_postpartum,
+    createdAt: c.created_at,
+  }));
 
-  const todayIso = daysBack(0);
-
-  /** Per-client week summary, computed once. */
-  const summary = new Map(
-    rows.map((c) => {
-      const mine = week.filter((s) => s.client_id === c.id);
-      // Only what has already come due counts against her. Measuring Wednesday against
-      // Friday's session reports a miss for work still ahead.
-      const due = mine.filter((s) => s.scheduled_date <= todayIso);
-      const done = due.filter((s) => s.status === 'completed');
-      const withPain = mine
-        .filter((s) => s.pain_after !== null)
-        .sort((a, b) => (a.scheduled_date < b.scheduled_date ? 1 : -1));
-      const lastDone = [...done].sort((a, b) =>
-        (a.completed_at ?? '') < (b.completed_at ?? '') ? 1 : -1,
-      )[0];
-
-      return [
-        c.id,
-        {
-          due: due.length,
-          done: done.length,
-          ratio: due.length ? done.length / due.length : null,
-          painAfter: withPain[0]?.pain_after ?? null,
-          lastSeen: lastDone?.completed_at ?? null,
-        },
-      ] as const;
-    }),
-  );
-
-  const needsEye = rows.filter((c) => {
-    const s = summary.get(c.id);
-    return s && ((s.painAfter !== null && s.painAfter >= 6) || (s.ratio !== null && s.ratio < 0.5));
+  const rollups = rosterRollups({
+    clientIds: rows.map((c) => c.id),
+    today,
+    sessions: (sessions ?? []).map((s) => ({
+      clientId: s.client_id,
+      scheduledDate: s.scheduled_date,
+      status: s.status,
+      painAfter: s.pain_after,
+      completedAt: s.completed_at,
+    })),
+    metrics: (metrics ?? []).map((m) => ({
+      clientId: m.client_id,
+      type: m.type,
+      value: Number(m.value),
+      recordedAt: m.recorded_at,
+    })),
+    reads: (reads ?? []).map((r) => ({
+      clientId: r.client_id,
+      readOn: r.read_on,
+      readiness: r.readiness,
+      createdAt: r.created_at,
+    })),
   });
+
+  const training = rows.filter((c) => c.status !== 'invited');
+  const invited = rows.filter((c) => c.status === 'invited');
+  const active = rows.filter((c) => c.status === 'active');
+
+  const rank = (r: RosterRollup) =>
+    r.alerts.length === 0 ? 3 : Math.min(...r.alerts.map((a) => SEVERITY_RANK[a.severity]));
+  const needsAttention = training
+    .filter((c) => rollups.get(c.id)!.alerts.some((a) => a.severity !== 'info'))
+    .sort((a, b) => rank(rollups.get(a.id)!) - rank(rollups.get(b.id)!));
+  const ordered = [...training].sort(
+    (a, b) => rank(rollups.get(a.id)!) - rank(rollups.get(b.id)!) || a.name.localeCompare(b.name),
+  );
 
   return (
     <div className="mx-auto max-w-6xl p-8">
@@ -96,17 +134,21 @@ export default async function ClientsPage() {
         </Link>
       </header>
 
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Active clients" value={String(active.length)} hint="Accepted and training" />
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile
+          label="Active clients"
+          value={String(active.length)}
+          hint="Accepted and training"
+        />
+        <StatTile
+          label="Needs attention"
+          value={String(needsAttention.length)}
+          hint="Missed sessions, high pain, or gone quiet"
+        />
         <StatTile
           label="Awaiting acceptance"
           value={String(invited.length)}
-          hint="Invited, email not yet verified"
-        />
-        <StatTile
-          label="Needs your eye"
-          value={String(needsEye.length)}
-          hint="High symptoms or under half their sessions"
+          hint="Invited, not yet signed in"
         />
         <StatTile
           label="Sessions logged"
@@ -115,138 +157,121 @@ export default async function ClientsPage() {
         />
       </div>
 
-      <Card title="All clients">
-        {rows.length === 0 ? (
-          <EmptyState
-            art="roster"
-            title="Nobody on the roster yet"
-            body="Invite your first client and she'll appear here as soon as she accepts."
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="text-left text-[11px] ink-2">
-                  {['Client', 'Condition', 'Adherence · 7d', 'Symptoms after', 'Last seen', 'Status'].map(
-                    (h) => (
-                      <th
-                        key={h}
-                        className="border-b px-2 pt-2.5 pb-2 font-medium whitespace-nowrap"
-                        style={{ borderColor: 'var(--border)' }}
-                      >
-                        {h}
-                      </th>
-                    ),
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((c) => {
-                  const s = summary.get(c.id)!;
-                  const name =
-                    [c.first_name_hint, c.last_name_hint].filter(Boolean).join(' ') || c.email;
-                  const openable = c.status !== 'invited';
+      {needsAttention.length > 0 && (
+        <Card
+          title="Needs attention"
+          className="mb-6"
+          action={<span className="text-xs ink-3">Sorted by severity</span>}
+        >
+          <ul className="space-y-1">
+            {needsAttention.map((client) => {
+              const r = rollups.get(client.id)!;
+              return (
+                <li key={client.id}>
+                  <Link
+                    href={`/clients/${client.id}`}
+                    className="flex items-center gap-4 rounded-[16px] p-3.5 transition-colors hover:bg-[var(--ghost)]"
+                  >
+                    <Avatar name={client.name} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">{client.name}</span>
+                        <span className="truncate text-xs ink-3">{client.condition}</span>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {r.alerts.map((a) => (
+                          <StatusPill
+                            key={a.kind}
+                            tone={
+                              a.severity === 'critical'
+                                ? 'critical'
+                                : a.severity === 'warn'
+                                  ? 'warning'
+                                  : 'neutral'
+                            }
+                          >
+                            {a.message}
+                          </StatusPill>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="hidden w-28 shrink-0 sm:block">
+                      {r.adherence7d === null ? (
+                        <span className="text-xs ink-3">Nothing due</span>
+                      ) : (
+                        <Meter
+                          value={r.adherence7d}
+                          color={adherenceStyle[adherenceBand(r.adherence7d)].color}
+                          label="Adherence"
+                          valueLabel={`${Math.round(r.adherence7d * 100)}%`}
+                        />
+                      )}
+                    </div>
+                    <div className="w-24 shrink-0 text-right">
+                      <div className="text-xs ink-3">Last seen</div>
+                      <div className="text-sm">
+                        {r.lastActivityAt
+                          ? cap(sinceWords(r.daysSinceLastActivity ?? 0))
+                          : 'Not yet'}
+                      </div>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
 
-                  return (
-                    <tr key={c.id} className="group">
-                      <td className="border-b px-2 py-3" style={{ borderColor: 'var(--border)' }}>
-                        <div className="flex items-center gap-2.5">
-                          <Avatar name={name} size={30} />
-                          <div className="min-w-0">
-                            {openable ? (
-                              <Link
-                                href={`/clients/${c.id}`}
-                                className="font-medium hover:underline"
-                                style={{ color: 'var(--ink-primary)' }}
-                              >
-                                {name}
-                              </Link>
-                            ) : (
-                              <span className="font-medium">{name}</span>
-                            )}
-                            <div className="text-[11px] ink-2">
-                              {c.weeks_postpartum != null
-                                ? `Week ${c.weeks_postpartum} postpartum`
-                                : c.email}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
+      {rows.length === 0 ? (
+        <EmptyState
+          art="roster"
+          title="Nobody on the roster yet"
+          body="Invite your first client and she'll appear here as soon as she accepts."
+        />
+      ) : (
+        <>
+          {training.length > 0 && (
+            <section className="mb-6">
+              <div className="mb-3 flex items-baseline justify-between">
+                <h2 className="display-face text-[15px] font-semibold">All clients</h2>
+                <span className="text-xs ink-3">Those needing attention first</span>
+              </div>
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                {ordered.map((client) => (
+                  <ClientCard key={client.id} client={client} rollup={rollups.get(client.id)!} />
+                ))}
+              </div>
+            </section>
+          )}
 
-                      <td
-                        className="border-b px-2 py-3 ink-2"
-                        style={{ borderColor: 'var(--border)' }}
-                      >
-                        {c.condition ?? '—'}
-                      </td>
+          {invited.length > 0 && (
+            <Card title="Awaiting acceptance" className="mb-6">
+              <ul className="divide-y" style={{ borderColor: 'var(--border)' }}>
+                {invited.map((client) => (
+                  <li key={client.id} className="flex items-center gap-3 py-2.5">
+                    <Avatar name={client.name} size={28} />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm font-medium">{client.name}</span>
+                      <span className="ml-2 text-xs ink-3">{client.email}</span>
+                    </div>
+                    <span className="text-xs ink-3">
+                      Invited {invitedWords(client.createdAt, today)}
+                    </span>
+                    <StatusPill tone="warning">Awaiting</StatusPill>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+        </>
+      )}
 
-                      <td className="border-b px-2 py-3" style={{ borderColor: 'var(--border)' }}>
-                        {s.ratio === null ? (
-                          <span className="text-xs ink-3">Nothing due yet</span>
-                        ) : (
-                          <div className="flex items-center gap-2.5">
-                            <div
-                              className="h-1.5 w-[60px] shrink-0 overflow-hidden rounded-full"
-                              style={{ background: 'var(--ghost)' }}
-                            >
-                              <div
-                                className="h-full rounded-full"
-                                style={{
-                                  width: `${Math.round(s.ratio * 100)}%`,
-                                  background: adherenceStyle[adherenceBand(s.ratio)].color,
-                                }}
-                              />
-                            </div>
-                            <span className="tnum text-xs">
-                              {s.done}/{s.due}
-                            </span>
-                          </div>
-                        )}
-                      </td>
-
-                      <td className="border-b px-2 py-3" style={{ borderColor: 'var(--border)' }}>
-                        {s.painAfter === null ? (
-                          <span className="text-xs ink-3">Not recorded</span>
-                        ) : (
-                          // Dot plus word, never colour alone — the same rule the charts follow.
-                          <span className="flex items-center gap-2">
-                            <span
-                              className="inline-block h-2 w-2 shrink-0 rounded-full"
-                              style={{ background: painColor(s.painAfter) }}
-                            />
-                            <span className="text-xs">
-                              {painLabel(s.painAfter)}
-                              <span className="tnum ink-3"> · {s.painAfter}</span>
-                            </span>
-                          </span>
-                        )}
-                      </td>
-
-                      <td
-                        className="border-b px-2 py-3 text-xs ink-2 whitespace-nowrap"
-                        style={{ borderColor: 'var(--border)' }}
-                      >
-                        {s.lastSeen ? sinceWords(s.lastSeen) : 'Not yet'}
-                      </td>
-
-                      <td className="border-b px-2 py-3" style={{ borderColor: 'var(--border)' }}>
-                        <StatusPill tone={statusTone(c.status)}>
-                          {c.status === 'invited' ? 'Awaiting' : cap(c.status)}
-                        </StatusPill>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <p className="mt-4 text-xs ink-3">
-          Adherence counts only sessions already due, so a quiet Monday is not a miss. Rows for
-          clients who have not accepted their invitation do not open yet.
-        </p>
-      </Card>
+      <p className="text-xs ink-3">
+        Adherence counts only sessions already due, so a quiet Monday is not a miss. Symptom scores
+        are what she reported after each session; weight and resting heart rate come from Apple
+        Health when connected.
+      </p>
     </div>
   );
 }
@@ -255,39 +280,11 @@ function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** Status maps to a tone, and the pill always carries the word beside the icon. */
-function statusTone(status: string): 'good' | 'warning' | 'neutral' {
-  if (status === 'active') return 'good';
-  if (status === 'invited' || status === 'paused') return 'warning';
-  return 'neutral';
-}
-
-/**
- * An ISO date `n` days back.
- *
- * A function rather than an inline expression because the clock is impure, and reading it
- * straight in a component body is what the purity lint rule exists to catch — it renders
- * fine on a server component and rots the moment the same code is used on the client.
- *
- * UTC on both sides of the subtraction. It used to step the *local* date and then read the
- * result back as UTC, which is a day out for part of every day west of Greenwich: at 20:00
- * in New York, `daysBack(6)` returned a window starting a day later than the deep-dive's,
- * so the same client's adherence read differently on the roster and on her own page. The
- * deep-dive and `dateWindow` were already UTC; this is the odd one out being brought into
- * line rather than a new convention.
- */
-function daysBack(n: number): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - n);
-  return d.toISOString().slice(0, 10);
-}
-
-/** "Today", "Yesterday", "3 days ago" — the resolution a coach actually reads. */
-function sinceWords(iso: string): string {
-  const days = Math.floor((new Date().getTime() - new Date(iso).getTime()) / 86400000);
-  if (days <= 0) return 'Today';
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return `${days} days ago`;
-  if (days < 14) return 'Last week';
-  return `${Math.floor(days / 7)} weeks ago`;
+function invitedWords(createdAt: string, today: string): string {
+  const days = Math.floor(
+    (new Date(`${today}T00:00:00Z`).getTime() -
+      new Date(`${createdAt.slice(0, 10)}T00:00:00Z`).getTime()) /
+      86_400_000,
+  );
+  return sinceWords(days);
 }
