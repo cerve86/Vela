@@ -477,3 +477,52 @@ not. Shipped as **0.2.0 (15)**.
 pain-vs-load overlay remain unbuildable and "completed" still cannot say which sets she
 actually did. The return-to-running screen is still local state that reaches nobody. No
 offline outbox, no push, no error reporting.
+
+---
+
+## The dials hold still, and the charts change engine — 2026-09-05
+
+Shipped as **0.2.1 (16)** — a refinement of the same screens rather than new ones.
+
+**The maths.** An end-to-end review of recovery and strain found no runtime loops but
+several self-referential scales, and two places Apple's data was being filed wrongly.
+Seven corrections, in order of how far each moved the number:
+
+- Ceilings by percentile, not maximum. One strap artifact at 210 bpm compressed every
+  reserve for a month; the ceiling is now the second-highest five-minute average, the
+  strain peak the 90th percentile of her days.
+- HRV and breathing rate are filed to the wake morning like sleep. Averaging by timestamp
+  had split every night at midnight. Resting heart rate falls back to yesterday until
+  Apple writes today's — inferred from exported data, **not yet verified on a Watch**.
+- The cardio ceiling comes from sixty days and the loads from thirty, so identical effort
+  scores the same when a hard day ages out. Two definitions of resting heart rate became
+  one.
+- Five nights before a baseline means anything. A night with no wakes reads as settled,
+  not unknown. A generation guard on the load; one fetch on pull-to-refresh, not two.
+- Rounding once, a smooth deadband, the raised-resting-rate note in every band, and the
+  signal count on screen.
+
+**The charts.** BoardUI was asked for and evaluated on the facts: a Next.js design system
+installed by copying source, charts on Recharts, two free charts (both revenue widgets),
+every chart Vela needs behind a licence, and an `init` that lands a second design system.
+The portal took the engine and the idiom on Vela's tokens behind the unchanged
+`TimeSeriesPanels` contract; the app's SVG kit draws the same idiom with a transcribed
+monotone curve. The series palette failed the validator in both modes — the failing pair
+was the pain before/after chart — and was re-ordered until every hard gate passed.
+
+**Findings worth keeping**
+
+- The `initialDimension` prop is what makes a Recharts chart paint on the first frame,
+  and the only thing that makes it paint at all in a document the browser is not
+  displaying. Without it, verification in a hidden pane reports an empty chart that is
+  perfectly healthy.
+- `supabase start` now routes auth mail through Resend, and without `RESEND_API_KEY`
+  exported every local sign-in and invite returns 500. The stack that worked earlier the
+  same day had containers from before the SMTP block; a restart re-created them. The SMTP
+  configuration probably belongs under a remote-only override rather than the shared
+  `[auth]` block.
+- eas-cli writes a stub `app.json` into whatever directory it is run from when no config
+  is found there. Run it from `apps/mobile`.
+
+**Not done** — per-set logs, the readiness screen's persistence, the outbox, push, and
+error reporting, unchanged from the previous entry.
