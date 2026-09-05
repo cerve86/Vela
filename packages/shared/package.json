@@ -9,7 +9,8 @@
     "./tokens": "./src/tokens.ts",
     "./brand": "./src/brand.ts",
     "./icons": "./src/icons.ts",
-    "./illustrations": "./src/illustrations.ts"
+    "./illustrations": "./src/illustrations.ts",
+    "./programImport": "./src/programImport.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

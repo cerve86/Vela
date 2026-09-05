@@ -23,20 +23,21 @@ Nothing here is a feature. It is the machine that ships features.
 - Sentry wired into both apps
 
 > ### ✅ CP0 — "Hello world" on your phone via TestFlight
+>
 > A push to `main` produces a build that lands in TestFlight and installs on your iPhone,
 > and the portal is live at a URL. **Do not proceed until this works.** Everything after
 > is easier; this is the part that surprises people.
 
 ### Phase 0 progress — 2026-08-10
 
-| Item | State |
-|---|---|
-| Monorepo (npm workspaces), TypeScript, shared domain package | ✅ Done |
-| Coach portal — roster, client deep-dive, chart kit | ✅ Running on seed data |
-| iOS app — Today, session logging, progress, nutrition, profile | ✅ Written, builds locally |
-| Supabase schema + default-deny RLS + pgTAP CP1 tests | ✅ Written, not yet applied |
-| CI — typecheck, lint, build, RLS tests | ✅ Written |
-| TestFlight pipeline | ✅ 0.1.0 (4) submitted 2026-08-16 |
+| Item                                                           | State                             |
+| -------------------------------------------------------------- | --------------------------------- |
+| Monorepo (npm workspaces), TypeScript, shared domain package   | ✅ Done                           |
+| Coach portal — roster, client deep-dive, chart kit             | ✅ Running on seed data           |
+| iOS app — Today, session logging, progress, nutrition, profile | ✅ Written, builds locally        |
+| Supabase schema + default-deny RLS + pgTAP CP1 tests           | ✅ Written, not yet applied       |
+| CI — typecheck, lint, build, RLS tests                         | ✅ Written                        |
+| TestFlight pipeline                                            | ✅ 0.1.0 (4) submitted 2026-08-16 |
 
 **Environment findings on this Mac**
 
@@ -44,7 +45,7 @@ Nothing here is a feature. It is the machine that ships features.
   Metro has long-standing friction with pnpm's symlinked `node_modules`.
 - ~~Xcode had no iOS platform component installed~~ — **resolved**. Xcode 26.6 ships the
   iOS 26.5 SDK; until the matching platform was installed via Xcode → Settings →
-  Components, `xcodebuild` offered *zero* iOS destinations (device or simulator), even
+  Components, `xcodebuild` offered _zero_ iOS destinations (device or simulator), even
   though simulator runtimes existed. Build against an **iOS 26.5** simulator: a 27.0
   runtime is newer than the SDK and is not a valid destination.
 - CocoaPods requires a UTF-8 locale and this shell has no `LANG`. Every build command
@@ -65,6 +66,7 @@ Nothing here is a feature. It is the machine that ships features.
 - In-app account deletion + data export Edge Function (do it now — Apple requires it, and retrofitting cascade deletes later is miserable)
 
 > ### ✅ CP1 — Two clients cannot see each other — **MET 2026-08-10**
+>
 > Verified end to end on the local stack:
 > coach signs in by magic link → invites Marta Rossi → real email arrives → deep link
 > opens the iOS app → tapping it verifies her address (`email_confirmed_at` set) →
@@ -72,11 +74,12 @@ Nothing here is a feature. It is the machine that ships features.
 > shows her as Active. 14 pgTAP assertions green.
 >
 > **Findings worth keeping:**
+>
 > - RLS filters rows; GRANTs decide table access. Missing grants made every query
 >   return zero rows — which reads exactly like working isolation, and would have made
 >   a negative-only test suite pass for the wrong reason. Every negative assertion is
 >   now paired with a positive control.
-> - `inviteUserByEmail` renders from the auth user's *stored* metadata, so a re-invite
+> - `inviteUserByEmail` renders from the auth user's _stored_ metadata, so a re-invite
 >   mailed the previous (just-revoked) token. Metadata is now overwritten first.
 > - A magic link started in the coach's browser cannot complete a PKCE exchange on the
 >   client's phone. The invite email carries GoTrue's `token_hash` instead, and
@@ -84,7 +87,7 @@ Nothing here is a feature. It is the machine that ships features.
 >
 > **Closed out 2026-08-10.** Invitation now uses a six-digit code rather than a deep
 > link, which removed the token-in-metadata failure mode entirely — there is no secret
-> in the email to go stale. Acceptance is keyed on the caller's *verified* email, which
+> in the email to go stale. Acceptance is keyed on the caller's _verified_ email, which
 > is the only thing the old token ever proved.
 >
 > Account deletion and data export are wired and verified on device: export writes a
@@ -92,6 +95,7 @@ Nothing here is a feature. It is the machine that ships features.
 > and consents, leaving an audit row that deliberately carries no subject identifier.
 >
 > Two further findings:
+>
 > - A local Supabase email template is fetched by GoTrue over HTTP from Kong. Rewriting
 >   the template file replaces its inode and breaks the single-file bind mount, so Kong
 >   404s and GoTrue silently falls back to the default email. `supabase stop && start`
@@ -112,12 +116,13 @@ Nothing here is a feature. It is the machine that ships features.
 - iOS: calendar/agenda view of assigned sessions, session detail with video playback
 
 ### Phase 2 progress — exercise library shipped 2026-08-11
->
+
 > Library is live on real data: 16 shipped exercises across pelvic floor, strength,
 > impact, running and mobility, plus coach-owned custom exercises. Filter by category,
 > search across name/muscle group/equipment, "mine only" toggle.
 >
 > Design decisions worth keeping:
+>
 > - One table for shipped and custom exercises, so a programme item has a single foreign
 >   key even when a day mixes both.
 > - Shipped rows are read-only; "Duplicate to edit" is how a coach customises one. That
@@ -138,7 +143,7 @@ Nothing here is a feature. It is the machine that ships features.
 >   history — the thing that makes progress analysis trustworthy in Phase 3.
 > - `day_no` is the nth training day of the week, not a weekday. The start date decides
 >   the calendar, so one programme fits any schedule.
-> - Re-assigning cancels the live assignment and clears only *future* scheduled sessions.
+> - Re-assigning cancels the live assignment and clears only _future_ scheduled sessions.
 >   Completed and past sessions stay.
 > - Clients cannot read programmes at all — they read sessions. Narrower surface, and it
 >   keeps template work private. Asserted in the tests.
@@ -149,6 +154,7 @@ Nothing here is a feature. It is the machine that ships features.
 > reads seed data for Today) and video upload on exercises.
 
 > ### ✅ CP2 — A real 4-week rehab program, end to end
+>
 > You build a genuine 4-week program for a real client in the portal, assign it, and see
 > the correct days appear on the correct dates in the iOS app with videos playing.
 
@@ -165,6 +171,7 @@ This is the highest-usage screen in the product. It deserves the most care.
 - Portal: session log view, per-exercise history, e1RM and volume-load charts, coach feedback comment
 
 > ### ✅ CP3 — Airplane-mode test
+>
 > A full session logged with the phone in airplane mode syncs cleanly on reconnect, no
 > duplicates and no lost sets. The portal shows the log and a strength-progression chart.
 > Run this test on a real device, not the simulator.
@@ -180,6 +187,7 @@ This is the highest-usage screen in the product. It deserves the most care.
 - **Pain-vs-load overlay chart** and ACWR flag
 
 > ### ✅ CP4 — Health data flows without duplication
+>
 > Weight logged in Apple Health appears in the portal within minutes. Re-running the sync
 > creates zero duplicate rows. Manual and HealthKit values are visually distinguishable.
 
@@ -235,6 +243,7 @@ Simulator, which holds no samples; a real iPhone is needed to confirm import vol
 - Portal: 7/30-day macro adherence, weight trend overlaid on calorie intake
 
 > ### ✅ CP5 — A week of real food logging
+>
 > You (or a willing client) log 7 consecutive days including barcode scans, and the
 > portal's adherence numbers match a hand calculation.
 
@@ -306,6 +315,7 @@ the typed-number path exercises the same lookup, cache and log.
 - Physio assessments module: ROM/special-test/MMT forms, pain map, intake vs. review comparison
 
 > ### ✅ CP6 — 30-second triage
+>
 > You open the portal in the morning and know within 30 seconds which clients need you
 > today, and why. Roster loads in under 1 second with 50 clients seeded.
 
@@ -319,6 +329,7 @@ the typed-number path exercises the same lookup, cache and log.
 - Notification preferences screen
 
 > ### ✅ CP7 — A full coaching week runs on the app
+>
 > Program assigned → sessions reminded → logged → check-in submitted → you reply → client
 > gets the push. No email or WhatsApp needed anywhere in that loop.
 
@@ -335,6 +346,7 @@ the typed-number path exercises the same lookup, cache and log.
 - Onboard 5–10 real clients; weekly feedback triage; OTA fixes via EAS Update
 
 > ### ✅ CP8 — Real clients, real data, stable
+>
 > 5–10 clients using it for 2 consecutive weeks. Crash-free sessions > 99.5%. Every P0
 > from feedback closed. You have decided whether App Store public release follows.
 
@@ -342,17 +354,17 @@ the typed-number path exercises the same lookup, cache and log.
 
 ## Timeline summary
 
-| Phase | Effort | Cumulative |
-|---|---|---|
-| 0 Foundations | 1 wk | 1 |
-| 1 Identity & security | 1.5 wk | 2.5 |
-| 2 Library & builder | 2 wk | 4.5 |
-| 3 Logging & offline | 2 wk | 6.5 |
-| 4 Vitals & HealthKit | 1 wk | 7.5 |
-| 5 Nutrition | 2 wk | 9.5 |
-| 6 Dashboard | 1.5 wk | 11 |
-| 7 Messaging & check-ins | 1.5 wk | 12.5 |
-| 8 Hardening & beta | 2 wk | **14.5 weeks** |
+| Phase                   | Effort | Cumulative     |
+| ----------------------- | ------ | -------------- |
+| 0 Foundations           | 1 wk   | 1              |
+| 1 Identity & security   | 1.5 wk | 2.5            |
+| 2 Library & builder     | 2 wk   | 4.5            |
+| 3 Logging & offline     | 2 wk   | 6.5            |
+| 4 Vitals & HealthKit    | 1 wk   | 7.5            |
+| 5 Nutrition             | 2 wk   | 9.5            |
+| 6 Dashboard             | 1.5 wk | 11             |
+| 7 Messaging & check-ins | 1.5 wk | 12.5           |
+| 8 Hardening & beta      | 2 wk   | **14.5 weeks** |
 
 ### The 6-week cut line
 
@@ -374,12 +386,12 @@ you validate the training loop.
 
 ## Locked decisions — 2026-08-10
 
-| Decision | Choice | Consequence |
-|---|---|---|
-| Mobile stack | **Expo / React Native + TypeScript** | Shared code with the portal, OTA updates. No Apple Watch app in v1 — revisit after beta. |
-| v1 scope | **Nutrition included** | Full ~14.5-week plan. The 6-week cut line stays documented as a fallback if Phases 2–4 overrun. |
-| Apple Developer Program | **Not yet enrolled** | Enrolment is task #1 of Phase 0 and gates CP0. See below. |
-| Languages at beta | **English only** | No i18n layer, but all user-facing copy lives in `packages/shared/strings` from day 1 so adding Italian later is a translation job, not a refactor. |
+| Decision                | Choice                               | Consequence                                                                                                                                         |
+| ----------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mobile stack            | **Expo / React Native + TypeScript** | Shared code with the portal, OTA updates. No Apple Watch app in v1 — revisit after beta.                                                            |
+| v1 scope                | **Nutrition included**               | Full ~14.5-week plan. The 6-week cut line stays documented as a fallback if Phases 2–4 overrun.                                                     |
+| Apple Developer Program | **Not yet enrolled**                 | Enrolment is task #1 of Phase 0 and gates CP0. See below.                                                                                           |
+| Languages at beta       | **English only**                     | No i18n layer, but all user-facing copy lives in `packages/shared/strings` from day 1 so adding Italian later is a translation job, not a refactor. |
 
 ### Apple enrolment - done 2026-08-16
 
@@ -425,7 +437,7 @@ not. Shipped as **0.2.0 (15)**.
 **What was wrong**
 
 - Apple Health synced only when somebody opened Settings and tapped a button. Today's two
-  headline figures are computed from *today's* rows, so on an ordinary morning the app
+  headline figures are computed from _today's_ rows, so on an ordinary morning the app
   opened to "—" and "Estimated · no sleep recorded last night" on a night that had synced
   perfectly. The screen looked broken and the fix was a settings screen nobody had a reason
   to visit.
@@ -526,3 +538,42 @@ was the pain before/after chart — and was re-ordered until every hard gate pas
 
 **Not done** — per-set logs, the readiness screen's persistence, the outbox, push, and
 error reporting, unchanged from the previous entry.
+
+## 0.2.2 — a key for a tool, and Claude as the tool (5 September 2026)
+
+The physiotherapist plans in Claude. Until now the way from there to Vela was a
+spreadsheet, or a token minted by hand that lasts an hour. This entry is the proper
+credential and the proper client.
+
+**Personal API keys.** A coach mints a key in Settings, named for what will use it, shown
+once. Only the hash is stored. On the way in the portal looks the hash up with the service
+role, mints a session for the owning coach through the admin API — a magic-link token
+generated and verified server-side, no mail — and from there the request is her session
+and RLS does the rest. Revocation is checked on every call; the minted session is cached
+per key for its lifetime. The service role turned out to need an explicit grant on the
+new table: on this database it bypasses RLS but is not a superuser, and without the grant
+every key was refused as "revoked".
+
+**Read routes.** `/api/me`, `/api/exercises`, `/api/programs`, `/api/programs/{id}`, all
+through the one `requireCoach` helper so the refusal reads the same everywhere.
+
+**The MCP server.** `packages/mcp`: six tools over the portal API, the import schema
+published field by field as the tool input, and instructions that make the assistant
+read the library before drafting, preview before creating, and never assign. Bundled
+with esbuild into one file and packed as a Claude Desktop extension (`vela.mcpb`) with
+the key as a sensitive setting — double-click, paste, done. Tested in-process against a
+scripted portal, then over stdio against the real local stack: unmatched name refused,
+preview, create, read back.
+
+**Findings worth keeping**
+
+- A supabase-js query builder runs when awaited and not before. `void builder` is a
+  no-op, and "last used" stayed empty until the write was awaited.
+- Node's test runner resolves a package subpath to a `.ts` file but not the barrel's
+  extensionless internal imports. The MCP package imports `@vela/shared/programImport`
+  for that reason.
+- `.describe()` on the shared Zod schema is now documentation an assistant reads. It
+  is written for that reader.
+
+**Not done** — a hosted MCP server for claude.ai in the browser (needs OAuth in front),
+per-set logs, the readiness screen's persistence, the outbox, push, and error reporting.

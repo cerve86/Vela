@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (88);
+  plan (91);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -246,6 +246,41 @@ select is (
   (select count(*) from public.programs),
   0::bigint,
   'a client cannot read programmes at all — she reads sessions, not prescriptions'
+);
+
+
+-- API keys -----------------------------------------------------------------
+-- A key is a coach's credential and nothing but hers: not visible to another coach,
+-- not mintable on her behalf.
+reset role;
+
+insert into public.api_keys (coach_id, name, key_hash, prefix)
+values
+  ('00000000-0000-4000-8000-0000000000a1', 'Claude on the laptop', 'hash-a', 'vela_aaaa');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select count(*) from public.api_keys),
+  1::bigint,
+  'coach A sees her own key (positive control)'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+
+select is (
+  (select count(*) from public.api_keys),
+  0::bigint,
+  'coach B sees none of coach A''s keys'
+);
+
+select throws_ok (
+  $$insert into public.api_keys (coach_id, name, key_hash, prefix)
+    values ('00000000-0000-4000-8000-0000000000a1', 'planted', 'hash-x', 'vela_xxxx')$$,
+  '42501',
+  null,
+  'and cannot mint a key that would act as coach A'
 );
 
 

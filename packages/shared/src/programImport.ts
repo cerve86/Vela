@@ -24,48 +24,119 @@ export type ImportDiscipline = (typeof IMPORT_DISCIPLINES)[number];
  * The validated shape — also the JSON API's request body
  * ───────────────────────────────────────────────────────────── */
 
+// The `.describe()` strings are not decoration: the MCP server publishes this shape as
+// its tool schema, so they are the field documentation an assistant reads before it
+// drafts a programme. Write them for that reader.
 export const importItemSchema = z.object({
   /** Library name, matched case-insensitively. Not an id: the caller does not know ids. */
-  exercise: z.string().trim().min(1, 'Exercise is required').max(120),
-  block: z.string().trim().min(1).max(4).default('A'),
-  sets: z.number().int().min(1).max(20),
-  reps: z.string().trim().min(1, 'Reps is required').max(40),
-  loadKg: z.number().min(0).max(1000).nullable().default(null),
-  rpe: z.number().min(1).max(10).nullable().default(null),
-  tempo: z.string().trim().max(20).nullable().default(null),
-  restSec: z.number().int().min(0).max(900).default(60),
-  notes: z.string().trim().max(500).nullable().default(null),
+  exercise: z
+    .string()
+    .trim()
+    .min(1, 'Exercise is required')
+    .max(120)
+    .describe('Exact library name. Matching ignores case, spacing and hyphens; nothing else.'),
+  block: z
+    .string()
+    .trim()
+    .min(1)
+    .max(4)
+    .default('A')
+    .describe('Block letter. Items in a day sharing a letter are performed as a superset.'),
+  sets: z.number().int().min(1).max(20).describe('Working sets, 1–20.'),
+  reps: z
+    .string()
+    .trim()
+    .min(1, 'Reps is required')
+    .max(40)
+    .describe('Free text: "8-10", "AMRAP", "30s", "8 each side".'),
+  loadKg: z
+    .number()
+    .min(0)
+    .max(1000)
+    .nullable()
+    .default(null)
+    .describe('Target load in kg, or null.'),
+  rpe: z.number().min(1).max(10).nullable().default(null).describe('Target RPE 1–10, or null.'),
+  tempo: z.string().trim().max(20).nullable().default(null).describe('e.g. "3-1-1", or null.'),
+  restSec: z
+    .number()
+    .int()
+    .min(0)
+    .max(900)
+    .default(60)
+    .describe('Rest after the set, seconds. Default 60.'),
+  notes: z
+    .string()
+    .trim()
+    .max(500)
+    .nullable()
+    .default(null)
+    .describe('Coaching cue for this item, or null.'),
 });
 
 export const importDaySchema = z.object({
-  weekNo: z.number().int().min(1).max(52),
-  dayNo: z.number().int().min(1).max(7),
-  title: z.string().trim().min(1).max(80),
-  discipline: z.enum(IMPORT_DISCIPLINES).default('strength'),
+  weekNo: z.number().int().min(1).max(52).describe('Week of the programme, from 1.'),
+  dayNo: z
+    .number()
+    .int()
+    .min(1)
+    .max(7)
+    .describe('Order within the week, 1–7 — not a weekday. The start date decides the calendar.'),
+  title: z
+    .string()
+    .trim()
+    .min(1)
+    .max(80)
+    .describe('e.g. "Lower body strength", "Easy run + mobility".'),
+  discipline: z
+    .enum(IMPORT_DISCIPLINES)
+    .default('strength')
+    .describe('strength | run | mobility | rehab. Default strength.'),
   items: z.array(importItemSchema).min(1, 'A day needs at least one movement'),
 });
 
-export const importProgramSchema = z
-  .object({
-    name: z.string().trim().min(2, 'Give the programme a name').max(120),
-    description: z.string().trim().max(500).optional(),
-    isTemplate: z.boolean().default(false),
-    days: z.array(importDaySchema).min(1, 'A programme needs at least one day'),
-  })
-  .superRefine((p, ctx) => {
-    const seen = new Set<string>();
-    p.days.forEach((d, i) => {
-      const key = `${d.weekNo}:${d.dayNo}`;
-      if (seen.has(key)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['days', i],
-          message: `Week ${d.weekNo} day ${d.dayNo} appears twice`,
-        });
-      }
-      seen.add(key);
-    });
+/**
+ * The programme, before the cross-field check. Exported as a raw shape because the MCP
+ * server needs the fields themselves to publish a tool schema; the refined
+ * `importProgramSchema` is what actually validates a body.
+ */
+export const importProgramShape = {
+  name: z
+    .string()
+    .trim()
+    .min(2, 'Give the programme a name')
+    .max(120)
+    .describe('Programme name, 2–120 characters.'),
+  description: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .describe('One or two sentences on the aim of the block.'),
+  isTemplate: z
+    .boolean()
+    .default(false)
+    .describe('true saves a reusable template rather than a programme for one client.'),
+  days: z
+    .array(importDaySchema)
+    .min(1, 'A programme needs at least one day')
+    .describe('Every training day. Each week/day pair must appear once.'),
+};
+
+export const importProgramSchema = z.object(importProgramShape).superRefine((p, ctx) => {
+  const seen = new Set<string>();
+  p.days.forEach((d, i) => {
+    const key = `${d.weekNo}:${d.dayNo}`;
+    if (seen.has(key)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['days', i],
+        message: `Week ${d.weekNo} day ${d.dayNo} appears twice`,
+      });
+    }
+    seen.add(key);
   });
+});
 
 export type ImportItem = z.infer<typeof importItemSchema>;
 export type ImportDay = z.infer<typeof importDaySchema>;
@@ -138,7 +209,9 @@ export type HeaderMap = Partial<Record<ImportColumn, number>>;
  * it. A missing required column is reported by name with the aliases that would have
  * satisfied it, because "column not found" sends someone back to guess.
  */
-export function mapHeaders(headers: SpreadsheetCell[]): { ok: true; map: HeaderMap } | { ok: false; errors: string[] } {
+export function mapHeaders(
+  headers: SpreadsheetCell[],
+): { ok: true; map: HeaderMap } | { ok: false; errors: string[] } {
   const norm = headers.map(normaliseHeader);
   const map: HeaderMap = {};
 
@@ -152,7 +225,8 @@ export function mapHeaders(headers: SpreadsheetCell[]): { ok: true; map: HeaderM
     return {
       ok: false,
       errors: missing.map(
-        (c) => `Missing a "${HEADER_ALIASES[c][0]}" column (also accepted: ${HEADER_ALIASES[c].slice(1).join(', ')})`,
+        (c) =>
+          `Missing a "${HEADER_ALIASES[c][0]}" column (also accepted: ${HEADER_ALIASES[c].slice(1).join(', ')})`,
       ),
     };
   }
@@ -178,7 +252,8 @@ function parseNumber(v: SpreadsheetCell): number | null | 'invalid' {
   if (typeof v === 'number') return Number.isFinite(v) ? v : 'invalid';
   if (v instanceof Date) return 'invalid';
   const s = text(v).toLowerCase();
-  if (s === '' || s === '-' || s === '—' || s === 'bw' || s === 'bodyweight' || s === 'n/a') return null;
+  if (s === '' || s === '-' || s === '—' || s === 'bw' || s === 'bodyweight' || s === 'n/a')
+    return null;
   const m = s.match(/-?\d+(?:[.,]\d+)?/);
   if (!m) return 'invalid';
   return Number(m[0].replace(',', '.'));
@@ -245,8 +320,7 @@ export interface ImportRowError {
 }
 
 export type ParsedRows =
-  | { ok: true; days: ImportDay[]; rowsRead: number }
-  | { ok: false; errors: ImportRowError[] };
+  { ok: true; days: ImportDay[]; rowsRead: number } | { ok: false; errors: ImportRowError[] };
 
 /**
  * Data rows into days, every error collected rather than the first one thrown.
@@ -260,9 +334,13 @@ export type ParsedRows =
  * August the moment it is typed, and the parser receives a Date. Rather than importing a
  * date as a rep range, that row is refused with the fix spelled out.
  */
-export function parseProgramRows(headers: SpreadsheetCell[], rows: SpreadsheetCell[][]): ParsedRows {
+export function parseProgramRows(
+  headers: SpreadsheetCell[],
+  rows: SpreadsheetCell[][],
+): ParsedRows {
   const mapped = mapHeaders(headers);
-  if (!mapped.ok) return { ok: false, errors: mapped.errors.map((message) => ({ row: 1, message })) };
+  if (!mapped.ok)
+    return { ok: false, errors: mapped.errors.map((message) => ({ row: 1, message })) };
   const col = mapped.map;
 
   const cell = (r: SpreadsheetCell[], c: ImportColumn): SpreadsheetCell =>
@@ -292,12 +370,14 @@ export function parseProgramRows(headers: SpreadsheetCell[], rows: SpreadsheetCe
     const dayCell = cell(r, 'day');
     if (!isBlank(weekCell)) {
       const n = parseNumber(weekCell);
-      if (n === 'invalid' || n === null || !Number.isInteger(n) || n < 1 || n > 52) fail(`Week must be a whole number from 1 to 52, not "${text(weekCell)}"`);
+      if (n === 'invalid' || n === null || !Number.isInteger(n) || n < 1 || n > 52)
+        fail(`Week must be a whole number from 1 to 52, not "${text(weekCell)}"`);
       else weekNo = n;
     }
     if (!isBlank(dayCell)) {
       const n = parseNumber(dayCell);
-      if (n === 'invalid' || n === null || !Number.isInteger(n) || n < 1 || n > 7) fail(`Day must be a whole number from 1 to 7, not "${text(dayCell)}"`);
+      if (n === 'invalid' || n === null || !Number.isInteger(n) || n < 1 || n > 7)
+        fail(`Day must be a whole number from 1 to 7, not "${text(dayCell)}"`);
       else dayNo = n;
     }
     if (weekNo === null) fail('Week is blank and there is no row above to take it from');
@@ -311,14 +391,22 @@ export function parseProgramRows(headers: SpreadsheetCell[], rows: SpreadsheetCe
     if (!exercise) fail('Exercise is blank');
 
     const setsN = parseNumber(cell(r, 'sets'));
-    if (setsN === 'invalid' || setsN === null || !Number.isInteger(setsN) || setsN < 1 || setsN > 20) {
+    if (
+      setsN === 'invalid' ||
+      setsN === null ||
+      !Number.isInteger(setsN) ||
+      setsN < 1 ||
+      setsN > 20
+    ) {
       fail(`Sets must be a whole number from 1 to 20, not "${text(cell(r, 'sets'))}"`);
     }
 
     const repsCell = cell(r, 'reps');
     let reps = '';
     if (repsCell instanceof Date) {
-      fail('Reps became a date — Excel read "8-10" as the 10th of August. Format the Reps column as Text, or write "8 to 10"');
+      fail(
+        'Reps became a date — Excel read "8-10" as the 10th of August. Format the Reps column as Text, or write "8 to 10"',
+      );
     } else if (typeof repsCell === 'number') {
       reps = String(repsCell);
     } else {
@@ -335,12 +423,15 @@ export function parseProgramRows(headers: SpreadsheetCell[], rows: SpreadsheetCe
     else if (rpe !== null && (rpe < 1 || rpe > 10)) fail(`RPE ${rpe} is outside 1–10`);
 
     const rest = parseSeconds(cell(r, 'restSec'));
-    if (rest === 'invalid') fail(`Rest must be seconds, like 60, 90s or 1:30, not "${text(cell(r, 'restSec'))}"`);
+    if (rest === 'invalid')
+      fail(`Rest must be seconds, like 60, 90s or 1:30, not "${text(cell(r, 'restSec'))}"`);
     else if (rest !== null && (rest < 0 || rest > 900)) fail(`Rest ${rest}s is outside 0–900`);
 
     const discipline = parseDiscipline(cell(r, 'discipline'));
     if (discipline === 'invalid') {
-      fail(`Discipline "${text(cell(r, 'discipline'))}" is not one of ${IMPORT_DISCIPLINES.join(', ')}`);
+      fail(
+        `Discipline "${text(cell(r, 'discipline'))}" is not one of ${IMPORT_DISCIPLINES.join(', ')}`,
+      );
     }
 
     if (weekNo === null || dayNo === null) return;
@@ -351,7 +442,8 @@ export function parseProgramRows(headers: SpreadsheetCell[], rows: SpreadsheetCe
     // Past this point every cell has been checked, so an 'invalid' cannot reach the day.
     // The narrowing is spelled out because the checks above record errors rather than
     // narrowing, and the type system has no way of knowing they cover every case.
-    if (load === 'invalid' || rpe === 'invalid' || rest === 'invalid' || discipline === 'invalid') return;
+    if (load === 'invalid' || rpe === 'invalid' || rest === 'invalid' || discipline === 'invalid')
+      return;
 
     const key = `${weekNo}:${dayNo}`;
     let day = days.get(key);
@@ -383,7 +475,11 @@ export function parseProgramRows(headers: SpreadsheetCell[], rows: SpreadsheetCe
   });
 
   if (errors.length > 0) return { ok: false, errors };
-  if (days.size === 0) return { ok: false, errors: [{ row: 2, message: 'No rows with data were found under the header' }] };
+  if (days.size === 0)
+    return {
+      ok: false,
+      errors: [{ row: 2, message: 'No rows with data were found under the header' }],
+    };
 
   // The schema is the same one the JSON route uses; running it here means the two doors
   // cannot drift. Anything it rejects at this point is a bug in the parser, not the file.
@@ -391,7 +487,10 @@ export function parseProgramRows(headers: SpreadsheetCell[], rows: SpreadsheetCe
   if (!parsed.success) {
     return {
       ok: false,
-      errors: parsed.error.issues.map((iss) => ({ row: 0, message: `${iss.path.join('.')}: ${iss.message}` })),
+      errors: parsed.error.issues.map((iss) => ({
+        row: 0,
+        message: `${iss.path.join('.')}: ${iss.message}`,
+      })),
     };
   }
 
@@ -410,7 +509,8 @@ export function parseProgramRows(headers: SpreadsheetCell[], rows: SpreadsheetCe
 export function parseCsv(input: string): string[][] {
   const textIn = input.replace(/^﻿/, '');
   const firstLine = textIn.split(/\r?\n/, 1)[0] ?? '';
-  const delimiter = (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? ';' : ',';
+  const delimiter =
+    (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? ';' : ',';
 
   const rows: string[][] = [];
   let row: string[] = [];
@@ -460,7 +560,12 @@ export function importedWeeks(days: ImportDay[]): number {
 }
 
 /** One-line summary for a preview or an API response. */
-export function summariseImport(days: ImportDay[]): { weeks: number; days: number; items: number; exercises: number } {
+export function summariseImport(days: ImportDay[]): {
+  weeks: number;
+  days: number;
+  items: number;
+  exercises: number;
+} {
   const names = new Set(days.flatMap((d) => d.items.map((i) => i.exercise.toLowerCase())));
   return {
     weeks: importedWeeks(days),
