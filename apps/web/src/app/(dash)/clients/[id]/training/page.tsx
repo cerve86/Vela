@@ -1,6 +1,14 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { DISCIPLINE_LABEL, getSessionPlan, listDailyReads, listSessions } from '@vela/api';
+import {
+  DISCIPLINE_LABEL,
+  getSessionPlan,
+  getStravaLink,
+  listActivities,
+  listDailyReads,
+  listSessions,
+} from '@vela/api';
+import { ActivitiesCard } from './ActivitiesCard';
 import { isBlocking, tide } from '@vela/shared';
 import { Card, EmptyState, PainDot, StatusPill } from '@/components/ui';
 import { SessionResponse } from './SessionResponse';
@@ -27,7 +35,11 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
   if (assignmentError) throw new Error(`Could not read assignment: ${assignmentError.message}`);
 
   const todayIso = new Date().toISOString().slice(0, 10);
-  const sessions = await listSessions(supabase, { clientId: id });
+  const [sessions, activities, stravaLink] = await Promise.all([
+    listSessions(supabase, { clientId: id }),
+    listActivities(supabase, { clientId: id, limit: 12 }),
+    getStravaLink(supabase, id),
+  ]);
 
   const completed = sessions.filter((s) => s.status === 'completed');
 
@@ -40,12 +52,17 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
    * the prescription and the outcome and does not invent a per-exercise verdict it cannot
    * know.
    */
-  const review = [...completed].sort((a, b) => (a.scheduledDate < b.scheduledDate ? 1 : -1))[0] ?? null;
+  const review =
+    [...completed].sort((a, b) => (a.scheduledDate < b.scheduledDate ? 1 : -1))[0] ?? null;
 
   const [reviewPlan, reviewReads] = await Promise.all([
     review ? getSessionPlan(supabase, review.id) : Promise.resolve([]),
     review
-      ? listDailyReads(supabase, { clientId: id, from: review.scheduledDate, to: review.scheduledDate })
+      ? listDailyReads(supabase, {
+          clientId: id,
+          from: review.scheduledDate,
+          to: review.scheduledDate,
+        })
       : Promise.resolve([]),
   ]);
 
@@ -58,7 +75,9 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
         blockingRead
           ? `Good call stopping the impact work when the ${blockingRead.symptom.toLowerCase()} showed up.`
           : 'That looked comfortable — we can add a little next week.',
-        review.painAfter !== null && review.painBefore !== null && review.painAfter > review.painBefore
+        review.painAfter !== null &&
+        review.painBefore !== null &&
+        review.painAfter > review.painBefore
           ? 'Symptoms came up during that one. Let us hold the load where it is.'
           : 'Symptoms stayed settled, which is what I was watching for.',
         'How did it feel the next morning?',
@@ -114,9 +133,7 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
   };
 
   const program = assignment?.programs as
-    | { id: string; name: string; duration_weeks: number }
-    | null
-    | undefined;
+    { id: string; name: string; duration_weeks: number } | null | undefined;
 
   return (
     <div className="space-y-4">
@@ -133,7 +150,10 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
         {assignment && program ? (
           <div className="flex items-baseline justify-between">
             <div>
-              <Link href={`/programs/${program.id}`} className="text-base font-semibold hover:underline">
+              <Link
+                href={`/programs/${program.id}`}
+                className="text-base font-semibold hover:underline"
+              >
                 {program.name}
               </Link>
               <p className="mt-0.5 text-sm ink-2">
@@ -225,8 +245,8 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
                 Readiness was {tide[lowestRead.readiness]?.label.toLowerCase()} that day
               </div>
               <p className="mt-1 text-sm ink-2">
-                The session was trimmed automatically before she started it — fewer sets and no
-                load — so a full log here means she completed the trimmed version.
+                The session was trimmed automatically before she started it — fewer sets and no load
+                — so a full log here means she completed the trimmed version.
               </p>
             </div>
           )}
@@ -261,8 +281,8 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
                 </li>
               ))}
               <li className="pt-1 text-xs ink-3">
-                What she was prescribed. Which sets she ticked stays on her phone until
-                set-by-set logs sync — this card does not guess at a per-movement verdict.
+                What she was prescribed. Which sets she ticked stays on her phone until set-by-set
+                logs sync — this card does not guess at a per-movement verdict.
               </li>
             </ul>
           )}
@@ -278,7 +298,10 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
         </Card>
       )}
 
-      <Card title="Pain before and after" action={<span className="text-xs ink-3">Last 8 weeks</span>}>
+      <Card
+        title="Pain before and after"
+        action={<span className="text-xs ink-3">Last 8 weeks</span>}
+      >
         {completed.length === 0 ? (
           <EmptyState
             art="trend"
@@ -289,12 +312,14 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
           <>
             <TimeSeriesPanels xLabels={xLabels} panels={[painPanel]} />
             <p className="mt-2 text-xs ink-3">
-              Set-by-set load and session RPE join this tab when per-set logs land. How much
-              of each session she completed, and how long it took, are recorded now.
+              Set-by-set load and session RPE join this tab when per-set logs land. How much of each
+              session she completed, and how long it took, are recorded now.
             </p>
           </>
         )}
       </Card>
+
+      <ActivitiesCard activities={activities} link={stravaLink} />
 
       <Card title="Session history">
         {completed.length === 0 ? (

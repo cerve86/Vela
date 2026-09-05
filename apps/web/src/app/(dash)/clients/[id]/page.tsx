@@ -3,13 +3,14 @@ import { notFound } from 'next/navigation';
 import { TriangleAlert } from 'lucide-react';
 import {
   METRIC_META,
+  listActivities,
   listDailyReads,
   listMetrics,
   listSessions,
   type MetricType,
   type ScheduledSession,
 } from '@vela/api';
-import { adherenceBand, painColor, painLabel, tide } from '@vela/shared';
+import { adherenceBand, formatDistance, painColor, painLabel, tide } from '@vela/shared';
 import { adherenceStyle, palette } from '@vela/shared/tokens';
 import { Card, PainDot, StatusPill } from '@/components/ui';
 import { TimeSeriesPanels, type Panel, type Point } from '@/components/charts';
@@ -57,10 +58,11 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
   const todayIso = new Date().toISOString().slice(0, 10);
   const since28 = daysBack(27);
 
-  const [sessions, metrics, reads] = await Promise.all([
+  const [sessions, metrics, reads, activities] = await Promise.all([
     listSessions(supabase, { clientId: id, from: since28 }),
     listMetrics(supabase, { clientId: id, types: VITALS, since: sinceTimestamp(28) }),
     listDailyReads(supabase, { clientId: id, from: daysBack(6) }),
+    listActivities(supabase, { clientId: id, from: since28 }),
   ]);
 
   const week = adherenceOver(sessions, daysBack(6), todayIso);
@@ -260,6 +262,19 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
     return xLabels.map((d) => ({ x: d, y: byDay.get(d) ?? null }));
   };
 
+  const activities7 = activities.filter((a) => a.localDate >= daysBack(6));
+  const distance7 = activities7.reduce((n, a) => n + (a.distanceM ?? 0), 0);
+  const distanceByDay = new Map<string, number>();
+  for (const a of activities)
+    distanceByDay.set(
+      a.localDate,
+      (distanceByDay.get(a.localDate) ?? 0) + (a.distanceM ?? 0) / 1000,
+    );
+  const distancePoints: Point[] = xLabels.map((d) => ({
+    x: d,
+    y: distanceByDay.has(d) ? Math.round(distanceByDay.get(d)! * 10) / 10 : null,
+  }));
+
   const latestRead = reads.at(-1) ?? null;
   const readinessPoints: Point[] = dateWindow(7).map((d) => {
     const ofDay = reads.filter((r) => r.readOn === d);
@@ -357,15 +372,28 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
           trend={{ points: weeklyCompleted, color: 'var(--series-1)' }}
           href={`/clients/${id}/training`}
         />
-        <Reading
-          size="full"
-          label="Last completed session"
-          value={lastCompleted ? shortDate(lastCompleted.scheduledDate) : '—'}
-          caption={lastCompleted ? lastCompleted.title : 'None yet'}
-          trend={{ points: painBeforePoints, color: 'var(--series-1)', domain: [0, 10] }}
-          href={`/clients/${id}/training`}
-          linkLabel="Session history"
-        />
+        {activities.length > 0 ? (
+          <Reading
+            size="full"
+            label="Recorded activity"
+            value={formatDistance(distance7) ?? '0 km'}
+            unit="this week"
+            caption={`${activities7.length} ${activities7.length === 1 ? 'activity' : 'activities'} · via Strava`}
+            trend={{ points: distancePoints, color: '#FC4C02' }}
+            href={`/clients/${id}/training`}
+            linkLabel="Activities"
+          />
+        ) : (
+          <Reading
+            size="full"
+            label="Last completed session"
+            value={lastCompleted ? shortDate(lastCompleted.scheduledDate) : '—'}
+            caption={lastCompleted ? lastCompleted.title : 'None yet'}
+            trend={{ points: painBeforePoints, color: 'var(--series-1)', domain: [0, 10] }}
+            href={`/clients/${id}/training`}
+            linkLabel="Session history"
+          />
+        )}
       </ReadingGroup>
 
       <Card title="Symptoms" action={<span className="text-xs ink-3">Last 28 days</span>}>

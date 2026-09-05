@@ -67,7 +67,7 @@ interface Async<T> {
   reload: () => Promise<void>;
 }
 
-function useAsync<T>(fn: () => Promise<T>, initial: T, deps: unknown[]): Async<T> {
+export function useAsync<T>(fn: () => Promise<T>, initial: T, deps: unknown[]): Async<T> {
   const [data, setData] = useState<T>(initial);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

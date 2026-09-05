@@ -9,6 +9,7 @@ import { Body, Button, Card, Display, Pill, Screen } from '@/components/kit';
 import { VelaMark } from '@/components/brand';
 import { useTheme } from '@/theme';
 import { useCoach } from '@/lib/data';
+import { ConnectionsCard } from '@/components/connections';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/lib/session';
 
@@ -189,6 +190,8 @@ export default function ProfileScreen() {
           </View>
         </Card>
 
+        <ConnectionsCard />
+
         <Card title="Your data">
           <Pressable
             onPress={handleExport}
@@ -222,8 +225,8 @@ export default function ProfileScreen() {
                   Delete my account
                 </Body>
                 <Body size={12} color={t.textMuted} style={{ marginTop: 2 }}>
-                  Permanently erases your account and all training, nutrition and health
-                  data. This cannot be undone.
+                  Permanently erases your account and all training, nutrition and health data. This
+                  cannot be undone.
                 </Body>
               </View>
             </Pressable>
@@ -233,9 +236,9 @@ export default function ProfileScreen() {
                 This erases everything, permanently
               </Body>
               <Body size={13} color={t.textSecondary} style={{ lineHeight: 19 }}>
-                Your account, training history, pain scores, nutrition logs and health
-                readings will be deleted. Your physiotherapist will no longer be able to
-                see any of it, and it cannot be recovered.
+                Your account, training history, pain scores, nutrition logs and health readings will
+                be deleted. Your physiotherapist will no longer be able to see any of it, and it
+                cannot be recovered.
               </Body>
               <Body size={12} color={t.textMuted}>
                 Type DELETE to confirm
@@ -306,8 +309,8 @@ export default function ProfileScreen() {
         </Card>
 
         <Body size={11} color={t.textMuted} style={{ textAlign: 'center', lineHeight: 16 }}>
-          Vela supports your treatment — it is not a medical device and does not
-          provide diagnosis. Always follow the guidance of your physiotherapist.
+          Vela supports your treatment — it is not a medical device and does not provide diagnosis.
+          Always follow the guidance of your physiotherapist.
         </Body>
       </ScrollView>
     </Screen>

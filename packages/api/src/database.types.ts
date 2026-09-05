@@ -34,6 +34,105 @@ export type Database = {
   }
   public: {
     Tables: {
+      activities: {
+        Row: {
+          avg_cadence: number | null
+          avg_hr: number | null
+          avg_speed_mps: number | null
+          avg_watts: number | null
+          calories: number | null
+          client_id: string
+          created_at: string
+          distance_m: number | null
+          elapsed_sec: number
+          elevation_gain_m: number | null
+          external_id: string
+          id: string
+          local_date: string
+          max_hr: number | null
+          max_watts: number | null
+          moving_sec: number
+          name: string
+          polyline: string | null
+          raw: Json | null
+          session_id: string | null
+          source: string
+          sport_type: string
+          started_at: string
+          suffer_score: number | null
+          weighted_watts: number | null
+        }
+        Insert: {
+          avg_cadence?: number | null
+          avg_hr?: number | null
+          avg_speed_mps?: number | null
+          avg_watts?: number | null
+          calories?: number | null
+          client_id: string
+          created_at?: string
+          distance_m?: number | null
+          elapsed_sec: number
+          elevation_gain_m?: number | null
+          external_id: string
+          id?: string
+          local_date: string
+          max_hr?: number | null
+          max_watts?: number | null
+          moving_sec: number
+          name: string
+          polyline?: string | null
+          raw?: Json | null
+          session_id?: string | null
+          source: string
+          sport_type: string
+          started_at: string
+          suffer_score?: number | null
+          weighted_watts?: number | null
+        }
+        Update: {
+          avg_cadence?: number | null
+          avg_hr?: number | null
+          avg_speed_mps?: number | null
+          avg_watts?: number | null
+          calories?: number | null
+          client_id?: string
+          created_at?: string
+          distance_m?: number | null
+          elapsed_sec?: number
+          elevation_gain_m?: number | null
+          external_id?: string
+          id?: string
+          local_date?: string
+          max_hr?: number | null
+          max_watts?: number | null
+          moving_sec?: number
+          name?: string
+          polyline?: string | null
+          raw?: Json | null
+          session_id?: string | null
+          source?: string
+          sport_type?: string
+          started_at?: string
+          suffer_score?: number | null
+          weighted_watts?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activities_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_keys: {
         Row: {
           coach_id: string
@@ -153,6 +252,38 @@ export type Database = {
           occurred_at?: string
         }
         Relationships: []
+      }
+      calendar_tokens: {
+        Row: {
+          client_id: string
+          created_at: string
+          profile_id: string
+          revoked_at: string | null
+          token: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          profile_id: string
+          revoked_at?: string | null
+          token: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          profile_id?: string
+          revoked_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_tokens_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       challenge_participants: {
         Row: {
@@ -979,6 +1110,7 @@ export type Database = {
           discipline: string
           duration_sec: number | null
           id: string
+          logged_via: string
           pain_after: number | null
           pain_before: number | null
           program_day_id: string | null
@@ -1001,6 +1133,7 @@ export type Database = {
           discipline?: string
           duration_sec?: number | null
           id?: string
+          logged_via?: string
           pain_after?: number | null
           pain_before?: number | null
           program_day_id?: string | null
@@ -1023,6 +1156,7 @@ export type Database = {
           discipline?: string
           duration_sec?: number | null
           id?: string
+          logged_via?: string
           pain_after?: number | null
           pain_before?: number | null
           program_day_id?: string | null
@@ -1055,6 +1189,76 @@ export type Database = {
             columns: ["program_day_id"]
             isOneToOne: false
             referencedRelation: "program_days"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      strava_links: {
+        Row: {
+          athlete_id: number
+          athlete_name: string | null
+          client_id: string
+          connected_at: string
+          last_error: string | null
+          last_synced_at: string | null
+          profile_id: string
+        }
+        Insert: {
+          athlete_id: number
+          athlete_name?: string | null
+          client_id: string
+          connected_at?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          profile_id: string
+        }
+        Update: {
+          athlete_id?: number
+          athlete_name?: string | null
+          client_id?: string
+          connected_at?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strava_links_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      strava_tokens: {
+        Row: {
+          access_token: string
+          client_id: string
+          expires_at: string
+          refresh_token: string
+          scope: string
+        }
+        Insert: {
+          access_token: string
+          client_id: string
+          expires_at: string
+          refresh_token: string
+          scope?: string
+        }
+        Update: {
+          access_token?: string
+          client_id?: string
+          expires_at?: string
+          refresh_token?: string
+          scope?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strava_tokens_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -1117,6 +1321,7 @@ export type Database = {
         }[]
       }
       delete_my_account: { Args: never; Returns: undefined }
+      ensure_calendar_token: { Args: { p_rotate?: boolean }; Returns: string }
       get_session_plan: {
         Args: { p_session_id: string }
         Returns: {

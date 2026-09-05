@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (94);
+  plan (100);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -331,6 +331,65 @@ select throws_ok (
   'P0002',
   null,
   'a second call finds no pending invitation and changes nothing'
+);
+
+
+-- Activities, Strava links and calendar tokens -----------------------------
+reset role;
+
+insert into public.activities (client_id, source, external_id, sport_type, name, started_at, local_date, elapsed_sec, moving_sec)
+values
+  ('00000000-0000-4000-8000-0000000000f1', 'strava', 'act-1', 'Run', 'Easy run', now(), current_date, 1800, 1750),
+  ('00000000-0000-4000-8000-0000000000f2', 'strava', 'act-2', 'Run', 'Tempo', now(), current_date, 2400, 2300);
+
+insert into public.strava_links (client_id, profile_id, athlete_id, athlete_name)
+values
+  ('00000000-0000-4000-8000-0000000000f1', '00000000-0000-4000-8000-0000000000c1', 1001, 'Client One');
+
+insert into public.strava_tokens (client_id, access_token, refresh_token, expires_at)
+values
+  ('00000000-0000-4000-8000-0000000000f1', 'access', 'refresh', now() + interval '6 hours');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select count(*) from public.activities),
+  1::bigint,
+  'client one sees her own activity and not client two''s'
+);
+
+select is (
+  (select count(*) from public.strava_links),
+  1::bigint,
+  'and can see that her Strava is connected'
+);
+
+select throws_ok (
+  $$select count(*) from public.strava_tokens$$,
+  '42501',
+  null,
+  'but her tokens are not readable by anyone signed in, herself included'
+);
+
+select is (
+  (select length(public.ensure_calendar_token())),
+  48,
+  'she can mint a calendar token'
+);
+
+select is (
+  (select public.ensure_calendar_token()),
+  (select token from public.calendar_tokens),
+  'and calling again returns the same one'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select count(*) from public.activities),
+  1::bigint,
+  'coach A reads her client''s activity only'
 );
 
 
