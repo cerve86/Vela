@@ -68,10 +68,10 @@
   /* Categorical series — fixed order, never cycled. Green and gold are kept apart:
      adjacent, that pair falls below the tritan floor. */
   --series-1: #1b4fd8;
-  --series-2: #7c3aed;
-  --series-3: #0e9f6e;
-  --series-4: #e8a200;
-  --series-5: #e0489b;
+  --series-2: #e0489b;
+  --series-3: #e8a200;
+  --series-4: #0e9f6e;
+  --series-5: #7c3aed;
   --series-6: #0ea5b7;
 }
 
@@ -97,11 +97,11 @@
     --tint-lilac: rgba(154, 90, 216, 0.15);
 
     --series-1: #5c87f7;
-    --series-2: #9a5ad8;
-    --series-3: #12a377;
-    --series-4: #c28900;
-    --series-5: #db4f97;
-    --series-6: #22b8cb;
+    --series-2: #db4f97;
+    --series-3: #c28900;
+    --series-4: #12a377;
+    --series-5: #9a5ad8;
+    --series-6: #1a9fb0;
   }
 }
 
@@ -126,11 +126,11 @@
   --tint-lilac: rgba(154, 90, 216, 0.15);
 
   --series-1: #5c87f7;
-  --series-2: #9a5ad8;
-  --series-3: #12a377;
-  --series-4: #c28900;
-  --series-5: #db4f97;
-  --series-6: #22b8cb;
+  --series-2: #db4f97;
+  --series-3: #c28900;
+  --series-4: #12a377;
+  --series-5: #9a5ad8;
+  --series-6: #1a9fb0;
 }
 
 * {

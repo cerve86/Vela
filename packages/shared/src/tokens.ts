@@ -52,18 +52,26 @@ export const palette = {
   },
 
   /**
-   * Categorical series.
+   * Categorical series, in the order they are assigned. The order is the point.
    *
-   * NOT YET RE-VALIDATED. The Sunrise series palette was checked against the lightness
-   * band, chroma floor, CVD separation, normal-vision floor and contrast on our own
-   * surfaces. These values come from the design's own vitals assignments instead, and have
-   * not been through that validator. It matters less than it did — the redesign's charts
-   * are mono (one ink, one line, one mean), so categorical separation is only load-bearing
-   * on the portal's multi-series panels. Run the validator before shipping those.
+   * Validated 2026-09-04 in both modes — lightness band, chroma floor, adjacent-pair CVD
+   * separation, normal-vision floor. The previous order failed hard on its first pair:
+   * purple beside blue sat at ΔE 3.4 under protan and 13.0 in normal vision, below the
+   * floor of 15, and that pair was exactly what the portal drew for symptoms before and
+   * after a session — the one comparison a physiotherapist reads most. Pink now sits in
+   * slot 2, which is the blue-against-pink pair `chart` below had already validated.
+   *
+   * Dark teal was re-stepped from #22B8CB to #1A9FB0 to bring it inside the dark lightness
+   * band. Amber and teal sit below 3:1 on the light surface, which the checker allows only
+   * with visible labels — every multi-series panel carries a legend, a tooltip and axis
+   * labels, and that is the relief. Do not draw either as colour alone.
+   *
+   * Mirrored by hand in apps/web/src/app/globals.css (--series-1..6); keep the two in step
+   * and re-run the validator rather than editing a hex.
    */
   series: {
-    light: ['#1B4FD8', '#7C3AED', '#0E9F6E', '#E8A200', '#E0489B', '#0EA5B7'],
-    dark: ['#5C87F7', '#9A5AD8', '#12A377', '#C28900', '#DB4F97', '#22B8CB'],
+    light: ['#1B4FD8', '#E0489B', '#E8A200', '#0E9F6E', '#7C3AED', '#0EA5B7'],
+    dark: ['#5C87F7', '#DB4F97', '#C28900', '#12A377', '#9A5AD8', '#1A9FB0'],
   },
 
   /** Ordered ramp for the attendance heatmap: empty -> full. */

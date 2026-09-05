@@ -1,17 +1,38 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useId, useMemo, useSyncExternalStore, type ReactElement } from 'react';
+import {
+  Area,
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  type TooltipContentProps,
+} from 'recharts';
 
 /**
- * Small hand-rolled SVG chart kit.
+ * The chart kit, on Recharts, wearing BoardUI's idiom.
  *
- * Hand-rolled rather than pulled from a library so the mark specs hold exactly:
- * 2px lines, 8px markers, 4px rounded bar ends anchored to the baseline, a 2px
- * surface gap between adjacent bars, recessive grid, and text in ink tokens rather
- * than series colors.
+ * The public surface — `TimeSeriesPanels`, `Panel`, `Series`, `Point`, `Meter`, `Sparkline`,
+ * `formatValue` — is unchanged from the hand-rolled version, so no page moved. What changed
+ * is the drawing: no axis lines and no tick lines, `preserveStartEnd` ticks, monotone curves,
+ * a gradient wash under areas, a dashed `4 4` cursor, and a halo ring on the active point.
+ * That is the look of BoardUI's chart cards, whose free set does not include a line chart
+ * and whose paid set would have brought a second design system into the portal; this is the
+ * same rendering engine those cards use, driven by Vela's own tokens instead.
  *
- * Deliberately NO dual-axis support. Two measures of different scale render as
- * stacked panels sharing one x-axis — see TimeSeriesPanels.
+ * The rules the old kit enforced by hand are kept, because a library does not enforce them
+ * for you: one axis per panel and never two scales; bars anchored to zero; a null point is
+ * a gap unless the series is sparse by nature; text in ink tokens, never in a series
+ * colour; a legend for two or more series, none for one; an 8px marker on the latest value
+ * ringed in the surface colour. One deliberate divergence from BoardUI's cards is kept in
+ * plain sight: a recessive horizontal grid. Their revenue widget can go without gridlines;
+ * a pain scale from 0 to 10 cannot, because the reader has to place a 6.
  */
 
 export type Point = { x: string; y: number | null };
@@ -29,6 +50,13 @@ export type Series = {
    * stubs, and mark each actual reading so the sampling stays visible.
    */
   connectGaps?: boolean;
+  /**
+   * A reference, not a measurement — a target, a plan, last period's figure. Drawn dashed
+   * with no markers, in whatever neutral the caller passes as `color`, so it never competes
+   * with the data for a categorical slot and never needs to separate from one under colour
+   * vision deficiency. BoardUI draws its "last year" line exactly this way.
+   */
+  dashed?: boolean;
 };
 
 /**
@@ -62,24 +90,6 @@ export type Panel = {
   height?: number;
 };
 
-function useMeasure<T extends HTMLElement>() {
-  const ref = useRef<T | null>(null);
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      if (entry) setWidth(entry.contentRect.width);
-    });
-    ro.observe(el);
-    setWidth(el.getBoundingClientRect().width);
-    return () => ro.disconnect();
-  }, []);
-  return { ref, width };
-}
-
-const PAD = { top: 12, right: 16, bottom: 22, left: 44 };
-
 /**
  * `anchorZero` is set whenever the panel contains bars: the length of a bar encodes its
  * value, so a truncated baseline makes a 5% difference look like a 300% one. Lines may
@@ -103,24 +113,91 @@ function niceDomain(
   return [lo, max + span * 0.12];
 }
 
-/** Rounded only at the data end, square at the baseline. */
-function barPath(x: number, y: number, w: number, h: number, r: number): string {
-  const rr = Math.min(r, w / 2, Math.max(h, 0));
-  if (h <= 0) return '';
-  return [
-    `M${x},${y + h}`,
-    `L${x},${y + rr}`,
-    `Q${x},${y} ${x + rr},${y}`,
-    `L${x + w - rr},${y}`,
-    `Q${x + w},${y} ${x + w},${y + rr}`,
-    `L${x + w},${y + h}`,
-    'Z',
-  ].join(' ');
-}
-
 function shortDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return iso;
   return `${d.getUTCDate()} ${d.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' })}`;
+}
+
+/** The data key one series occupies in the shared row set. Panels can reuse series ids. */
+const keyOf = (panelId: string, seriesId: string) => `${panelId}/${seriesId}`;
+
+type Row = Record<string, string | number | null>;
+
+/** Ink for the axis text — a text token, never a series colour. */
+const TICK = { fontSize: 11, fill: 'var(--ink-muted)' } as const;
+
+/**
+ * BoardUI's active marker: a soft halo under a ringed core. Recharts clones this with the
+ * point's `cx`/`cy`; the colour is passed in rather than read off the line, so a dashed
+ * reference can decline a marker entirely.
+ */
+function ActiveDot({ cx, cy, color }: { cx?: number; cy?: number; color: string }) {
+  if (cx === undefined || cy === undefined) return null;
+  return (
+    <g pointerEvents="none">
+      <circle cx={cx} cy={cy} r={7} fill={color} opacity={0.25} />
+      <circle cx={cx} cy={cy} r={4} fill={color} stroke="var(--surface)" strokeWidth={2} />
+    </g>
+  );
+}
+
+/**
+ * Which points get a resting marker.
+ *
+ * Always the latest reading, ringed in the surface colour so it survives crossing
+ * anything. Every reading as well when the series is sparse — a pain score logged per
+ * session, not per day — because then the dots are the sampling made visible. A dense
+ * daily series gets no dots at all: fifty-six markers on a weight line is noise.
+ */
+function dotRenderer(s: Series): (props: { cx?: number; cy?: number; index?: number }) => ReactElement {
+  if (s.dashed) {
+    return function NoDot() {
+      return <g />;
+    };
+  }
+
+  const present = s.points.map((p) => p.y !== null);
+  const lastIdx = present.lastIndexOf(true);
+  const sparse = s.connectGaps === true && present.filter(Boolean).length / Math.max(present.length, 1) < 0.5;
+
+  return function Dot({ cx, cy, index }) {
+    if (cx === undefined || cy === undefined || index === undefined || !present[index]) return <g />;
+    if (index === lastIdx) {
+      return <circle key={index} cx={cx} cy={cy} r={4} fill={s.color} stroke="var(--surface)" strokeWidth={2} />;
+    }
+    if (sparse) {
+      return <circle key={index} cx={cx} cy={cy} r={3.5} fill={s.color} stroke="var(--surface)" strokeWidth={2} />;
+    }
+    return <g />;
+  };
+}
+
+/**
+ * Whether the reader has asked for less motion.
+ *
+ * Recharts reveals a line by animating its dash over 450ms — BoardUI's cards do the same
+ * and it reads well — but it is motion nobody asked for, and the OS setting that asks for
+ * less of it is honoured nowhere else on this site yet. It is honoured here.
+ *
+ * An external store rather than state set from an effect: the media query is the source
+ * of truth and React only needs to subscribe to it. The server snapshot is "animate", so
+ * the first client paint matches the markup the server sent and hydration has nothing to
+ * reconcile; a reader who has asked for less motion gets it from the first client render.
+ */
+const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
+
+function subscribeReducedMotion(onChange: () => void): () => void {
+  const mq = window.matchMedia(REDUCED_MOTION);
+  mq.addEventListener('change', onChange);
+  return () => mq.removeEventListener('change', onChange);
+}
+
+const readReducedMotion = () => window.matchMedia(REDUCED_MOTION).matches;
+const readReducedMotionOnServer = () => false;
+
+function usePrefersReducedMotion(): boolean {
+  return useSyncExternalStore(subscribeReducedMotion, readReducedMotion, readReducedMotionOnServer);
 }
 
 export function TimeSeriesPanels({
@@ -133,281 +210,215 @@ export function TimeSeriesPanels({
   xLabels: string[];
   className?: string;
 }) {
-  const { ref, width } = useMeasure<HTMLDivElement>();
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  // One `syncId` across the stack: hovering any panel crosshairs all of them, which is
+  // the whole reason they share an x-axis.
+  const syncId = useId();
+  const gradientBase = useId();
+  const animate = !usePrefersReducedMotion();
 
-  const innerW = Math.max(width - PAD.left - PAD.right, 10);
-  const xAt = useCallback(
-    (i: number) => PAD.left + (xLabels.length <= 1 ? innerW / 2 : (i / (xLabels.length - 1)) * innerW),
-    [innerW, xLabels.length],
+  const rows = useMemo<Row[]>(
+    () =>
+      xLabels.map((x, i) => {
+        const r: Row = { x };
+        for (const p of panels) for (const s of p.series) r[keyOf(p.id, s.id)] = s.points[i]?.y ?? null;
+        return r;
+      }),
+    [panels, xLabels],
   );
 
-  const onMove = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const rel = e.clientX - rect.left - PAD.left;
-      const i = Math.round((rel / innerW) * (xLabels.length - 1));
-      setHoverIdx(Math.max(0, Math.min(xLabels.length - 1, i)));
-    },
-    [innerW, xLabels.length],
-  );
-
-  const tickIdx = useMemo(() => {
-    const n = Math.min(6, xLabels.length);
-    if (n <= 1) return [0];
-    return Array.from({ length: n }, (_, k) => Math.round((k / (n - 1)) * (xLabels.length - 1)));
-  }, [xLabels.length]);
+  /**
+   * One tooltip for the whole stack, rendered by the first panel only.
+   *
+   * With a shared `syncId` every panel would otherwise show its own box, and three
+   * floating cards for one hovered day is furniture. The first panel's box lists every
+   * panel's series at that x, read straight from the shared rows rather than from its own
+   * payload, which only knows its own lines.
+   */
+  // Typed on Recharts' defaults rather than <number, string>: `content` takes the wider
+  // type, and a narrower parameter would not be assignable to it. Only `active` and
+  // `label` are read, and the row lookup does the narrowing.
+  const renderTooltip = (props: TooltipContentProps) => {
+    if (!props.active || props.label === undefined) return null;
+    const row = rows.find((r) => r.x === props.label);
+    if (!row) return null;
+    const lines = panels.flatMap((panel) =>
+      panel.series.flatMap((s) => {
+        const v = row[keyOf(panel.id, s.id)];
+        if (typeof v !== 'number') return [];
+        return [{ key: `${panel.id}-${s.id}`, color: s.color, label: s.label, value: formatValue(v, panel.format) }];
+      }),
+    );
+    if (lines.length === 0) return null;
+    return (
+      <div
+        className="rounded-lg px-2.5 py-2 text-xs shadow-lg"
+        style={{ background: 'var(--raised)', border: '1px solid var(--border)', minWidth: 130 }}
+      >
+        <div className="mb-1 font-medium">{shortDate(String(props.label))}</div>
+        {lines.map((l) => (
+          <div key={l.key} className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-1.5 ink-2">
+              <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: l.color }} />
+              {l.label}
+            </span>
+            <span className="tnum font-medium">{l.value}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
-    <div
-      ref={ref}
-      className={`relative ${className ?? ''}`}
-      onMouseMove={onMove}
-      onMouseLeave={() => setHoverIdx(null)}
-    >
-      {panels.map((panel) => {
+    <div className={className}>
+      {panels.map((panel, pi) => {
         const height = panel.height ?? 160;
-        const innerH = height - PAD.top - PAD.bottom;
-        const all = panel.series.flatMap((s) =>
-          s.points.map((p) => p.y).filter((v): v is number => v !== null),
-        );
+        const all = panel.series.flatMap((s) => s.points.map((p) => p.y).filter((v): v is number => v !== null));
         const hasBars = panel.series.some((s) => s.kind === 'bar');
         const [lo, hi] = niceDomain(all, panel.domain, hasBars);
-        const yAt = (v: number) => PAD.top + innerH - ((v - lo) / (hi - lo)) * innerH;
-        const fmt = (n: number) => formatValue(n, panel.format);
         const ticks = [lo, lo + (hi - lo) / 2, hi];
+        const fmt = (n: number) => formatValue(n, panel.format);
+        const legend = panel.series.filter((s) => !s.dashed);
 
         return (
           <div key={panel.id} className="mb-1">
             <div className="flex items-baseline justify-between px-1">
               <span className="text-xs font-medium ink-2">{panel.label}</span>
+              {/* A legend for two or more series, and never for one: with one series the
+                  title already names it. Dot beside word — identity never rests on colour
+                  alone. A dashed reference shows as a dash, which is what it is. */}
               {panel.series.length >= 2 && (
                 <div className="flex gap-3">
-                  {panel.series.map((s) => (
+                  {legend.map((s) => (
                     <span key={s.id} className="flex items-center gap-1.5 text-xs ink-3">
-                      <span
-                        aria-hidden
-                        className="inline-block h-2 w-2 rounded-full"
-                        style={{ background: s.color }}
-                      />
+                      <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: s.color }} />
                       {s.label}
                     </span>
                   ))}
+                  {panel.series
+                    .filter((s) => s.dashed)
+                    .map((s) => (
+                      <span key={s.id} className="flex items-center gap-1.5 text-xs ink-3">
+                        <span
+                          aria-hidden
+                          className="inline-block h-0 w-3"
+                          style={{ borderTop: `2px dashed ${s.color}` }}
+                        />
+                        {s.label}
+                      </span>
+                    ))}
                 </div>
               )}
             </div>
 
-            {width > 0 && (
-              <svg width={width} height={height} role="img" aria-label={panel.label}>
-                {/* recessive gridlines */}
-                {ticks.map((t, i) => (
-                  <g key={i}>
-                    <line
-                      x1={PAD.left}
-                      x2={width - PAD.right}
-                      y1={yAt(t)}
-                      y2={yAt(t)}
-                      stroke="var(--grid)"
-                      strokeWidth={1}
-                    />
-                    <text
-                      x={PAD.left - 8}
-                      y={yAt(t) + 4}
-                      textAnchor="end"
-                      fontSize={10}
-                      fill="var(--ink-muted)"
-                      style={{ fontVariantNumeric: 'tabular-nums' }}
-                    >
-                      {fmt(t)}
-                    </text>
-                  </g>
-                ))}
+            <div role="img" aria-label={panel.label} style={{ width: '100%', height }}>
+              {/*
+                `initialDimension` draws the chart on the first paint instead of after the
+                ResizeObserver's first report. Without it the panel is empty for a frame on
+                every load, and empty for good in any tab the browser is not displaying —
+                a background tab, a print preview — because a hidden document never
+                delivers a resize. The observer still corrects the width the moment it can.
+              */}
+              <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 600, height }}>
+                <ComposedChart
+                  data={rows}
+                  syncId={syncId}
+                  margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+                  barCategoryGap={2}
+                >
+                  <defs>
+                    {panel.series
+                      .filter((s) => s.kind === 'area')
+                      .map((s) => (
+                        <linearGradient key={s.id} id={`${gradientBase}-${panel.id}-${s.id}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={s.color} stopOpacity={0.35} />
+                          <stop offset="100%" stopColor={s.color} stopOpacity={0} />
+                        </linearGradient>
+                      ))}
+                  </defs>
 
-                {panel.series.map((s) => {
-                  if (s.kind === 'bar') {
-                    const slot = innerW / Math.max(s.points.length, 1);
-                    const bw = Math.max(slot - 2, 1); // 2px surface gap between bars
-                    const base = yAt(Math.max(lo, 0));
-                    return (
-                      <g key={s.id}>
-                        {s.points.map((p, i) =>
-                          p.y === null ? null : (
-                            <path
-                              key={i}
-                              d={barPath(xAt(i) - bw / 2, yAt(p.y), bw, base - yAt(p.y), 4)}
-                              fill={s.color}
-                              opacity={hoverIdx === null || hoverIdx === i ? 1 : 0.45}
-                            />
-                          ),
-                        )}
-                      </g>
-                    );
-                  }
+                  <CartesianGrid vertical={false} stroke="var(--grid)" strokeWidth={1} />
 
-                  const segs: string[] = [];
-                  let open = false;
-                  s.points.forEach((p, i) => {
-                    if (p.y === null) {
-                      // A sparse measure keeps its line running across the empty days;
-                      // a dense one breaks, because a gap there means data is missing.
-                      if (!s.connectGaps) open = false;
-                      return;
-                    }
-                    segs.push(`${open ? 'L' : 'M'}${xAt(i)},${yAt(p.y)}`);
-                    open = true;
-                  });
-                  const d = segs.join(' ');
+                  <YAxis
+                    width={44}
+                    domain={[lo, hi]}
+                    ticks={ticks}
+                    tickFormatter={fmt}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ ...TICK, fontVariantNumeric: 'tabular-nums' } as never}
+                  />
+                  <XAxis
+                    dataKey="x"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={10}
+                    minTickGap={28}
+                    interval="preserveStartEnd"
+                    tickFormatter={shortDate}
+                    tick={TICK as never}
+                  />
 
-                  // Both are -1 when every reading is null, which is an ordinary state:
-                  // a pain series before her first logged session, a weight series for a
-                  // client who has not weighed herself. Deriving `last` by arithmetic on
-                  // findIndex's -1 produced `points.length` — an index one past the end,
-                  // whose `?.y` is undefined rather than null, so the marker guard below
-                  // let it through and then dereferenced nothing.
-                  const first = s.points.findIndex((p) => p.y !== null);
-                  const lastFromEnd = [...s.points].reverse().findIndex((p) => p.y !== null);
-                  const last = lastFromEnd === -1 ? -1 : s.points.length - 1 - lastFromEnd;
+                  <Tooltip
+                    cursor={{ stroke: 'var(--axis)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                    content={pi === 0 ? renderTooltip : () => null}
+                    isAnimationActive={false}
+                    wrapperStyle={{ outline: 'none', zIndex: 10 }}
+                  />
 
-                  return (
-                    <g key={s.id}>
-                      {s.kind === 'area' && d && first >= 0 && (
-                        <path
-                          d={`${d} L${xAt(last)},${yAt(lo)} L${xAt(first)},${yAt(lo)} Z`}
-                          fill={s.color}
-                          opacity={0.1}
-                        />
-                      )}
-                      <path
-                        d={d}
-                        fill="none"
-                        stroke={s.color}
-                        strokeWidth={2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      {/* Mark every reading only when they are sparse enough to stay legible —
-                          a daily series would otherwise become 56 dots of noise. */}
-                      {s.connectGaps &&
-                        s.points.filter((p) => p.y !== null).length / Math.max(s.points.length, 1) <
-                          0.5 &&
-                        s.points.map((p, i) =>
-                          p.y === null ? null : (
-                            <circle
-                              key={i}
-                              cx={xAt(i)}
-                              cy={yAt(p.y)}
-                              r={3.5}
-                              fill={s.color}
-                              stroke="var(--surface)"
-                              strokeWidth={2}
-                            />
-                          ),
-                        )}
-                      {/* 8px marker on the latest value, ringed in the surface colour */}
-                      {last >= 0 && s.points[last]?.y != null && (
-                        <circle
-                          cx={xAt(last)}
-                          cy={yAt(s.points[last]!.y as number)}
-                          r={4}
-                          fill={s.color}
-                          stroke="var(--surface)"
-                          strokeWidth={2}
-                        />
-                      )}
-                    </g>
-                  );
-                })}
+                  {panel.series.map((s) => {
+                    const key = keyOf(panel.id, s.id);
 
-                {/* crosshair */}
-                {hoverIdx !== null && (
-                  <g pointerEvents="none">
-                    <line
-                      x1={xAt(hoverIdx)}
-                      x2={xAt(hoverIdx)}
-                      y1={PAD.top}
-                      y2={PAD.top + innerH}
-                      stroke="var(--axis)"
-                      strokeWidth={1}
-                      strokeDasharray="3 3"
-                    />
-                    {panel.series.map((s) => {
-                      const p = s.points[hoverIdx];
-                      if (!p || p.y === null) return null;
+                    if (s.kind === 'bar') {
                       return (
-                        <circle
+                        <Bar
                           key={s.id}
-                          cx={xAt(hoverIdx)}
-                          cy={yAt(p.y)}
-                          r={4.5}
+                          dataKey={key}
                           fill={s.color}
-                          stroke="var(--surface)"
-                          strokeWidth={2}
+                          // Rounded only at the data end, square at the baseline.
+                          radius={[4, 4, 0, 0]}
+                          isAnimationActive={animate}
+                          animationDuration={450}
                         />
                       );
-                    })}
-                  </g>
-                )}
+                    }
 
-                <line
-                  x1={PAD.left}
-                  x2={width - PAD.right}
-                  y1={PAD.top + innerH}
-                  y2={PAD.top + innerH}
-                  stroke="var(--axis)"
-                  strokeWidth={1}
-                />
-
-                {tickIdx.map((i) => (
-                  <text
-                    key={i}
-                    x={xAt(i)}
-                    y={height - 6}
-                    textAnchor="middle"
-                    fontSize={10}
-                    fill="var(--ink-muted)"
-                    style={{ fontVariantNumeric: 'tabular-nums' }}
-                  >
-                    {shortDate(xLabels[i] ?? '')}
-                  </text>
-                ))}
-              </svg>
-            )}
+                    return (
+                      <g key={s.id}>
+                        {s.kind === 'area' && (
+                          <Area
+                            dataKey={key}
+                            type="monotone"
+                            stroke="none"
+                            fill={`url(#${gradientBase}-${panel.id}-${s.id})`}
+                            connectNulls={s.connectGaps === true}
+                            isAnimationActive={animate}
+                            animationDuration={450}
+                          />
+                        )}
+                        <Line
+                          dataKey={key}
+                          type="monotone"
+                          stroke={s.color}
+                          strokeWidth={2}
+                          strokeDasharray={s.dashed ? '5 5' : undefined}
+                          strokeLinecap="round"
+                          // A sparse measure keeps its line running across the empty days;
+                          // a dense one breaks, because a gap there means data is missing.
+                          connectNulls={s.connectGaps === true}
+                          dot={dotRenderer(s)}
+                          activeDot={s.dashed ? false : <ActiveDot color={s.color} />}
+                          isAnimationActive={animate}
+                          animationDuration={450}
+                        />
+                      </g>
+                    );
+                  })}
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         );
       })}
-
-      {hoverIdx !== null && width > 0 && (
-        <div
-          className="pointer-events-none absolute top-0 z-10 rounded-lg px-2.5 py-2 text-xs shadow-lg"
-          style={{
-            left: Math.min(Math.max(xAt(hoverIdx) - 60, 0), Math.max(width - 150, 0)),
-            background: 'var(--raised)',
-            border: '1px solid var(--border)',
-            minWidth: 130,
-          }}
-        >
-          <div className="mb-1 font-medium">{shortDate(xLabels[hoverIdx] ?? '')}</div>
-          {panels.flatMap((panel) =>
-            panel.series.map((s) => {
-              const p = s.points[hoverIdx];
-              if (!p || p.y === null) return null;
-              return (
-                <div key={`${panel.id}-${s.id}`} className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-1.5 ink-2">
-                    <span
-                      aria-hidden
-                      className="inline-block h-2 w-2 rounded-full"
-                      style={{ background: s.color }}
-                    />
-                    {s.label}
-                  </span>
-                  <span className="tnum font-medium">{formatValue(p.y, panel.format)}</span>
-                </div>
-              );
-            }),
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -424,21 +435,23 @@ export function Sparkline({
   width?: number;
   height?: number;
 }) {
-  if (values.length < 2) return <svg width={width} height={height} />;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
-  const d = values
-    .map((v, i) => {
-      const x = (i / (values.length - 1)) * (width - 4) + 2;
-      const y = height - 3 - ((v - min) / span) * (height - 6);
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(' ');
+  if (values.length < 2) return <svg width={width} height={height} aria-hidden />;
+  const data = values.map((y, i) => ({ i, y }));
   return (
-    <svg width={width} height={height} aria-hidden>
-      <path d={d} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div aria-hidden style={{ width, height }}>
+      <LineChart width={width} height={height} data={data} margin={{ top: 3, right: 2, bottom: 3, left: 2 }}>
+        <YAxis hide domain={['dataMin', 'dataMax']} />
+        <Line
+          dataKey="y"
+          type="monotone"
+          stroke={color}
+          strokeWidth={2}
+          strokeLinecap="round"
+          dot={false}
+          isAnimationActive={false}
+        />
+      </LineChart>
+    </div>
   );
 }
 
