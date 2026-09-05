@@ -72,7 +72,10 @@ async function syncIfDue(force = false): Promise<void> {
     await AsyncStorage.setItem(LAST_SYNC_KEY, String(Date.now()));
 
     const { written } = await syncHealth(30);
-    if (written > 0) notify();
+    // An automatic sync tells the screens itself. A forced one does not: the caller asked
+    // for it and reloads on its own, and notifying as well fired two loads of the same data
+    // against each other with the older response free to land last.
+    if (written > 0 && !force) notify();
   } catch {
     // See above.
   }

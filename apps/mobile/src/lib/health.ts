@@ -1,6 +1,13 @@
 import { Platform } from 'react-native';
 import { importHealthSamples, type HealthSample, type MetricType } from '@vela/api';
-import { cardioLoad, maxHeartRate, median, type HeartRateBucket } from '@vela/shared';
+import {
+  baseline,
+  cardioLoad,
+  heartRateCeiling,
+  maxHeartRate,
+  percentile,
+  type HeartRateBucket,
+} from '@vela/shared';
 import { supabase } from './supabase';
 
 /**
@@ -72,7 +79,6 @@ interface StatisticsBucket {
   startDate?: Date | string;
   endDate?: Date | string;
   averageQuantity?: { quantity: number; unit: string };
-  maximumQuantity?: { quantity: number; unit: string };
 }
 
 /** The slice of @kingstinct/react-native-healthkit v14 that Vela uses. */
@@ -131,18 +137,49 @@ const READ_MAP: { identifier: string; type: MetricType; unit: string }[] = [
   { identifier: 'HKQuantityTypeIdentifierBodyMass', type: 'weight_kg', unit: 'kg' },
   { identifier: 'HKQuantityTypeIdentifierBodyFatPercentage', type: 'body_fat_pct', unit: '%' },
   { identifier: 'HKQuantityTypeIdentifierRestingHeartRate', type: 'resting_hr', unit: 'count/min' },
-  { identifier: 'HKQuantityTypeIdentifierHeartRateVariabilitySDNN', type: 'hrv_ms', unit: 'ms' },
   { identifier: 'HKQuantityTypeIdentifierStepCount', type: 'steps', unit: 'count' },
   { identifier: 'HKQuantityTypeIdentifierVO2Max', type: 'vo2max', unit: 'ml/(kg*min)' },
   // The whole day's effort, whatever produced it. This is what makes strain reflect a run
   // she went on rather than only the sets Vela had written down for her.
   { identifier: 'HKQuantityTypeIdentifierActiveEnergyBurned', type: 'active_energy_kcal', unit: 'kcal' },
   { identifier: 'HKQuantityTypeIdentifierAppleExerciseTime', type: 'exercise_min', unit: 'min' },
-  // Recorded by the watch while she sleeps, so a day's samples are one night and the mean
-  // of them is the reading. Rises before an infection is noticed, which is why recovery
-  // wants it.
+];
+
+/**
+ * Readings the watch takes while she sleeps, filed to the morning she woke.
+ *
+ * These used to sit in READ_MAP and be averaged by sample timestamp, which split every
+ * night down the middle: the readings before midnight went under yesterday's key and the
+ * ones after under today's, and "last night" then saw only the second half. Sleep itself was
+ * already attributed to the wake morning; these get the same treatment. See `nightKey`.
+ *
+ * Both are the early signals recovery leans on — a rising breathing rate or a falling HRV
+ * moves days before she feels anything — which is exactly why they must be read as whole
+ * nights rather than as halves.
+ */
+const NIGHT_MAP: { identifier: string; type: MetricType; unit: string }[] = [
+  { identifier: 'HKQuantityTypeIdentifierHeartRateVariabilitySDNN', type: 'hrv_ms', unit: 'ms' },
   { identifier: 'HKQuantityTypeIdentifierRespiratoryRate', type: 'respiratory_rate', unit: 'count/min' },
 ];
+
+/**
+ * Which morning a night-time reading belongs to, or null if it was not taken at night.
+ *
+ * Before midday it is last night, ending this morning. From eight in the evening it is
+ * tonight, which ends tomorrow morning. The afternoon in between is excluded: an HRV taken
+ * during a Breathe session at three o'clock is a different measurement from an overnight
+ * one, noisier and not what recovery is asking about.
+ */
+function nightKey(d: Date): string | null {
+  const h = d.getHours();
+  if (h < 12) return localDayKey(d);
+  if (h >= 20) {
+    const next = new Date(d);
+    next.setDate(next.getDate() + 1);
+    return localDayKey(next);
+  }
+  return null;
+}
 
 export const READ_PERMISSION_LABELS = [
   'Body weight',
@@ -194,7 +231,12 @@ export async function requestHealthAccess(): Promise<{ granted: boolean; error: 
       // Sleep and heart rate ride along here rather than in READ_MAP. Sleep is a category
       // type; heart rate is a quantity but is never rolled up as a daily mean, because the
       // mean of a day's heart rate is a number about nothing.
-      toRead: [...READ_MAP.map((r) => r.identifier), SLEEP_IDENTIFIER, HEART_RATE_IDENTIFIER],
+      toRead: [
+        ...READ_MAP.map((r) => r.identifier),
+        ...NIGHT_MAP.map((r) => r.identifier),
+        SLEEP_IDENTIFIER,
+        HEART_RATE_IDENTIFIER,
+      ],
     });
     return { granted, error: null };
   } catch (e) {
@@ -277,6 +319,34 @@ export async function syncHealth(days = 30): Promise<{
 
         scanned++;
         const day = localDayKey(when);
+        const key = `${entry.type}:${day}`;
+        const b = buckets.get(key);
+        if (b) {
+          b.total += r.quantity;
+          b.n++;
+          if (when.getTime() > b.at) b.at = when.getTime();
+        } else {
+          buckets.set(key, { type: entry.type, day, total: r.quantity, n: 1, at: when.getTime() });
+        }
+      }
+    }
+
+    // The night readings, keyed to the morning they belong to. Same accumulator as the
+    // day readings; only the key differs.
+    for (const entry of NIGHT_MAP) {
+      const rows = await hk.queryQuantitySamples(entry.identifier, {
+        limit: 5000,
+        unit: entry.unit,
+        filter: { date: { startDate: from, endDate: to } },
+      });
+      for (const r of rows) {
+        if (!Number.isFinite(r.quantity)) continue;
+        const when = new Date(r.endDate ?? r.startDate);
+        if (Number.isNaN(when.getTime())) continue;
+        const day = nightKey(when);
+        if (!day) continue;
+
+        scanned++;
         const key = `${entry.type}:${day}`;
         const b = buckets.get(key);
         if (b) {
@@ -392,6 +462,21 @@ export async function syncHealth(days = 30): Promise<{
 }
 
 /**
+ * Days of heart rate the ceiling is drawn from. Deliberately longer than the load window.
+ *
+ * The ceiling and the loads used to come from the same thirty days, and that made the scale
+ * a function of what happened to fall off the back of the window: the day her hardest run
+ * aged out, every reserve widened and every load rose, with no change in her at all. Sixty
+ * days for the ceiling means a hard effort defines the scale for two months rather than one,
+ * and the loads written in the last thirty are all measured against the same ceiling.
+ *
+ * The exponential made this worse than a uniform rescale. Shrinking the reserve span
+ * shrinks a hard day's load proportionally more than an easy day's, so the ratio strain
+ * shows — today against her peak — did not cancel the shift; it distorted it.
+ */
+const CEILING_DAYS = 60;
+
+/**
  * A day-by-day cardiovascular load, from five-minute heart rate averages.
  *
  * The shape of the calculation lives in `@vela/shared` so it is testable and so the coach's
@@ -411,22 +496,26 @@ async function readCardioLoad(
 ): Promise<Map<string, { load: number; at: number; samples: number }>> {
   const empty = new Map<string, { load: number; at: number; samples: number }>();
 
+  const ceilingFrom = new Date(to.getTime() - CEILING_DAYS * 86400000);
+
   // Anchored to local midnight so the buckets line up with clock time rather than with
   // whatever moment the sync happened to run.
-  const anchor = new Date(from);
+  const anchor = new Date(ceilingFrom);
   anchor.setHours(0, 0, 0, 0);
 
+  // Averages only. The per-bucket maximum used to be requested for the ceiling, and it is
+  // exactly the value a strap artifact lands in — see `heartRateCeiling`.
   const rows = await hk.queryStatisticsCollectionForQuantity(
     HEART_RATE_IDENTIFIER,
-    ['discreteAverage', 'discreteMax'],
+    ['discreteAverage'],
     anchor,
     { minute: HR_BUCKET_MINUTES },
-    { unit: 'count/min', filter: { date: { startDate: from, endDate: to } } },
+    { unit: 'count/min', filter: { date: { startDate: ceilingFrom, endDate: to } } },
   );
 
   const perDay = new Map<string, { buckets: HeartRateBucket[]; at: number }>();
   const averages: number[] = [];
-  let observedMax = 0;
+  const loadFrom = from.getTime();
 
   for (const r of rows) {
     const avg = r.averageQuantity?.quantity;
@@ -437,12 +526,9 @@ async function readCardioLoad(
     const end = new Date(stamp);
     if (Number.isNaN(end.getTime())) continue;
 
-    // The peak within the bucket, for the ceiling — the average of a five-minute stretch
-    // never touches the hardest beat in it, and the ceiling is the one place that matters.
-    const peak = r.maximumQuantity?.quantity;
-    observedMax = Math.max(observedMax, typeof peak === 'number' && Number.isFinite(peak) ? peak : avg);
-
+    // Every bucket feeds the ceiling; only the recent ones get a load written.
     averages.push(avg);
+    if (end.getTime() < loadFrom) continue;
 
     const day = localDayKey(end);
     const entry = perDay.get(day) ?? { buckets: [], at: 0 };
@@ -457,12 +543,20 @@ async function readCardioLoad(
   if (perDay.size === 0) return empty;
 
   /**
-   * The floor. Apple's own resting figure where there is one, because it is computed from
-   * far more than this window; otherwise the quiet end of her own distribution, which is a
-   * resting measurement in all but name.
+   * The floor — and the same definition recovery uses for its resting-rate baseline: the
+   * median of Apple's daily figure with today left out, once there are enough days for a
+   * median to mean anything. There used to be two definitions of her resting rate in the
+   * product, one including today and one not, and neither knew about the other.
+   *
+   * Apple's figure is preferred because it is computed from far more than this window.
+   * Failing that, the quiet end of her own distribution is a resting measurement in all but
+   * name.
    */
-  const reported = [...restingByDay.values()].filter((v) => v > 0);
-  const restingHr = reported.length > 0 ? median(reported) : percentile(averages, 0.05);
+  const todayKey = localDayKey(to);
+  const reported = [...restingByDay.entries()]
+    .filter(([d, v]) => d !== todayKey && v > 0)
+    .map(([, v]) => v);
+  const restingHr = baseline(reported) ?? percentile(averages, 0.05);
   if (restingHr === null) return empty;
 
   const maxHr = maxHeartRate({
@@ -470,8 +564,8 @@ async function readCardioLoad(
     // Passing it explicitly rather than omitting it is what makes this one line to change
     // if intake ever asks.
     dateOfBirth: null,
-    observedMaxHr: observedMax > 0 ? observedMax : null,
-    onDate: localDayKey(to),
+    observedMaxHr: heartRateCeiling(averages),
+    onDate: todayKey,
   });
   if (maxHr === null) return empty;
 
@@ -489,12 +583,4 @@ async function readCardioLoad(
     out.set(day, { load: Math.round(load * 10) / 10, at: entry.at, samples: entry.buckets.length });
   }
   return out;
-}
-
-/** The value below which `p` of the sorted set falls. Used only for a resting-rate floor. */
-function percentile(values: number[], p: number): number | null {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const i = Math.min(sorted.length - 1, Math.max(0, Math.floor(p * (sorted.length - 1))));
-  return sorted[i] ?? null;
 }
