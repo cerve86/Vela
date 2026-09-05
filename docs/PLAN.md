@@ -615,3 +615,11 @@ and tested: four queries for the whole roster, one pass per client, and the aler
 ranks a client and the number on her card come from the same function. Node's test
 runner does not guess extensions, so the module reaches `domain` through the package's
 own export map — one spelling that Node, tsc and the bundlers all resolve.
+
+**The client's own page** followed the roster the same day. The overview is now three
+groups of readings — Training, Body, Daily habits — each a card with the value, a bar for
+where it sits or how much of the target it covers, a caption in words, a card-sized trend
+and a link into the tab that explains it. The before/after symptoms panel and the recent
+sessions list stay; the "This week" column and the "Latest vitals" strip were absorbed.
+The reading card lives in `components/readings.tsx` and the roster card uses the same one
+at its compact size, so the two pages cannot drift.

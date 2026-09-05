@@ -9,10 +9,11 @@ import {
   type MetricType,
   type ScheduledSession,
 } from '@vela/api';
-import { adherenceBand, painLabel, tide } from '@vela/shared';
+import { adherenceBand, painColor, painLabel, tide } from '@vela/shared';
 import { adherenceStyle, palette } from '@vela/shared/tokens';
-import { Card, PainDot, StatTile, StatusPill } from '@/components/ui';
-import { Meter, TimeSeriesPanels, type Panel } from '@/components/charts';
+import { Card, PainDot, StatusPill } from '@/components/ui';
+import { TimeSeriesPanels, type Panel, type Point } from '@/components/charts';
+import { FillBar, Reading, ReadingGroup, ScaleBar } from '@/components/readings';
 import { dateWindow } from '@/lib/series';
 import { createServerSupabase } from '@/lib/supabase/server';
 
@@ -50,11 +51,7 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
   const { id } = await params;
   const supabase = await createServerSupabase();
 
-  const { data: client } = await supabase
-    .from('clients')
-    .select('id')
-    .eq('id', id)
-    .maybeSingle();
+  const { data: client } = await supabase.from('clients').select('id').eq('id', id).maybeSingle();
   if (!client) notFound();
 
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -93,7 +90,9 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
 
   const xLabels = dateWindow(28);
   const painByDate = new Map(
-    sessions.filter((s) => s.painAfter !== null).map((s) => [s.scheduledDate, s.painAfter as number]),
+    sessions
+      .filter((s) => s.painAfter !== null)
+      .map((s) => [s.scheduledDate, s.painAfter as number]),
   );
   const beforeByDate = new Map(
     sessions
@@ -159,16 +158,16 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
      * withdrew her impact work on its own — the coach needs to know that happened, and why,
      * before she reads a single adherence figure.
      */
-    const blocking = reads.filter((r) =>
-      ['Heaviness', 'Dragging', 'Leaking'].includes(r.symptom),
-    );
+    const blocking = reads.filter((r) => ['Heaviness', 'Dragging', 'Leaking'].includes(r.symptom));
     if (blocking.length > 0) {
       const latest = blocking[blocking.length - 1]!;
       return {
         tone: 'critical' as const,
         title: `Needs your eye — she reported ${latest.symptom.toLowerCase()}`,
         body: `Logged on her ${latest.window} read${
-          blocking.length > 1 ? `, and on ${blocking.length - 1} other read${blocking.length > 2 ? 's' : ''} this week` : ''
+          blocking.length > 1
+            ? `, and on ${blocking.length - 1} other read${blocking.length > 2 ? 's' : ''} this week`
+            : ''
         }. The app withdrew the impact work for that day on its own. Readiness was ${tide[latest.readiness]?.label.toLowerCase() ?? 'unrecorded'}.`,
       };
     }
@@ -197,7 +196,8 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
     }
 
     const missed = sessions.filter(
-      (s) => s.scheduledDate < todayIso && s.status === 'scheduled' && s.scheduledDate >= daysBack(13),
+      (s) =>
+        s.scheduledDate < todayIso && s.status === 'scheduled' && s.scheduledDate >= daysBack(13),
     );
     if (missed.length >= 2) {
       return {
@@ -226,6 +226,49 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
 
   const mealsLogged = new Set((mealRows ?? []).map((m) => `${m.logged_on}:${m.meal}`)).size;
 
+  /** The four weeks ending today, oldest first: adherence and completions per week. */
+  const weekWindows = [3, 2, 1, 0].map((n) => ({ from: daysBack(n * 7 + 6), to: daysBack(n * 7) }));
+  const weeklyAdherence: Point[] = weekWindows.map((w) => {
+    const a = adherenceOver(
+      sessions.filter((s) => s.scheduledDate <= w.to),
+      w.from,
+      todayIso,
+    );
+    return { x: w.to, y: a.due === 0 ? null : a.ratio };
+  });
+  const weeklyCompleted: Point[] = weekWindows.map((w) => ({
+    x: w.to,
+    y: sessions.filter(
+      (s) => s.scheduledDate >= w.from && s.scheduledDate <= w.to && s.status === 'completed',
+    ).length,
+  }));
+  const scheduled7 = sessions.filter(
+    (s) => s.scheduledDate >= daysBack(6) && s.scheduledDate <= todayIso,
+  ).length;
+  const missedFortnight = sessions.filter(
+    (s) =>
+      s.scheduledDate < todayIso && s.status === 'scheduled' && s.scheduledDate >= daysBack(13),
+  ).length;
+  const lastCompleted = sessions.filter((s) => s.status === 'completed').at(-1) ?? null;
+  const painAfterPoints: Point[] = xLabels.map((d) => ({ x: d, y: painByDate.get(d) ?? null }));
+  const painBeforePoints: Point[] = xLabels.map((d) => ({ x: d, y: beforeByDate.get(d) ?? null }));
+
+  const vitalPoints = (type: MetricType): Point[] => {
+    const byDay = new Map<string, number>();
+    for (const m of metrics.filter((m) => m.type === type))
+      byDay.set(m.recordedAt.slice(0, 10), m.value);
+    return xLabels.map((d) => ({ x: d, y: byDay.get(d) ?? null }));
+  };
+
+  const latestRead = reads.at(-1) ?? null;
+  const readinessPoints: Point[] = dateWindow(7).map((d) => {
+    const ofDay = reads.filter((r) => r.readOn === d);
+    return { x: d, y: ofDay.length ? ofDay[ofDay.length - 1]!.readiness : null };
+  });
+  const blockingReads = reads.filter((r) =>
+    ['Heaviness', 'Dragging', 'Leaking'].includes(r.symptom),
+  );
+
   const recent = sessions
     .filter((s) => s.status !== 'scheduled' || s.scheduledDate < todayIso)
     .slice(-6)
@@ -247,8 +290,7 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
               strokeWidth={2.2}
               aria-hidden
               style={{
-                color:
-                  alert.tone === 'critical' ? palette.status.critical : palette.status.warning,
+                color: alert.tone === 'critical' ? palette.status.critical : palette.status.warning,
               }}
             />
           </span>
@@ -266,45 +308,73 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-3">
-        <StatTile
-          label="Adherence · 7 days"
+      <ReadingGroup title="Training" hint="Last 7 days · trends over 4 weeks">
+        <Reading
+          size="full"
+          label="Adherence"
           value={week.due === 0 ? '—' : `${Math.round(week.ratio * 100)}%`}
-          hint={
-            week.due === 0
-              ? 'Nothing due yet this week'
-              : `${week.completed} of ${week.due} sessions`
+          unit={week.due === 0 ? undefined : `${week.completed}/${week.due}`}
+          bar={
+            week.due === 0 ? undefined : (
+              <FillBar ratio={week.ratio} color={adherenceStyle[band].color} />
+            )
           }
+          caption={week.due === 0 ? 'Nothing due yet this week' : adherenceStyle[band].label}
+          captionColor={week.due === 0 ? undefined : adherenceStyle[band].color}
+          trend={{ points: weeklyAdherence, color: adherenceStyle[band].color, domain: [0, 1] }}
+          href={`/clients/${id}/training`}
         />
-        <StatTile
-          label="Avg pain after · 7 days"
-          value={avgPain === null ? '—' : String(avgPain)}
+        <Reading
+          size="full"
+          label="Pain after sessions"
+          value={avgPain === null ? '—' : avgPain.toFixed(1)}
           unit={avgPain === null ? undefined : '/10'}
-          hint={painScores.length === 0 ? 'No sessions logged yet' : `${painScores.length} logged`}
+          bar={
+            avgPain === null ? undefined : (
+              <ScaleBar ratio={avgPain / 10} color={painColor(avgPain)} />
+            )
+          }
+          caption={
+            avgPain === null
+              ? 'No sessions scored this week'
+              : `${painLabel(avgPain)} · ${painScores.length} session${painScores.length === 1 ? '' : 's'}`
+          }
+          captionColor={avgPain === null ? undefined : painColor(avgPain)}
+          trend={{ points: painAfterPoints, color: 'var(--series-2)', domain: [0, 10] }}
+          href={`/clients/${id}/training`}
         />
-        <StatTile
-          label="Weight · 28 days"
-          value={latest('weight_kg') ? latest('weight_kg')!.value.toFixed(1) : '—'}
-          unit="kg"
-          delta={weightDelta === null ? undefined : `${weightDelta > 0 ? '+' : ''}${weightDelta} kg`}
-          // Postpartum, and possibly breastfeeding: a fall is not automatically good, so
-          // the delta is shown without a value judgement.
-          deltaGood={undefined}
+        <Reading
+          size="full"
+          label="Sessions this week"
+          value={String(scheduled7)}
+          unit="scheduled"
+          caption={
+            missedFortnight >= 1
+              ? `${missedFortnight} passed unlogged in 14 days`
+              : 'Everything due has been logged'
+          }
+          captionColor={missedFortnight >= 2 ? palette.status.warning : undefined}
+          trend={{ points: weeklyCompleted, color: 'var(--series-1)' }}
+          href={`/clients/${id}/training`}
         />
-        <StatTile
-          label="Readings · 28 days"
-          value={String(metrics.length)}
-          hint="From Apple Health and manual entries"
+        <Reading
+          size="full"
+          label="Last completed session"
+          value={lastCompleted ? shortDate(lastCompleted.scheduledDate) : '—'}
+          caption={lastCompleted ? lastCompleted.title : 'None yet'}
+          trend={{ points: painBeforePoints, color: 'var(--series-1)', domain: [0, 10] }}
+          href={`/clients/${id}/training`}
+          linkLabel="Session history"
         />
-      </div>
+      </ReadingGroup>
 
       <Card title="Symptoms" action={<span className="text-xs ink-3">Last 28 days</span>}>
         {painByDate.size === 0 ? (
           // An empty 0–10 axis reads like something failed to load. Say what is actually
           // true: she has not finished a session yet, so there is no score to plot.
           <p className="text-sm ink-2">
-            No pain scores yet. Each session she finishes records one before and one after,
-            and the gap between them is what tells you whether the load is right.
+            No pain scores yet. Each session she finishes records one before and one after, and the
+            gap between them is what tells you whether the load is right.
           </p>
         ) : (
           <>
@@ -316,54 +386,102 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
         )}
       </Card>
 
-      <div className="grid grid-cols-3 gap-4">
-        <Card title="This week" className="col-span-1">
-          <div className="space-y-4">
-            <Meter
-              value={week.ratio}
-              color={adherenceStyle[band].color}
-              label="Session adherence"
-              valueLabel={week.due === 0 ? '—' : `${week.completed}/${week.due}`}
+      <ReadingGroup title="Body" hint="Latest reading · 28-day trend">
+        {VITALS.map((type) => {
+          const m = latest(type);
+          const meta = METRIC_META[type];
+          return (
+            <Reading
+              key={type}
+              size="full"
+              label={meta.label}
+              value={
+                m
+                  ? m.value.toLocaleString('en-GB', {
+                      minimumFractionDigits: meta.decimals,
+                      maximumFractionDigits: meta.decimals,
+                    })
+                  : '—'
+              }
+              unit={m && meta.unit ? meta.unit : undefined}
+              caption={
+                m
+                  ? `${sourceWord(m.source)} · ${sinceWords(m.recordedAt)}${
+                      type === 'weight_kg' && weightDelta !== null
+                        ? ` · ${weightDelta > 0 ? '+' : ''}${weightDelta} kg in 28 days`
+                        : ''
+                    }`
+                  : 'No readings in 28 days'
+              }
+              trend={{ points: vitalPoints(type), color: VITAL_COLOR[type] }}
+              href={`/clients/${id}/vitals`}
             />
-            <div className="border-t pt-3">
-              <div className="text-xs ink-2">Scheduled in the last 7 days</div>
-              <div className="tnum text-lg font-semibold">
-                {sessions.filter((s) => s.scheduledDate >= daysBack(6) && s.scheduledDate <= todayIso).length}
-              </div>
-            </div>
-            <div className="border-t pt-3">
-              <div className="text-xs ink-2">Readiness reads · 7 days</div>
-              <div className="tnum text-lg font-semibold">
-                {reads.length}
-                <span className="ml-1 text-xs font-normal ink-3">of 21</span>
-              </div>
-            </div>
-            <div className="border-t pt-3">
-              <div className="text-xs ink-2">Meals logged · 7 days</div>
-              <div className="tnum text-lg font-semibold">
-                {mealsLogged}
-                <span className="ml-1 text-xs font-normal ink-3">of 28 slots</span>
-              </div>
-            </div>
-            <div>
-              <div className="text-xs ink-2">Last completed session</div>
-              <div className="text-sm">
-                {(() => {
-                  const last = sessions.filter((s) => s.status === 'completed').at(-1);
-                  return last
-                    ? new Date(`${last.scheduledDate}T00:00:00Z`).toLocaleDateString('en-GB', {
-                        day: 'numeric',
-                        month: 'long',
-                        timeZone: 'UTC',
-                      })
-                    : 'None yet';
-                })()}
-              </div>
-            </div>
-          </div>
-        </Card>
+          );
+        })}
+      </ReadingGroup>
 
-        <Card title="Recent sessions" className="col-span-2">
+      <ReadingGroup title="Daily habits" hint="Last 7 days">
+        <Reading
+          size="full"
+          label="Latest read"
+          value={latestRead ? (tide[latestRead.readiness]?.label ?? '—') : '—'}
+          bar={
+            latestRead ? (
+              <ScaleBar
+                ratio={latestRead.readiness / 4}
+                color={readinessColor(latestRead.readiness)}
+              />
+            ) : undefined
+          }
+          caption={
+            latestRead
+              ? `${cap(latestRead.window)} read · ${latestRead.symptom || 'no symptoms'}`
+              : 'No reads yet'
+          }
+          captionColor={latestRead ? readinessColor(latestRead.readiness) : undefined}
+          trend={{ points: readinessPoints, color: 'var(--series-5)', domain: [0, 4] }}
+        />
+        <Reading
+          size="full"
+          label="Reads logged"
+          value={String(reads.length)}
+          unit="of 21"
+          bar={<FillBar ratio={reads.length / 21} color="var(--series-5)" />}
+          caption={
+            reads.length === 0
+              ? 'Morning, midday and evening'
+              : `${Math.round((reads.length / 21) * 100)}% of the week's reads`
+          }
+        />
+        <Reading
+          size="full"
+          label="Meals logged"
+          value={String(mealsLogged)}
+          unit="of 28 slots"
+          bar={<FillBar ratio={mealsLogged / 28} color="var(--series-3)" />}
+          caption={
+            mealsLogged === 0
+              ? 'Four slots a day'
+              : `${Math.round((mealsLogged / 28) * 100)}% of the week's slots`
+          }
+          href={`/clients/${id}/nutrition`}
+        />
+        <Reading
+          size="full"
+          label="Symptom flags"
+          value={String(blockingReads.length)}
+          unit={blockingReads.length === 1 ? 'read' : 'reads'}
+          caption={
+            blockingReads.length === 0
+              ? 'No heaviness, dragging or leaking'
+              : `Latest: ${blockingReads.at(-1)!.symptom.toLowerCase()} on her ${blockingReads.at(-1)!.window} read`
+          }
+          captionColor={blockingReads.length > 0 ? palette.status.critical : undefined}
+        />
+      </ReadingGroup>
+
+      <div>
+        <Card title="Recent sessions">
           {recent.length === 0 ? (
             <p className="text-sm ink-2">Nothing scheduled in the last 28 days.</p>
           ) : (
@@ -400,38 +518,52 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
           )}
         </Card>
       </div>
-
-      <Card title="Latest vitals">
-        <div className="grid grid-cols-4 gap-3">
-          {VITALS.map((type) => {
-            const m = latest(type);
-            const meta = METRIC_META[type];
-            return (
-              <div key={type}>
-                <div className="text-xs ink-2">{meta.label}</div>
-                <div className="tnum mt-0.5 text-lg font-semibold">
-                  {m
-                    ? m.value.toLocaleString('en-GB', {
-                        minimumFractionDigits: meta.decimals,
-                        maximumFractionDigits: meta.decimals,
-                      })
-                    : '—'}
-                  {meta.unit && <span className="ml-1 text-xs font-normal ink-3">{meta.unit}</span>}
-                </div>
-                {m && (
-                  <div className="mt-0.5 text-xs ink-3">
-                    {m.source === 'healthkit'
-                      ? 'Apple Health'
-                      : m.source === 'manual'
-                        ? 'Manual'
-                        : 'Coach'}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </Card>
     </div>
+  );
+}
+
+const VITAL_COLOR: Record<MetricType, string> = {
+  weight_kg: 'var(--series-1)',
+  resting_hr: 'var(--series-2)',
+  hrv_ms: 'var(--series-4)',
+  steps: 'var(--series-3)',
+} as Record<MetricType, string>;
+
+function sourceWord(source: string): string {
+  return source === 'healthkit' ? 'Apple Health' : source === 'manual' ? 'Manual' : 'Coach';
+}
+
+function cap(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function shortDate(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  });
+}
+
+/** "today", "yesterday", "3 days ago" — the resolution a coach actually reads. */
+function sinceWords(iso: string): string {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days} days ago`;
+  if (days < 14) return 'last week';
+  return `${Math.floor(days / 7)} weeks ago`;
+}
+
+/** Readiness 0–4 to a status colour; the word beside it comes from `tide`. */
+function readinessColor(r: number): string {
+  return (
+    [
+      palette.status.critical,
+      palette.status.serious,
+      palette.status.warning,
+      palette.status.good,
+      palette.status.good,
+    ][r] ?? 'var(--ink-muted)'
   );
 }
