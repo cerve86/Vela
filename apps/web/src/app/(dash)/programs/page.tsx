@@ -18,8 +18,11 @@ export default async function ProgramsPage() {
         </p>
       </header>
 
-      <div className="mb-6">
+      <div className="mb-6 flex flex-wrap items-center gap-4">
         <NewProgramForm />
+        <Link href="/programs/import" className="text-sm font-medium ink-2 hover:underline">
+          Import from a spreadsheet →
+        </Link>
       </div>
 
       {programs.length === 0 ? (

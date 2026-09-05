@@ -3,6 +3,30 @@ import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@vela/api/types';
 
 /**
+ * A client for a Route Handler: the Bearer token if the request carries one, else the
+ * session cookie.
+ *
+ * A script has no cookie jar; a browser has no reason to mint a token. Accepting both on
+ * the same route means the upload form and a curl command hit identical code, and the
+ * database still decides what the caller may touch — the token is the coach's own
+ * Supabase session, so RLS sees exactly who she is.
+ */
+export async function createRequestSupabase(req: Request) {
+  const auth = req.headers.get('authorization') ?? '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  if (!token) return createServerSupabase();
+
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: { getAll: () => [], setAll: () => {} },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    },
+  );
+}
+
+/**
  * Server-side client. Reads the session from cookies so Server Components and Route
  * Handlers run every query as the signed-in coach, which means RLS — not application
  * code — decides what they can see.

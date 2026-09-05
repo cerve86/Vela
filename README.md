@@ -2,7 +2,7 @@
 
 Physiotherapy coaching platform — an iOS app for clients and a web portal for the coach.
 
-Plan and checkpoints: [docs/PLAN.md](docs/PLAN.md) · Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+Plan and checkpoints: [docs/PLAN.md](docs/PLAN.md) · Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Importing programmes: [docs/IMPORT.md](docs/IMPORT.md)
 
 ## Layout
 
