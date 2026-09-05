@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { acceptMyInvite } from '@vela/api';
 import { supabase } from './supabase';
 
 export interface ClientRecord {
@@ -40,6 +41,31 @@ const Ctx = createContext<SessionState>({
   refresh: async () => ({ session: null, client: null }),
 });
 
+type ClientRow = {
+  id: string;
+  email: string;
+  condition: string | null;
+  goal: string | null;
+  status: string;
+  weeks_postpartum: number | null;
+  delivery_type: string;
+  breastfeeding: boolean;
+  onboarded_at: string | null;
+};
+
+// No .eq('profile_id', …) here on purpose: RLS already restricts this to the caller's
+// own row, and relying on the policy rather than a client-side filter is what makes a
+// bug here harmless.
+async function fetchClientRow(): Promise<ClientRow | null> {
+  const { data } = await supabase
+    .from('clients')
+    .select(
+      'id, email, condition, goal, status, weeks_postpartum, delivery_type, breastfeeding, onboarded_at',
+    )
+    .maybeSingle();
+  return data ?? null;
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
@@ -56,15 +82,25 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return null;
     }
 
-    // No .eq('profile_id', …) here on purpose: RLS already restricts this to the
-    // caller's own row, and relying on the policy rather than a client-side filter is
-    // what makes a bug here harmless.
-    const { data: row } = await supabase
-      .from('clients')
-      .select(
-        'id, email, condition, goal, status, weeks_postpartum, delivery_type, breastfeeding, onboarded_at',
-      )
-      .maybeSingle();
+    let row = await fetchClientRow();
+
+    /**
+     * Signed in, but no client row: finish the invitation here rather than bouncing.
+     *
+     * Only the invite screen used to call accept_my_invite. The link in the invitation
+     * email and the sign-in screen's code both verify the address just as well, and
+     * Supabase confirms the account either way — leaving a verified user whose client
+     * row was never linked. The gate then sent her back to sign-in, and the portal
+     * refused the coach a re-invite because the account "already exists". Nobody could
+     * get out. Accepting on every door closes that: the function only succeeds when a
+     * pending invitation matches this verified email, so a coach signing into the
+     * client app by mistake simply gets its "no pending invitation" and stays where
+     * she was. One attempt per load; a failure here is not an error to show.
+     */
+    if (!row) {
+      const { clientId } = await acceptMyInvite(supabase);
+      if (clientId) row = await fetchClientRow();
+    }
 
     const record: ClientRecord | null = row
       ? {

@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (91);
+  plan (94);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -281,6 +281,56 @@ select throws_ok (
   '42501',
   null,
   'and cannot mint a key that would act as coach A'
+);
+
+
+-- A verified account whose invitation was never accepted --------------------
+-- She tapped the link in the invitation email, or typed the code on the sign-in
+-- screen: Supabase confirmed her either way, and nothing linked the client row. The
+-- app now calls accept_my_invite on every door, so this asserts what that call does
+-- for exactly that state — and that it does nothing a second time.
+reset role;
+
+insert into
+  auth.users (
+    id, instance_id, aud, role, email, email_confirmed_at,
+    confirmation_token, recovery_token, email_change_token_new, email_change_token_current,
+    email_change, phone_change, phone_change_token, reauthentication_token
+  )
+values
+  ('00000000-0000-4000-8000-0000000000c9', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'stranded@test.local', now(), '', '', '', '', '', '', '', '');
+
+-- Name hints as the portal sends them: the form's optional last name arrives as '',
+-- never NULL. accept_my_invite copies hints onto a blank profile, and profiles.last_name
+-- is NOT NULL — a NULL hint here would fail the call for a reason unrelated to the test.
+insert into public.clients (id, coach_id, email, status, first_name_hint, last_name_hint)
+values
+  ('00000000-0000-4000-8000-0000000000f9', '00000000-0000-4000-8000-0000000000a1', 'stranded@test.local', 'invited', 'Stranded', '');
+
+insert into public.client_invites (coach_id, client_id, email, token_hash, expires_at)
+values
+  ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000f9', 'stranded@test.local', 'stranded-hash', now() + interval '1 day');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c9';
+
+select is (
+  (select public.accept_my_invite()),
+  '00000000-0000-4000-8000-0000000000f9'::uuid,
+  'a verified user with a pending invitation is linked by accept_my_invite'
+);
+
+select is (
+  (select status from public.clients where id = '00000000-0000-4000-8000-0000000000f9'),
+  'active',
+  'and her client row is active and hers to read'
+);
+
+select throws_ok (
+  $$select public.accept_my_invite()$$,
+  'P0002',
+  null,
+  'a second call finds no pending invitation and changes nothing'
 );
 
 
