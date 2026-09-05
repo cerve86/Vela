@@ -1,0 +1,53 @@
+{
+  "manifest_version": "0.3",
+  "name": "vela",
+  "display_name": "Vela",
+  "version": "0.1.0",
+  "description": "Draft training programmes straight into your Vela coaching account.",
+  "long_description": "Lets Claude read your exercise library, check a programme draft against it, and create the programme in your Vela account. It never assigns a programme to a client — that stays a deliberate step you take in the portal.\n\nYou need a personal API key: in Vela, open Settings → API keys, create one, and paste it here.",
+  "author": { "name": "Vela" },
+  "homepage": "https://www.vela-coaching.com",
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "vela-mcp.cjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/vela-mcp.cjs"],
+      "env": {
+        "VELA_API_KEY": "${user_config.api_key}",
+        "VELA_URL": "${user_config.url}"
+      }
+    }
+  },
+  "tools": [
+    { "name": "whoami", "description": "The coach this key acts as." },
+    { "name": "list_exercises", "description": "The exercise library, shipped plus your own." },
+    { "name": "list_programs", "description": "Your programmes and templates." },
+    { "name": "get_program", "description": "One programme in full." },
+    { "name": "preview_program", "description": "Validate a draft without creating anything." },
+    { "name": "create_program", "description": "Create a programme in your account." }
+  ],
+  "keywords": ["physiotherapy", "coaching", "training", "programme"],
+  "user_config": {
+    "api_key": {
+      "type": "string",
+      "title": "API key",
+      "description": "From Vela → Settings → API keys. Shown once when you create it.",
+      "sensitive": true,
+      "required": true
+    },
+    "url": {
+      "type": "string",
+      "title": "Portal address",
+      "description": "Leave as it is unless you run your own Vela.",
+      "default": "https://www.vela-coaching.com",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": { "node": ">=20.0.0" }
+  }
+}

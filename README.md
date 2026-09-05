@@ -2,7 +2,7 @@
 
 Physiotherapy coaching platform — an iOS app for clients and a web portal for the coach.
 
-Plan and checkpoints: [docs/PLAN.md](docs/PLAN.md) · Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Importing programmes: [docs/IMPORT.md](docs/IMPORT.md)
+Plan and checkpoints: [docs/PLAN.md](docs/PLAN.md) · Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Importing programmes: [docs/IMPORT.md](docs/IMPORT.md) · Claude extension: [docs/MCP.md](docs/MCP.md)
 
 ## Layout
 
@@ -10,6 +10,7 @@ Plan and checkpoints: [docs/PLAN.md](docs/PLAN.md) · Architecture: [docs/ARCHIT
 apps/web        Next.js 16 coach portal
 apps/mobile     Expo SDK 57 iOS client app
 packages/shared Types, domain calculations, design tokens, seed data — one source of truth
+packages/mcp    MCP server: Claude drafting programmes into a coach's account
 supabase/       Migrations, RLS policy tests, Edge Functions
 docs/           Plan and architecture
 ```
@@ -40,14 +41,14 @@ npm run typecheck
 
 ## Status
 
-| | Item | State |
-|---|---|---|
-| ✅ | Monorepo, TypeScript, shared domain package | Done |
-| ✅ | Coach portal — roster, client deep-dive, programme builder, library, messaging | Live on real data |
-| ✅ | iOS app — Today, session logging, progress, nutrition, profile | Live on real data |
-| ✅ | Supabase schema, RLS policies, pgTAP isolation tests | Applied locally and hosted; 88 assertions green |
-| ✅ | CI: typecheck, lint, unit tests, portal build, RLS tests | Running on every PR |
-| ✅ | TestFlight | 0.2.0 (15) submitted 2026-09-04 |
+|     | Item                                                                           | State                                           |
+| --- | ------------------------------------------------------------------------------ | ----------------------------------------------- |
+| ✅  | Monorepo, TypeScript, shared domain package                                    | Done                                            |
+| ✅  | Coach portal — roster, client deep-dive, programme builder, library, messaging | Live on real data                               |
+| ✅  | iOS app — Today, session logging, progress, nutrition, profile                 | Live on real data                               |
+| ✅  | Supabase schema, RLS policies, pgTAP isolation tests                           | Applied locally and hosted; 88 assertions green |
+| ✅  | CI: typecheck, lint, unit tests, portal build, RLS tests                       | Running on every PR                             |
+| ✅  | TestFlight                                                                     | 0.2.0 (15) submitted 2026-09-04                 |
 
 Both surfaces read Supabase. `packages/shared/src/mock.ts` still exists but is reached only
 by the portal's `/preview` route, which is a design sandbox — no product screen renders from

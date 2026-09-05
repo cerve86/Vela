@@ -1,27 +1,36 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { isApiKey } from '@vela/api';
 import type { Database } from '@vela/api/types';
+import { sessionForApiKey } from '@/lib/apiKeys';
 
 /**
- * A client for a Route Handler: the Bearer token if the request carries one, else the
- * session cookie.
+ * A client for a Route Handler: the Bearer credential if the request carries one, else
+ * the session cookie.
  *
  * A script has no cookie jar; a browser has no reason to mint a token. Accepting both on
  * the same route means the upload form and a curl command hit identical code, and the
- * database still decides what the caller may touch — the token is the coach's own
- * Supabase session, so RLS sees exactly who she is.
+ * database still decides what the caller may touch.
+ *
+ * Two kinds of Bearer credential. A Supabase access token is the coach's own session and
+ * is used as it is. A personal API key (`vela_…`) is resolved to a session for the coach
+ * who minted it — see `sessionForApiKey` — and then treated identically. Either way RLS
+ * sees exactly who she is. A key that does not resolve becomes a client with no usable
+ * session, so the handler's `getUser` fails and it answers 401 like any other stranger.
  */
 export async function createRequestSupabase(req: Request) {
   const auth = req.headers.get('authorization') ?? '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
-  if (!token) return createServerSupabase();
+  const credential = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  if (!credential) return createServerSupabase();
+
+  const token = isApiKey(credential) ? await sessionForApiKey(credential) : credential;
 
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: { getAll: () => [], setAll: () => {} },
-      global: { headers: { Authorization: `Bearer ${token}` } },
+      global: { headers: { Authorization: `Bearer ${token ?? 'no-such-key'}` } },
     },
   );
 }

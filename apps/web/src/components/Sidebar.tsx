@@ -3,7 +3,7 @@
 import type { ComponentType } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Dumbbell, MessageSquare, Sparkles, Trophy, Users } from 'lucide-react';
+import { Dumbbell, MessageSquare, Settings, Sparkles, Trophy, Users } from 'lucide-react';
 import type { VelaIconName } from '@vela/shared';
 import { palette } from '@vela/shared/tokens';
 import { SignedInAs } from './SignedInAs';
@@ -25,6 +25,7 @@ const NAV: NavItem[] = [
   { href: '/library', label: 'Exercise library', Icon: Dumbbell },
   { href: '/messages', label: 'Messages', Icon: MessageSquare },
   { href: '/preview', label: 'Design preview', Icon: Sparkles },
+  { href: '/settings', label: 'Settings', Icon: Settings },
 ];
 
 export function Sidebar() {
