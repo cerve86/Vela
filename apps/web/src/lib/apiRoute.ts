@@ -20,12 +20,24 @@ export const requireCoach = requireUser;
  * rows, and a coach with exactly one client would otherwise come back as that client.
  */
 export async function clientIdFor(supabase: VelaClient, userId: string): Promise<string | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('clients')
     .select('id')
     .eq('profile_id', userId)
     .maybeSingle();
+  // A failed lookup must not read as "not a client": say what failed, where it can be seen.
+  if (error) console.error('[vela] clientIdFor failed:', error.code, error.message);
   return data?.id ?? null;
+}
+
+/** The refusal the client-only routes send, with enough context to act on. */
+export function notAClient(action: string): NextResponse {
+  return NextResponse.json(
+    {
+      error: `Only a client can ${action}. This account has no client row linked to it — if you were invited, open the invitation link and choose a password first, or ask your physiotherapist to invite you again.`,
+    },
+    { status: 403 },
+  );
 }
 
 export async function requireUser(

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { clientIdFor, requireUser } from '@/lib/apiRoute';
+import { clientIdFor, notAClient, requireUser } from '@/lib/apiRoute';
 import { adminClient } from '@/lib/impersonate';
 import { stravaConfig, syncStrava } from '@/lib/strava';
 
@@ -14,8 +14,7 @@ export async function POST(req: Request) {
   const { supabase, userId, refused } = await requireUser(req);
   if (refused) return refused;
   const clientId = await clientIdFor(supabase, userId);
-  if (!clientId)
-    return NextResponse.json({ error: 'Only a client can sync Strava.' }, { status: 403 });
+  if (!clientId) return notAClient('sync Strava');
   const admin = adminClient();
   if (!admin) return NextResponse.json({ error: 'Server is not configured.' }, { status: 500 });
 
