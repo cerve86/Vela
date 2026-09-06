@@ -17,11 +17,11 @@ app is broken" — this turns that into a thirty-second build failure instead.
 The three values in `submit.production.ios` come from Apple and have to be filled in
 before `eas submit` will run:
 
-| Field | Where to find it |
-| --- | --- |
-| `appleId` | The Apple ID email on the developer account |
-| `appleTeamId` | developer.apple.com → Membership → Team ID (10 characters) |
-| `ascAppId` | App Store Connect → the app → App Information → Apple ID (numeric) |
+| Field         | Where to find it                                                   |
+| ------------- | ------------------------------------------------------------------ |
+| `appleId`     | The Apple ID email on the developer account                        |
+| `appleTeamId` | developer.apple.com → Membership → Team ID (10 characters)         |
+| `ascAppId`    | App Store Connect → the app → App Information → Apple ID (numeric) |
 
 The bundle identifier is `io.velas.app` and needs the **HealthKit** capability enabled on
 it at developer.apple.com → Identifiers.
@@ -77,3 +77,19 @@ than committed. Rotating that key means updating it in the Supabase dashboard as
 Both `db push` and `config push` act on the **hosted** project. Check
 `npx supabase migration list --linked` before shipping a build: a binary that writes a
 metric type the hosted enum does not have installs perfectly and then fails every import.
+
+## Adding a coach
+
+Coaches are provisioned, not signed up: the sign-in trigger makes every new user a client
+and promotion is deliberate. `scripts/provision-coach.mjs` creates the confirmed account,
+promotes the profile and creates the practice, without sending any email; she then signs
+in at the portal with the usual emailed code. Idempotent.
+
+```bash
+SUPABASE_URL=https://eainnbmlzbhfftcpushs.supabase.co SUPABASE_SERVICE_ROLE_KEY=… \
+COACH_EMAIL=her@practice.com FIRST_NAME=Her LAST_NAME=Name PRACTICE_NAME='Her Practice' \
+SEED_ALLOW_REMOTE=1 node scripts/provision-coach.mjs
+```
+
+The service-role key is under Project Settings → API in the Supabase dashboard and must
+never be committed.
