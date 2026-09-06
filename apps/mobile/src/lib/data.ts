@@ -120,10 +120,15 @@ export function useWeek() {
   );
 
   const todayIso = today();
+  // Two sessions can share today: the planned one and one filed for a recorded activity.
+  // The planned one is today's session; the other shows as an activity card.
+  const todays = state.data.filter((s) => s.scheduledDate === todayIso);
+  const rank = (s: ScheduledSession) =>
+    (s.programDayId !== null ? 0 : 1) + (s.status === 'completed' ? 2 : 0);
   return {
     ...state,
     weekStart: from,
-    todaySession: state.data.find((s) => s.scheduledDate === todayIso) ?? null,
+    todaySession: [...todays].sort((a, b) => rank(a) - rank(b))[0] ?? null,
   };
 }
 
@@ -266,8 +271,10 @@ export function weekAdherence(sessions: ScheduledSession[]): {
   ratio: number;
 } {
   const now = today();
-  const completed = sessions.filter((s) => s.status === 'completed').length;
-  const due = sessions.filter(
+  // Prescribed sessions only — a recorded ride is activity, not adherence.
+  const prescribed = sessions.filter((s) => s.programDayId !== null);
+  const completed = prescribed.filter((s) => s.status === 'completed').length;
+  const due = prescribed.filter(
     (s) => s.scheduledDate < now || s.status === 'completed' || s.status === 'skipped',
   ).length;
   return { completed, due, ratio: due === 0 ? 0 : completed / due };

@@ -654,3 +654,14 @@ that break clients are three: CRLF, folding at 75 octets, escaping.
 
 **Not done** — Strava's official button asset, cardiovascular load from Strava heart
 rate, device-calendar writes, and the earlier list.
+
+**Review, same day.** A ten-finding review of the Strava commit, all fixed: a client could
+repoint her calendar token at her coach (policy now read/delete only, the function writes);
+a coach with one client passed as that client (filter on profile_id, not row count); the
+webhook awaited the import and a retry could duplicate a session (answer first, import in
+`after()`, and write the activity row before the session so its unique key is the lock);
+recorded rides counted as adherence (prescribed sessions only, everywhere); a client could
+insert any session (policy now allows only a Strava ad-hoc row); a multi-byte state crashed
+the callback (byte lengths); Today could pick the Strava row (ranked); disconnect revoked
+with a stale token (refresh first, report the outcome); the review card reviewed unprescribed
+sessions; the feed made one RPC per session (one for all). pgTAP 104.

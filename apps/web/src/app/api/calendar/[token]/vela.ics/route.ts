@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSessionPlan, listSessions } from '@vela/api';
+import { getSessionPlans, listSessions } from '@vela/api';
 import { buildIcs, type IcsEvent } from '@vela/shared';
 import { adminClient, clientAsUser } from '@/lib/impersonate';
 
@@ -34,10 +34,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
   const sessions = await listSessions(asUser, { clientId: row.client_id, from, to });
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.vela-coaching.com';
 
+  const shown = sessions.filter((s) => s.status !== 'skipped');
+  // One call for every prescription rather than one per session: calendars poll this
+  // feed hourly, and a block is forty-odd sessions.
+  const plans = await getSessionPlans(
+    asUser,
+    shown.filter((s) => s.programDayId !== null).map((s) => s.id),
+  );
+
   const events: IcsEvent[] = [];
-  for (const s of sessions) {
-    if (s.status === 'skipped') continue;
-    const plan = await getSessionPlan(asUser, s.id);
+  for (const s of shown) {
+    const plan = plans.get(s.id) ?? [];
     const lines = plan.map(
       (i) =>
         `${i.block}. ${i.exerciseName} — ${i.sets} × ${i.reps}` +

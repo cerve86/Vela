@@ -13,9 +13,18 @@ import { createRequestSupabase } from '@/lib/supabase/server';
  */
 export const requireCoach = requireUser;
 
-/** A client row for the signed-in user, when she is one. RLS returns only her own. */
-export async function clientIdFor(supabase: VelaClient): Promise<string | null> {
-  const { data } = await supabase.from('clients').select('id').maybeSingle();
+/**
+ * The client row that IS the signed-in user, or null when she is not a client.
+ *
+ * Filtered on profile_id and not left to RLS: a coach's session also sees her clients'
+ * rows, and a coach with exactly one client would otherwise come back as that client.
+ */
+export async function clientIdFor(supabase: VelaClient, userId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('clients')
+    .select('id')
+    .eq('profile_id', userId)
+    .maybeSingle();
   return data?.id ?? null;
 }
 

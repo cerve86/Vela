@@ -52,8 +52,12 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
    * the prescription and the outcome and does not invent a per-exercise verdict it cannot
    * know.
    */
+  // Prescribed sessions only: a Strava ride has no plan to review against, and a session
+  // ticked off from a calendar has no symptom scores to read.
   const review =
-    [...completed].sort((a, b) => (a.scheduledDate < b.scheduledDate ? 1 : -1))[0] ?? null;
+    [...completed]
+      .filter((s) => s.programDayId !== null && s.loggedVia === 'app')
+      .sort((a, b) => (a.scheduledDate < b.scheduledDate ? 1 : -1))[0] ?? null;
 
   const [reviewPlan, reviewReads] = await Promise.all([
     review ? getSessionPlan(supabase, review.id) : Promise.resolve([]),
@@ -75,11 +79,11 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
         blockingRead
           ? `Good call stopping the impact work when the ${blockingRead.symptom.toLowerCase()} showed up.`
           : 'That looked comfortable — we can add a little next week.',
-        review.painAfter !== null &&
-        review.painBefore !== null &&
-        review.painAfter > review.painBefore
-          ? 'Symptoms came up during that one. Let us hold the load where it is.'
-          : 'Symptoms stayed settled, which is what I was watching for.',
+        review.painAfter === null || review.painBefore === null
+          ? 'No symptom scores came through for that one — how did it feel?'
+          : review.painAfter > review.painBefore
+            ? 'Symptoms came up during that one. Let us hold the load where it is.'
+            : 'Symptoms stayed settled, which is what I was watching for.',
         'How did it feel the next morning?',
       ]
     : [];

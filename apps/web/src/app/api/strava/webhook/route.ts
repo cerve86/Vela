@@ -1,13 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { adminClient, clientAsUser } from '@/lib/impersonate';
-import { stravaConfig, syncStrava } from '@/lib/strava';
+import { stravaConfig, syncStravaActivity } from '@/lib/strava';
 
 /**
  * Strava's webhook. GET answers the subscription handshake; POST receives events.
  *
- * Strava wants a 200 within two seconds, so the event is acknowledged first and the
- * import runs after. The event names an athlete, not a client; the link table maps one
- * to the other and the import runs as her.
+ * Strava wants a 200 within two seconds and retries otherwise, so the event is answered
+ * first and the import runs after the response has gone (`after`). The event names an
+ * athlete and one activity: the link table maps the athlete to a client, and only that
+ * activity is fetched and filed, as her.
  */
 export async function GET(req: Request) {
   const cfg = stravaConfig();
@@ -37,32 +38,39 @@ export async function POST(req: Request) {
   }
 
   if (event.object_type === 'athlete' && event.updates?.authorized === 'false' && event.owner_id) {
-    const { data: link } = await admin
-      .from('strava_links')
-      .select('client_id')
-      .eq('athlete_id', event.owner_id)
-      .maybeSingle();
-    if (link) {
-      await admin.from('strava_tokens').delete().eq('client_id', link.client_id);
-      await admin.from('strava_links').delete().eq('client_id', link.client_id);
-    }
+    const ownerId = event.owner_id;
+    after(async () => {
+      const { data: link } = await admin
+        .from('strava_links')
+        .select('client_id')
+        .eq('athlete_id', ownerId)
+        .maybeSingle();
+      if (link) {
+        await admin.from('strava_tokens').delete().eq('client_id', link.client_id);
+        await admin.from('strava_links').delete().eq('client_id', link.client_id);
+      }
+    });
     return NextResponse.json({ ok: true });
   }
 
   if (
     event.object_type === 'activity' &&
     (event.aspect_type === 'create' || event.aspect_type === 'update') &&
-    event.owner_id
+    event.owner_id &&
+    event.object_id
   ) {
-    const { data: link } = await admin
-      .from('strava_links')
-      .select('client_id, profile_id')
-      .eq('athlete_id', event.owner_id)
-      .maybeSingle();
-    if (link) {
+    const ownerId = event.owner_id;
+    const activityId = event.object_id;
+    after(async () => {
+      const { data: link } = await admin
+        .from('strava_links')
+        .select('client_id, profile_id')
+        .eq('athlete_id', ownerId)
+        .maybeSingle();
+      if (!link) return;
       const asUser = await clientAsUser(link.profile_id);
-      if (asUser) await syncStrava(cfg, admin, asUser, link.client_id);
-    }
+      if (asUser) await syncStravaActivity(cfg, admin, asUser, link.client_id, activityId);
+    });
   }
   return NextResponse.json({ ok: true });
 }

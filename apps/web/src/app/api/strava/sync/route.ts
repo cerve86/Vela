@@ -11,9 +11,9 @@ export async function POST(req: Request) {
       { error: 'Strava is not configured on this portal.' },
       { status: 503 },
     );
-  const { supabase, refused } = await requireUser(req);
+  const { supabase, userId, refused } = await requireUser(req);
   if (refused) return refused;
-  const clientId = await clientIdFor(supabase);
+  const clientId = await clientIdFor(supabase, userId);
   if (!clientId)
     return NextResponse.json({ error: 'Only a client can sync Strava.' }, { status: 403 });
   const admin = adminClient();

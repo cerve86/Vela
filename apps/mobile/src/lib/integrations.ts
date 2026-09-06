@@ -109,11 +109,14 @@ export async function syncStrava(): Promise<SyncOutcome> {
   return body ?? { imported: 0, matched: 0, skipped: 0, error: 'No answer from the server.' };
 }
 
-export async function disconnectStrava(): Promise<StravaOutcome> {
-  const { ok, body } = await portal<{ error?: string }>('/api/strava/disconnect', {
-    method: 'POST',
-  });
-  return ok ? { ok: true } : { ok: false, error: body?.error ?? 'Could not disconnect.' };
+export async function disconnectStrava(): Promise<StravaOutcome & { deauthorized?: boolean }> {
+  const { ok, body } = await portal<{ error?: string; deauthorized?: boolean }>(
+    '/api/strava/disconnect',
+    { method: 'POST' },
+  );
+  return ok
+    ? { ok: true, deauthorized: body?.deauthorized ?? false }
+    : { ok: false, error: body?.error ?? 'Could not disconnect.' };
 }
 
 export function useStravaLink() {

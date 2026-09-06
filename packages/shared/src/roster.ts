@@ -19,6 +19,8 @@ export interface RosterSession {
   status: string;
   painAfter: number | null;
   completedAt: string | null;
+  /** Null for a session filed from a recorded activity: it happened, but it was not asked for. */
+  programDayId: string | null;
 }
 
 export interface RosterMetric {
@@ -115,8 +117,12 @@ export function rosterRollups(input: RosterInput): Map<string, RosterRollup> {
     const reads = input.reads.filter((r) => r.clientId === clientId);
 
     // Only what has already come due counts against her: measuring Wednesday against
-    // Friday's session reports a miss for work still ahead.
-    const due = sessions.filter((s) => s.scheduledDate >= since7 && s.scheduledDate <= input.today);
+    // Friday's session reports a miss for work still ahead. And only what was prescribed:
+    // a ride she recorded on a rest day is activity, not adherence — counting it would
+    // let three unplanned rides cover for three skipped sessions.
+    const due = sessions.filter(
+      (s) => s.programDayId !== null && s.scheduledDate >= since7 && s.scheduledDate <= input.today,
+    );
     const done = due.filter((s) => s.status === 'completed');
     const missed = due.length - done.length;
 

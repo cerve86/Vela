@@ -61,7 +61,9 @@ export interface ProgramSummary {
 export async function listPrograms(supabase: VelaClient): Promise<ProgramSummary[]> {
   const { data } = await supabase
     .from('programs')
-    .select('id, name, description, duration_weeks, is_template, program_days(id, program_items(id))')
+    .select(
+      'id, name, description, duration_weeks, is_template, program_days(id, program_items(id))',
+    )
     .is('archived_at', null)
     .order('created_at', { ascending: false });
 
@@ -297,10 +299,14 @@ export interface ScheduledSession {
   setsDone: number | null;
   setsPlanned: number | null;
   durationSec: number | null;
+  /** Null for a session that was never prescribed — one filed for a recorded activity. */
+  programDayId: string | null;
+  /** Where the completion came from. Only prescribed sessions count towards adherence. */
+  loggedVia: 'app' | 'strava' | 'calendar';
 }
 
 const SESSION_COLUMNS =
-  'id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec';
+  'id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via';
 
 function toSession(row: {
   id: string;
@@ -313,6 +319,8 @@ function toSession(row: {
   sets_done: number | null;
   sets_planned: number | null;
   duration_sec: number | null;
+  program_day_id: string | null;
+  logged_via: string;
 }): ScheduledSession {
   return {
     id: row.id,
@@ -325,6 +333,8 @@ function toSession(row: {
     setsDone: row.sets_done === null ? null : Number(row.sets_done),
     setsPlanned: row.sets_planned === null ? null : Number(row.sets_planned),
     durationSec: row.duration_sec === null ? null : Number(row.duration_sec),
+    programDayId: row.program_day_id,
+    loggedVia: row.logged_via as ScheduledSession['loggedVia'],
   };
 }
 
@@ -345,10 +355,13 @@ export async function listSessions(
   supabase: VelaClient,
   opts: { clientId?: string; from?: string; to?: string } = {},
 ): Promise<ScheduledSession[]> {
+  // created_at as the tie-break: two sessions on one date (a planned one and a recorded
+  // activity's) must come back in a stable order, or "today's session" is a coin toss.
   let q = supabase
     .from('sessions')
     .select(SESSION_COLUMNS)
-    .order('scheduled_date', { ascending: true });
+    .order('scheduled_date', { ascending: true })
+    .order('created_at', { ascending: true });
 
   if (opts.clientId) q = q.eq('client_id', opts.clientId);
   if (opts.from) q = q.gte('scheduled_date', opts.from);
@@ -401,7 +414,8 @@ export async function createBundledProgram(
     durationWeeks: input.weeks,
     isTemplate: false,
   });
-  if (programError || !id) return { id: null, error: programError ?? 'Could not create programme.' };
+  if (programError || !id)
+    return { id: null, error: programError ?? 'Could not create programme.' };
 
   const { data: dayRows, error: dayError } = await supabase
     .from('program_days')
@@ -539,7 +553,8 @@ export async function importProgram(
     durationWeeks: weeks,
     isTemplate: input.isTemplate,
   });
-  if (programError || !id) return { id: null, error: programError ?? 'Could not create the programme.' };
+  if (programError || !id)
+    return { id: null, error: programError ?? 'Could not create the programme.' };
 
   const rollBack = async (error: string) => {
     await supabase.from('programs').delete().eq('id', id);

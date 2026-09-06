@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
   const { supabase, userId, refused } = await requireUser(req);
   if (refused) return refused;
-  const clientId = await clientIdFor(supabase);
+  const clientId = await clientIdFor(supabase, userId);
   if (!clientId)
     return NextResponse.json({ error: 'Only a client can connect Strava.' }, { status: 403 });
 

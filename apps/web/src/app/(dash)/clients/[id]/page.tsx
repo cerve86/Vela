@@ -40,7 +40,8 @@ function sinceTimestamp(n: number): string {
  * her week the same way, and the two views disagreeing would be worse than either.
  */
 function adherenceOver(sessions: ScheduledSession[], since: string, todayIso: string) {
-  const window = sessions.filter((s) => s.scheduledDate >= since);
+  // Prescribed sessions only: a recorded ride on a rest day is activity, not adherence.
+  const window = sessions.filter((s) => s.scheduledDate >= since && s.programDayId !== null);
   const due = window.filter(
     (s) => s.scheduledDate < todayIso || s.status === 'completed' || s.status === 'skipped',
   );
@@ -238,20 +239,21 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
     );
     return { x: w.to, y: a.due === 0 ? null : a.ratio };
   });
+  const prescribed = sessions.filter((s) => s.programDayId !== null);
   const weeklyCompleted: Point[] = weekWindows.map((w) => ({
     x: w.to,
-    y: sessions.filter(
+    y: prescribed.filter(
       (s) => s.scheduledDate >= w.from && s.scheduledDate <= w.to && s.status === 'completed',
     ).length,
   }));
-  const scheduled7 = sessions.filter(
+  const scheduled7 = prescribed.filter(
     (s) => s.scheduledDate >= daysBack(6) && s.scheduledDate <= todayIso,
   ).length;
   const missedFortnight = sessions.filter(
     (s) =>
       s.scheduledDate < todayIso && s.status === 'scheduled' && s.scheduledDate >= daysBack(13),
   ).length;
-  const lastCompleted = sessions.filter((s) => s.status === 'completed').at(-1) ?? null;
+  const lastCompleted = prescribed.filter((s) => s.status === 'completed').at(-1) ?? null;
   const painAfterPoints: Point[] = xLabels.map((d) => ({ x: d, y: painByDate.get(d) ?? null }));
   const painBeforePoints: Point[] = xLabels.map((d) => ({ x: d, y: beforeByDate.get(d) ?? null }));
 
