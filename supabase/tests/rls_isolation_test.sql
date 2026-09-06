@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (107);
+  plan (109);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -468,6 +468,44 @@ select is (
 -- Put her back where the rest of this file expects her.
 update public.clients set profile_id = null where id = '00000000-0000-4000-8000-0000000000f5';
 update public.clients set profile_id = '00000000-0000-4000-8000-0000000000c1' where id = '00000000-0000-4000-8000-0000000000f1';
+
+-- A user whose profile never got made still gets in -------------------------
+-- The sign-up trigger is meant to create the profile; on the hosted project a client
+-- reached accept_my_invite without one. The function makes it itself.
+insert into
+  auth.users (
+    id, instance_id, aud, role, email, email_confirmed_at,
+    confirmation_token, recovery_token, email_change_token_new, email_change_token_current,
+    email_change, phone_change, phone_change_token, reauthentication_token, raw_user_meta_data
+  )
+values
+  ('00000000-0000-4000-8000-0000000000c8', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'noprofile@test.local', now(), '', '', '', '', '', '', '', '', '{"first_name":"Margot","last_name":"C"}');
+delete from public.profiles where id = '00000000-0000-4000-8000-0000000000c8';
+
+insert into public.clients (id, coach_id, email, status, first_name_hint, last_name_hint)
+values
+  ('00000000-0000-4000-8000-0000000000f8', '00000000-0000-4000-8000-0000000000a1', 'noprofile@test.local', 'invited', 'Margot', 'C');
+
+insert into public.client_invites (coach_id, client_id, email, token_hash, expires_at)
+values
+  ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000f8', 'noprofile@test.local', 'noprofile-hash', now() + interval '1 day');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c8';
+
+select is (
+  (select public.accept_my_invite()),
+  '00000000-0000-4000-8000-0000000000f8'::uuid,
+  'a user with no profile row can still accept'
+);
+
+select is (
+  (select first_name || ' ' || role::text from public.profiles where id = '00000000-0000-4000-8000-0000000000c8'),
+  'Margot client',
+  'and the profile is created for her on the way'
+);
+
+reset role;
 
 
 -- Metrics and health import -------------------------------------------------
