@@ -700,3 +700,21 @@ failed on the profile foreign key: the sign-up trigger had not made her profile.
 `accept_my_invite` now creates a missing profile itself, and the migration re-asserts the
 trigger. pgTAP 109.
 
+## 0.3.0 — Today, redrawn around a mascot; a food reference (6–7 September 2026)
+
+**Today.** A red panda in a round window under a single trend arc — recovery when read,
+otherwise her own read — green above the mark, amber below, and only the filled part
+drawn. The mascot is film: four scenes cut from a generated clip, played once and resting
+on the last frame, stirring on its own now and then; a cheer (meal, read, session, Strava)
+plays its scene once and hands back. Video playback is a native module, so this ships in
+a build, not an update. Under it, three rings in the order asked — today's session, food,
+mood with a face calibrated to the five reads — each with a "+" into the thing itself.
+A check-in card asks how the training feels against her goal. Progress lost the
+oldest/mean/now strip for a one, two, four week range of daily points.
+
+**Foods.** The USDA Standard Reference (8,789 generic foods, portions, aliases; public
+domain) joins the foods table as `source = 'usda'` with a weighted full-text column, a
+`search_foods` function that ranks staples first, and household portions the add-food
+screen offers as chips. The schema and the search are in; the data migration is generated
+from the delivered SQLite by `scripts/usda-foods-migration.py` and lands as soon as a
+non-empty copy of the file is to hand.

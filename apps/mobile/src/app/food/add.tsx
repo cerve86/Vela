@@ -6,7 +6,9 @@ import {
   MEAL_SLOTS,
   logFood,
   portionOf,
+  listPortions,
   searchFoods,
+  type FoodPortion,
   type Food,
   type Macros,
   type MealSlot,
@@ -16,6 +18,7 @@ import { useTheme } from '@/theme';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/lib/session';
 import { today } from '@/lib/data';
+import { celebrate } from '@/lib/mascot';
 
 /**
  * Narrows a route param, which arrives as a loose string.
@@ -44,7 +47,11 @@ export default function AddFoodScreen() {
 
   // The scanner pushes back here with the food it cached, rather than logging directly:
   // the portion still has to be chosen, and one screen owning that keeps it consistent.
-  const { foodId, barcode, meal: mealParam } = useLocalSearchParams<{
+  const {
+    foodId,
+    barcode,
+    meal: mealParam,
+  } = useLocalSearchParams<{
     foodId?: string;
     barcode?: string;
     meal?: string;
@@ -58,9 +65,7 @@ export default function AddFoodScreen() {
    * presented the picker again for a choice she had just made. `mealForNow()` is the
    * fallback for the one entry point that carries no slot: the tab bar's own scan button.
    */
-  const [meal, setMeal] = useState<MealSlot>(
-    isMealSlot(mealParam) ? mealParam : mealForNow(),
-  );
+  const [meal, setMeal] = useState<MealSlot>(isMealSlot(mealParam) ? mealParam : mealForNow());
 
   /** Whether the slot arrived with her, which decides how loudly to offer changing it. */
   const mealWasChosen = isMealSlot(mealParam);
@@ -68,6 +73,7 @@ export default function AddFoodScreen() {
   const [results, setResults] = useState<Food[]>([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<Food | null>(null);
+  const [portions, setPortions] = useState<FoodPortion[]>([]);
   const [grams, setGrams] = useState('100');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +88,7 @@ export default function AddFoodScreen() {
     supabase
       .from('foods')
       .select(
-        'id, coach_id, source, barcode, name, brand, serving_name, serving_g, kcal_100g, protein_100g, carbs_100g, fat_100g',
+        'id, coach_id, source, barcode, name, brand, serving_name, serving_g, food_group, kcal_100g, protein_100g, carbs_100g, fat_100g',
       )
       .eq('id', foodId)
       .maybeSingle()
@@ -97,6 +103,7 @@ export default function AddFoodScreen() {
           brand: data.brand,
           servingName: data.serving_name,
           servingG: data.serving_g === null ? null : Number(data.serving_g),
+          foodGroup: data.food_group ?? null,
           per100g: {
             kcal: Number(data.kcal_100g),
             proteinG: Number(data.protein_100g),
@@ -129,6 +136,22 @@ export default function AddFoodScreen() {
     return () => clearTimeout(handle);
   }, [query]);
 
+  // Household portions for the chosen food — "1 large", "1 cup" — so she taps rather than
+  // weighs. Loaded on selection; a food with none keeps the plain grams field.
+  useEffect(() => {
+    if (!selected) {
+      setPortions([]);
+      return;
+    }
+    let cancelled = false;
+    void listPortions(supabase, selected.id).then((rows) => {
+      if (!cancelled) setPortions(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selected]);
+
   /**
    * Closes the whole add-food flow and lands back on the diary.
    *
@@ -139,12 +162,14 @@ export default function AddFoodScreen() {
    */
   function done() {
     router.dismissAll();
+    celebrate('food');
     router.replace('/nutrition');
   }
 
   const gramsNum = Number(grams.replace(',', '.'));
   const portion: Macros | null = useMemo(
-    () => (selected && Number.isFinite(gramsNum) && gramsNum > 0 ? portionOf(selected, gramsNum) : null),
+    () =>
+      selected && Number.isFinite(gramsNum) && gramsNum > 0 ? portionOf(selected, gramsNum) : null,
     [selected, gramsNum],
   );
 
@@ -253,6 +278,11 @@ export default function AddFoodScreen() {
                 <Pill tone="neutral">From the barcode</Pill>
               </View>
             )}
+            {selected.source === 'usda' && (
+              <View style={{ marginTop: t.space.sm, alignItems: 'flex-start' }}>
+                <Pill tone="neutral">{selected.foodGroup ?? 'Generic food'} · USDA</Pill>
+              </View>
+            )}
 
             <View
               style={{
@@ -272,7 +302,7 @@ export default function AddFoodScreen() {
               <Body size={15} color={t.textSecondary}>
                 grams
               </Body>
-              {selected.servingG !== null && (
+              {portions.length === 0 && selected.servingG !== null && (
                 <Pressable
                   onPress={() => setGrams(String(selected.servingG))}
                   style={{
@@ -288,6 +318,34 @@ export default function AddFoodScreen() {
                 </Pressable>
               )}
             </View>
+
+            {portions.length > 0 && (
+              <View
+                style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: t.space.md }}
+              >
+                {portions.slice(0, 6).map((p) => {
+                  const on = Number(grams) === p.gramWeight;
+                  return (
+                    <Pressable
+                      key={p.id}
+                      onPress={() => setGrams(String(p.gramWeight))}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: on }}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        borderRadius: t.radius.pill,
+                        backgroundColor: on ? t.brand[600] : t.softFill,
+                      }}
+                    >
+                      <Body size={12} weight="semibold" color={on ? '#FFFFFF' : t.textSecondary}>
+                        {p.label} · {Math.round(p.gramWeight)} g
+                      </Body>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
 
             {portion && (
               <View style={{ marginTop: t.space.lg, gap: 4 }}>
@@ -345,8 +403,7 @@ export default function AddFoodScreen() {
               )}
               {!searching && query.trim().length >= 2 && results.length === 0 && (
                 <Body size={13} color={t.textSecondary} style={{ marginTop: t.space.md }}>
-                  Nothing matching. Scan the barcode, or add it below with just the
-                  calories.
+                  Nothing matching. Scan the barcode, or add it below with just the calories.
                 </Body>
               )}
               {results.length > 0 && (
@@ -365,7 +422,7 @@ export default function AddFoodScreen() {
                             {f.name}
                           </Body>
                           <Body size={11} color={t.textMuted}>
-                            {f.brand ? `${f.brand} · ` : ''}
+                            {f.brand ? `${f.brand} · ` : f.foodGroup ? `${f.foodGroup} · ` : ''}
                             {Math.round(f.per100g.kcal)} kcal / 100 g
                           </Body>
                         </View>
@@ -377,9 +434,13 @@ export default function AddFoodScreen() {
             </Card>
 
             <Card title="Or just the calories">
-              <Body size={12} color={t.textMuted} style={{ marginBottom: t.space.md, lineHeight: 17 }}>
-                For the meal you are not going to weigh. It counts towards your energy and
-                leaves the macros blank rather than guessing them.
+              <Body
+                size={12}
+                color={t.textMuted}
+                style={{ marginBottom: t.space.md, lineHeight: 17 }}
+              >
+                For the meal you are not going to weigh. It counts towards your energy and leaves
+                the macros blank rather than guessing them.
               </Body>
               <View style={{ gap: t.space.sm }}>
                 <TextInput

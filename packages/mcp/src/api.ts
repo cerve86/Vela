@@ -17,6 +17,7 @@ export interface VelaConfig {
 }
 
 export const DEFAULT_URL = 'https://www.vela-coaching.com';
+const REQUEST_TIMEOUT_MS = 45_000;
 
 export function configFromEnv(env: Record<string, string | undefined>): VelaConfig {
   const apiKey = env.VELA_API_KEY?.trim();
@@ -142,13 +143,18 @@ export class VelaApi {
           ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
         },
         body: body === undefined ? undefined : JSON.stringify(body),
+        // A portal that does not answer must become an error the assistant can relay,
+        // not a tool call that hangs until the desktop app gives up minutes later.
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
     } catch (e) {
-      throw new VelaApiError(
-        0,
-        null,
-        `Could not reach ${this.cfg.url}: ${e instanceof Error ? e.message : String(e)}`,
-      );
+      const reason =
+        e instanceof Error && e.name === 'TimeoutError'
+          ? `no answer within ${REQUEST_TIMEOUT_MS / 1000} seconds`
+          : e instanceof Error
+            ? e.message
+            : String(e);
+      throw new VelaApiError(0, null, `Could not reach ${this.cfg.url}: ${reason}`);
     }
 
     const text = await res.text();

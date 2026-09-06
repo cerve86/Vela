@@ -13,7 +13,15 @@ import { VelaIcon } from '@/components/brand';
 import { Illustration } from '@/components/Illustration';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
-import { addDays, localDay, startOfWeek, today, useHistory, useMetrics, useNutrition } from '@/lib/data';
+import {
+  addDays,
+  localDay,
+  startOfWeek,
+  today,
+  useHistory,
+  useMetrics,
+  useNutrition,
+} from '@/lib/data';
 import { useMyChallenges, type ClientChallenge } from '@/lib/challenges';
 
 /**
@@ -52,6 +60,8 @@ export default function ProgressScreen() {
   const challenges = useMyChallenges();
 
   const [metric, setMetric] = useState<MetricType>('resting_hr');
+  /** How far back the vitals chart looks: one, two or four weeks. */
+  const [rangeDays, setRangeDays] = useState<7 | 14 | 28>(14);
 
   useFocusEffect(
     useCallback(() => {
@@ -71,10 +81,21 @@ export default function ProgressScreen() {
    * is the smallest honest smoothing: it drops no data, it just stops pretending the
    * pixel budget can resolve 112 points.
    */
-  const series = useMemo(
-    () => weeklyMeans(metrics.data.filter((m) => m.type === metric)),
-    [metrics.data, metric],
-  );
+  /**
+   * One value per day over the chosen range — the last reading of each day, so a day with
+   * three weigh-ins is one point. Four weeks is 28 points on a 300px chart, which the eye
+   * can still resolve, and one week is seven; the weekly means the sixteen-week view needed
+   * are no longer the question this chart answers.
+   */
+  const series = useMemo(() => {
+    const from = addDays(today(), -(rangeDays - 1));
+    const byDay = new Map<string, number>();
+    for (const m of metrics.data.filter((x) => x.type === metric)) {
+      const day = localDay(m.recordedAt);
+      if (day >= from) byDay.set(day, m.value);
+    }
+    return [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
+  }, [metrics.data, metric, rangeDays]);
 
   const { weeks, kept, scheduled } = useMemo(() => buildHeatmap(history.data), [history.data]);
 
@@ -204,8 +225,8 @@ export default function ProgressScreen() {
                   </View>
 
                   <Body size={11} color={t.textMuted} style={{ marginTop: 14, lineHeight: 16 }}>
-                    A group total, not a league table. You can see what everyone has done
-                    together and what you added — never anybody else&apos;s name or numbers.
+                    A group total, not a league table. You can see what everyone has done together
+                    and what you added — never anybody else&apos;s name or numbers.
                   </Body>
                 </Card>
               </Rise>
@@ -216,7 +237,11 @@ export default function ProgressScreen() {
                 <CardHead icon="trend-wave" title="Sessions against soreness" />
                 {trendReady ? (
                   <>
-                    <Body size={12.5} color={t.textSecondary} style={{ marginTop: 4, lineHeight: 18 }}>
+                    <Body
+                      size={12.5}
+                      color={t.textSecondary}
+                      style={{ marginTop: 4, lineHeight: 18 }}
+                    >
                       Both on one scale, so the shapes can be compared rather than the numbers.
                     </Body>
                     <View style={{ marginTop: 16 }}>
@@ -225,8 +250,8 @@ export default function ProgressScreen() {
                   </>
                 ) : (
                   <Body size={13} color={t.textSecondary} style={{ marginTop: 8, lineHeight: 19 }}>
-                    This needs symptom scores from at least two weeks of sessions. It draws
-                    itself once you have logged a few.
+                    This needs symptom scores from at least two weeks of sessions. It draws itself
+                    once you have logged a few.
                   </Body>
                 )}
               </Card>
@@ -259,12 +284,39 @@ export default function ProgressScreen() {
                           identity hues are too close to tell apart side by side, and a
                           mono chart never needs them — the selected chip is simply brand.
                         */}
+                        <Body size={11} weight="medium" color={on ? '#FFFFFF' : t.textSecondary}>
+                          {METRIC_META[m].label}
+                        </Body>
+                      </Tap>
+                    );
+                  })}
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
+                  {([7, 14, 28] as const).map((d) => {
+                    const on = d === rangeDays;
+                    return (
+                      <Tap
+                        key={d}
+                        onPress={() => setRangeDays(d)}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: on }}
+                        style={{
+                          flex: 1,
+                          borderRadius: 12,
+                          paddingVertical: 7,
+                          alignItems: 'center',
+                          backgroundColor: on ? t.softFill : 'transparent',
+                          borderWidth: 1,
+                          borderColor: on ? t.border : 'transparent',
+                        }}
+                      >
                         <Body
                           size={11}
-                          weight="medium"
-                          color={on ? '#FFFFFF' : t.textSecondary}
+                          weight={on ? 'semibold' : 'medium'}
+                          color={on ? t.textPrimary : t.textMuted}
                         >
-                          {METRIC_META[m].label}
+                          {d === 7 ? '1 week' : d === 14 ? '2 weeks' : '4 weeks'}
                         </Body>
                       </Tap>
                     );
@@ -275,8 +327,9 @@ export default function ProgressScreen() {
                   <View style={{ alignItems: 'center', paddingVertical: 22, gap: 10 }}>
                     <Illustration name="trend" width={150} />
                     <Body size={13} color={t.textSecondary} style={{ textAlign: 'center' }}>
-                      Nothing recorded for {meta.label.toLowerCase()} yet. Connect Apple Health
-                      from Today and this fills itself in.
+                      Nothing recorded for {meta.label.toLowerCase()} in the last{' '}
+                      {rangeDays === 7 ? 'week' : `${rangeDays / 7} weeks`}. Connect Apple Health
+                      from Profile and this fills itself in.
                     </Body>
                   </View>
                 ) : (
@@ -291,23 +344,6 @@ export default function ProgressScreen() {
                     </View>
                     <View style={{ marginTop: 12 }}>
                       <MonoChart values={series} goodDown={Boolean(GOOD_DOWN[metric])} />
-                    </View>
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        justifyContent: 'space-between',
-                        marginTop: 2,
-                      }}
-                    >
-                      <Body size={11} color={t.textSecondary}>
-                        oldest · {fmt(series[0]!)}
-                      </Body>
-                      <Body size={11} color={t.textSecondary}>
-                        mean {fmt(series.reduce((a, b) => a + b, 0) / series.length)}
-                      </Body>
-                      <Body size={11} color={t.textSecondary}>
-                        now · {fmt(series[series.length - 1]!)}
-                      </Body>
                     </View>
                   </>
                 )}
@@ -410,8 +446,8 @@ function ChallengeRow({ entry, today: todayIso }: { entry: ClientChallenge; toda
       </View>
 
       <Body size={11.5} color={t.textSecondary} style={{ marginTop: 7 }}>
-        {standing.groupTotal} of {standing.groupTarget} together, across{' '}
-        {standing.participants} {standing.participants === 1 ? 'person' : 'people'}
+        {standing.groupTotal} of {standing.groupTarget} together, across {standing.participants}{' '}
+        {standing.participants === 1 ? 'person' : 'people'}
       </Body>
     </View>
   );
@@ -485,7 +521,9 @@ function MilestoneTile({
         {milestone.label}
       </Body>
 
-      <View style={{ marginTop: 'auto', alignItems: 'flex-end', marginRight: -8, marginBottom: -12 }}>
+      <View
+        style={{ marginTop: 'auto', alignItems: 'flex-end', marginRight: -8, marginBottom: -12 }}
+      >
         <MilestoneBlob character={milestone.character} state={state} index={index} width={86} />
       </View>
     </View>
@@ -531,7 +569,15 @@ function CardHead({ icon, title }: { icon: 'trend-wave' | 'pain-point'; title: s
   );
 }
 
-function Figure({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+function Figure({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
   const t = useTheme();
   return (
     <View>
@@ -595,34 +641,9 @@ function buildHeatmap(sessions: { scheduledDate: string; status: string }[]) {
 function weekRatio(col: CellState[]): number {
   const due = col.filter((c) => c === 'full' || c === 'partial' || c === 'missed').length;
   if (!due) return 0;
-  const done = col.filter((c) => c === 'full').length + col.filter((c) => c === 'partial').length * 0.5;
+  const done =
+    col.filter((c) => c === 'full').length + col.filter((c) => c === 'partial').length * 0.5;
   return done / due;
-}
-
-/**
- * Collapses readings into one point per ISO week, in order.
- *
- * Weeks with no reading are dropped rather than interpolated. A straight segment across a
- * gap is a claim that nothing happened in between, and it is indistinguishable from a
- * week that genuinely held steady.
- */
-function weeklyMeans(readings: { recordedAt: string; value: number }[]): number[] {
-  const buckets = new Map<string, { sum: number; n: number }>();
-  for (const r of readings) {
-    // Local day, not the UTC slice — otherwise a reading taken late in the evening east
-    // of Greenwich is bucketed into the following week.
-    const w = startOfWeek(localDay(r.recordedAt));
-    const b = buckets.get(w);
-    if (b) {
-      b.sum += r.value;
-      b.n++;
-    } else {
-      buckets.set(w, { sum: r.value, n: 1 });
-    }
-  }
-  return [...buckets.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([, b]) => Math.round((b.sum / b.n) * 10) / 10);
 }
 
 /**
@@ -644,9 +665,4 @@ function weeklySoreness(sessions: { scheduledDate: string; painAfter: number | n
     out.push(scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length / 10 : null);
   }
   return out;
-}
-
-function fmt(n: number): string {
-  const r = Math.round(n * 10) / 10;
-  return Number.isInteger(r) ? String(r) : r.toFixed(1);
 }

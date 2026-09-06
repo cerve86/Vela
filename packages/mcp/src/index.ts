@@ -20,6 +20,17 @@ async function main() {
   await server.connect(new StdioServerTransport());
 }
 
+// A rejection nobody caught must not take the process down mid-call: the desktop app
+// would show a tool that never answered. Log it and keep serving.
+process.on('unhandledRejection', (e) => {
+  process.stderr.write(
+    `vela-mcp: unhandled rejection: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}\n`,
+  );
+});
+process.on('uncaughtException', (e) => {
+  process.stderr.write(`vela-mcp: uncaught exception: ${e.stack ?? e.message}\n`);
+});
+
 main().catch((e) => {
   process.stderr.write(`vela-mcp: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}\n`);
   process.exit(1);

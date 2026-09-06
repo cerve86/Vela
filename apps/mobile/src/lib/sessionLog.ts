@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { SessionPlanItem } from '@vela/api';
 import { supabase } from './supabase';
+import { celebrate } from '@/lib/mascot';
 
 /**
  * State for one logged session: which sets are done, how long it has run, and the send.
@@ -35,9 +36,12 @@ export function useSessionLog(sessionId: string | null, plan: SessionPlanItem[])
   const [restored, setRestored] = useState(false);
 
   const [elapsed, setElapsed] = useState(0);
-  const [rest, setRest] = useState<{ runId: number; remaining: number; total: number; next: string } | null>(
-    null,
-  );
+  const [rest, setRest] = useState<{
+    runId: number;
+    remaining: number;
+    total: number;
+    next: string;
+  } | null>(null);
   const [sendState, setSendState] = useState<SendState>('idle');
   const [sendError, setSendError] = useState<string | null>(null);
 
@@ -205,6 +209,7 @@ export function useSessionLog(sessionId: string | null, plan: SessionPlanItem[])
       }
 
       setSendState('sent');
+      celebrate('session');
       // Only now is the local copy redundant.
       void AsyncStorage.removeItem(key(sessionId)).catch(() => {});
     },

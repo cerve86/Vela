@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { Utensils } from 'lucide-react-native';
+import { Frown, Laugh, Meh, Smile, SmilePlus, Utensils } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { activePlan, planMinutes, type RecoveryBand } from '@vela/shared';
+import { VelaIcon as VelaGlyph } from '@/components/brand';
 import {
   Body,
   Button,
@@ -17,19 +18,22 @@ import {
   StatTile,
 } from '@/components/kit';
 import { VelaIcon } from '@/components/brand';
-import {
-  DialStat,
-  DualDial,
-  HeroBand,
-  HeroChip,
-  SlotStrip,
-  Tile,
-  TideBars,
-} from '@/components/hero';
+import { HeroBand } from '@/components/hero';
+import { Mascot, TrendGauge, type MascotMood } from '@/components/mascot';
+import { RingStat } from '@/components/rings';
+import { CheckInCard } from '@/components/checkin';
 import { Illustration } from '@/components/Illustration';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
-import { addDays, today, useNutrition, useSessionPlan, useUpcoming, useWeek } from '@/lib/data';
+import {
+  addDays,
+  today,
+  useNutrition,
+  useSessionPlan,
+  useUpcoming,
+  useWeek,
+  weekAdherence,
+} from '@/lib/data';
 import { useDailyRead } from '@/lib/daily';
 import { syncHealthNow } from '@/lib/healthSync';
 import { useVitality } from '@/lib/vitality';
@@ -128,27 +132,6 @@ export default function TodayScreen() {
   const recoveryToneSoft =
     vitality.recovery.score === null ? t.textMuted : BAND_TONE_SOFT(t)[vitality.recovery.band];
 
-  /**
-   * The chip under the dial: the read she just gave, named and attributed.
-   *
-   * It used to repeat `active.tag · mins`, both of which the plan card below already states —
-   * as a tag and as the TIME tile — and neither of which means anything on a rest day. The
-   * read had no plain-language home on this screen at all: it was a word inside the ring at
-   * 15px and a bare number on the tile. So the chip carries the read instead, with the
-   * window it came from, and the symptom when there is one, since a symptom is the part that
-   * changes what she should do today.
-   */
-  const readChip =
-    daily.current === null
-      ? 'No read yet — tap to add one'
-      : [
-          capitalise(daily.currentWindow ?? daily.openWindow),
-          t.tide[daily.current]!.label,
-          daily.read.symptom === 'Nothing' ? null : daily.read.symptom,
-        ]
-          .filter(Boolean)
-          .join(' · ');
-
   // `useNutrition(1)` windows to today alone, so `days` holds at most one row. Reading the
   // rolled-up day rather than summing entries here keeps one definition of a daily total.
   const dayTotals = nutrition.data.days.find((d) => d.day === todayIso);
@@ -161,6 +144,31 @@ export default function TodayScreen() {
     t.mealSlots.map((s) => [s.key, nutrition.data.entries.some((e) => e.meal === s.key)]),
   );
   const slotCount = Object.values(loggedSlots).filter(Boolean).length;
+  const weekSoFar = weekAdherence(week.data);
+
+  /** What the ring under the mascot says about today's session. */
+  const activityRing: { value: number | null; label: string } = !week.todaySession
+    ? { value: null, label: 'Rest day' }
+    : done
+      ? { value: 1, label: 'Session done' }
+      : started
+        ? { value: 0.5, label: 'In progress' }
+        : recorded
+          ? { value: 1, label: 'Recorded' }
+          : { value: 0, label: `${active.items.length || 1} session · ${mins} min` };
+
+  /**
+   * How the day is trending, as one figure: recovery when it has been read, otherwise
+   * her own read, otherwise nothing. Above the middle mark she is up for it; below it she
+   * is tired — and the mascot says so before a single number does.
+   */
+  const trend: number | null =
+    vitality.recovery.score !== null
+      ? vitality.recovery.score / 100
+      : daily.current !== null
+        ? daily.current / 4
+        : null;
+  const mascotMood: MascotMood = trend !== null && trend < 0.5 ? 'low-energy' : 'greeting';
 
   return (
     <Screen>
@@ -181,53 +189,14 @@ export default function TodayScreen() {
         }
       >
         <HeroBand>
-          <View style={{ paddingTop: insets.top + 22 }}>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 6,
-              }}
+          <View style={{ paddingTop: insets.top + 10, alignItems: 'center' }}>
+            {/* The mascot, under the trend gauge: how today is going, before any number. */}
+            <TrendGauge
+              value={trend}
+              tone={trend !== null && trend >= 0.5 ? t.status.good : t.status.warning}
             >
-              <DialStat
-                value={vitality.recovery.score === null ? '—' : `${vitality.recovery.score}%`}
-                label="RECOVERY"
-                sub={
-                  vitality.recovery.score === null ? 'not yet' : BAND_WORD[vitality.recovery.band]
-                }
-                align="right"
-                tone={vitality.recovery.score === null ? t.textMuted : undefined}
-              />
-              <DualDial
-                recovery={vitality.recovery.score}
-                strain={vitality.strain.score}
-                strainTarget={vitality.strain.target}
-                tone={recoveryTone}
-                toneSoft={recoveryToneSoft}
-              />
-              <DialStat
-                value={`${vitality.strain.score}%`}
-                label="STRAIN"
-                /*
-                 * Three different silences, and they used to read as one.
-                 *
-                 * "No target" meant "rest day" whatever the reason, which was defensible
-                 * while strain counted prescribed sets and nothing else. Now that it counts
-                 * her heart rate, a Saturday with no session but a long walk in it has a
-                 * real figure and no target — and calling that a rest day contradicts the
-                 * number printed directly above it.
-                 */
-                sub={
-                  vitality.strain.target !== null
-                    ? `target ${vitality.strain.target}%`
-                    : vitality.strain.score === 0
-                      ? 'rest day'
-                      : 'no target yet'
-                }
-                align="left"
-              />
-            </View>
+              <Mascot mood={mascotMood} size={172} />
+            </TrendGauge>
 
             <Text
               style={{
@@ -236,73 +205,93 @@ export default function TodayScreen() {
                 lineHeight: 21,
                 color: t.textPrimary,
                 textAlign: 'center',
-                marginTop: 18,
+                marginTop: 4,
+                paddingHorizontal: 8,
               }}
             >
               {vitality.recovery.score === null
                 ? greeting(name, daily.current, done, Boolean(week.todaySession))
                 : vitality.recovery.note}
             </Text>
+            <Body size={11} color={t.textSecondary} style={{ textAlign: 'center', marginTop: 6 }}>
+              {vitality.recovery.score === null
+                ? 'Recovery not read yet'
+                : `Recovery ${vitality.recovery.score}% · ${BAND_WORD[vitality.recovery.band].toLowerCase()}`}
+              {vitality.strain.score > 0 ? ` · strain ${vitality.strain.score}%` : ''}
+              {vitality.recovery.score !== null && vitality.recovery.estimated
+                ? ' · from how you feel'
+                : ''}
+            </Body>
 
-            {/*
-              `estimated` used to mean "no sleep last night" and now means something
-              narrower and more important: nothing was measured at all, so this figure is
-              her own answer and nothing else. Saying so is the whole point — a number built
-              from one tap must not sit under the same ring, in the same type, as one built
-              from a night's readings.
-            */}
-            {vitality.recovery.score !== null && (
-              <Body size={11} color={t.textSecondary} style={{ textAlign: 'center', marginTop: 8 }}>
-                {/*
-                  How much stands behind the number. Fifty per cent from six overnight
-                  readings and fifty per cent from sleep alone rendered identically before,
-                  which is the difference between a measurement and a guess presented in
-                  the same type. `sources` was always computed; it just never reached the
-                  screen.
-                */}
-                {vitality.recovery.estimated
-                  ? 'From how you feel · connect Apple Health for the rest'
-                  : signalLine(vitality.recovery.sources)}
-              </Body>
-            )}
-
-            <HeroChip
-              label={readChip}
-              dot={daily.current === null ? t.textMuted : t.tide[daily.current]!.tone}
-              onPress={() => router.push('/mood')}
-            />
+            <View style={{ flexDirection: 'row', marginTop: 22, width: '100%' }}>
+              <RingStat
+                value={activityRing.value}
+                color={t.status.good}
+                icon={
+                  <VelaGlyph
+                    name="program-block"
+                    size={24}
+                    color={t.status.good}
+                    strokeWidth={2.2}
+                  />
+                }
+                label={activityRing.label}
+                onPress={() =>
+                  router.push(
+                    week.todaySession ? `/session/${week.todaySession.id}` : '/(tabs)/progress',
+                  )
+                }
+                onAdd={() =>
+                  router.push(
+                    week.todaySession ? `/session/${week.todaySession.id}` : '/(tabs)/progress',
+                  )
+                }
+                addLabel="Open today's session"
+              />
+              <RingStat
+                value={target ? Math.min(1, kcal / target) : kcal > 0 ? 1 : 0}
+                color="#9A6BFF"
+                icon={<Utensils size={22} color="#9A6BFF" strokeWidth={2.2} />}
+                label={
+                  target
+                    ? `${Math.max(0, target - kcal).toLocaleString('en-GB')} kcal left`
+                    : kcal
+                      ? `${kcal.toLocaleString('en-GB')} kcal`
+                      : 'No meals yet'
+                }
+                onPress={() => router.push('/(tabs)/nutrition')}
+                onAdd={() => router.push('/food/add')}
+                addLabel="Log a meal"
+              />
+              <RingStat
+                value={daily.current === null ? null : (daily.current + 1) / 5}
+                color={daily.current === null ? t.textMuted : t.tide[daily.current]!.tone}
+                icon={
+                  <MoodIcon
+                    level={daily.current}
+                    color={daily.current === null ? t.textMuted : t.tide[daily.current]!.tone}
+                  />
+                }
+                label={
+                  daily.current === null
+                    ? 'How do you feel?'
+                    : `${t.tide[daily.current]!.label} · ${capitalise(daily.currentWindow ?? daily.openWindow)}`
+                }
+                onPress={() => router.push('/mood')}
+                onAdd={() => router.push('/mood')}
+                addLabel="Log how you feel"
+              />
+            </View>
           </View>
         </HeroBand>
 
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-          <Tile
-            icon={<VelaIcon name="readiness" size={14} color={t.brand[600]} strokeWidth={2.2} />}
-            title={`${capitalise(daily.openWindow)} read`}
-            value={daily.current === null ? '—' : String(daily.current + 1)}
-            unit={daily.current === null ? undefined : 'of 5'}
-            pill={
-              daily.allLogged ? 'All three in' : daily.current === null ? 'Not logged' : 'Logged'
-            }
-            pillBg={daily.current === null ? t.softFill : t.tint.mint}
-            pillFg={daily.current === null ? t.textSecondary : t.status.good}
-            meta={daily.read.symptom === 'Nothing' ? 'No symptoms' : daily.read.symptom}
-            strip={<TideBars values={daily.strip} />}
-            onPress={() => router.push('/mood')}
-          />
-
-          <Tile
-            icon={<Utensils size={14} color={t.status.warning} strokeWidth={2.2} />}
-            title="Fuel"
-            value={kcal ? kcal.toLocaleString('en-GB') : '0'}
-            unit="kcal"
-            pill={`${slotCount} of 4`}
-            pillBg={slotCount === 0 ? t.softFill : t.tint.cream}
-            pillFg={slotCount === 0 ? t.textSecondary : t.brand[700]}
-            meta={target ? `of ${target.toLocaleString('en-GB')}` : 'No target set'}
-            strip={<SlotStrip logged={loggedSlots} />}
-            onPress={() => router.push('/(tabs)/nutrition')}
-          />
-        </View>
+        <CheckInCard
+          completed={weekSoFar.completed}
+          due={weekSoFar.due}
+          goal={client?.goal ?? null}
+          allLogged={daily.allLogged}
+          readGiven={daily.current !== null}
+        />
 
         {week.loading ? (
           <Card>
@@ -538,4 +527,26 @@ function friendlyDate(iso: string, todayIso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   const dt = new Date(y!, (m ?? 1) - 1, d ?? 1);
   return dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+/**
+ * The mood ring's icon, calibrated to the five reads: from a frown at Depleted to a laugh
+ * at Strong. One family of faces, so the scale reads as one thing at different levels.
+ */
+function MoodIcon({ level, color }: { level: number | null; color: string }) {
+  const props = { size: 22, color, strokeWidth: 2.2 };
+  switch (level) {
+    case 0:
+      return <Frown {...props} />;
+    case 1:
+      return <Meh {...props} />;
+    case 2:
+      return <Smile {...props} />;
+    case 3:
+      return <SmilePlus {...props} />;
+    case 4:
+      return <Laugh {...props} />;
+    default:
+      return <Smile {...props} />;
+  }
 }

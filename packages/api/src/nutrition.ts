@@ -1,7 +1,7 @@
 import type { VelaClient } from './client';
 
 export type MealSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack';
-export type FoodSource = 'off' | 'custom';
+export type FoodSource = 'off' | 'custom' | 'usda';
 export type FoodLogSource = 'barcode' | 'search' | 'custom' | 'quick';
 
 export const MEAL_SLOTS: { value: MealSlot; label: string }[] = [
@@ -32,6 +32,8 @@ export interface Food {
   brand: string | null;
   servingName: string | null;
   servingG: number | null;
+  /** USDA food group for a reference food, e.g. "Vegetables and Vegetable Products". */
+  foodGroup: string | null;
   /** Per 100 g, which is how every label states it and how every portion is derived. */
   per100g: Macros;
   /** Null when the coach did not create it — an Open Food Facts row belongs to nobody. */
@@ -95,10 +97,7 @@ export function portionOf(food: Food, grams: number): Macros {
 export const ENERGY_FLOOR_KCAL = 1600;
 export const LACTATION_ALLOWANCE_KCAL = 400;
 
-export function targetConcerns(
-  kcal: number,
-  opts: { breastfeeding: boolean },
-): string[] {
+export function targetConcerns(kcal: number, opts: { breastfeeding: boolean }): string[] {
   const floor = ENERGY_FLOOR_KCAL + (opts.breastfeeding ? LACTATION_ALLOWANCE_KCAL : 0);
   const concerns: string[] = [];
   if (kcal < floor) {
@@ -213,6 +212,7 @@ interface FoodRow {
   brand: string | null;
   serving_name: string | null;
   serving_g: number | null;
+  food_group?: string | null;
   kcal_100g: number;
   protein_100g: number;
   carbs_100g: number;
@@ -228,6 +228,7 @@ function toFood(row: FoodRow): Food {
     name: row.name,
     brand: row.brand,
     servingName: row.serving_name,
+    foodGroup: row.food_group ?? null,
     servingG: row.serving_g === null ? null : Number(row.serving_g),
     per100g: {
       kcal: Number(row.kcal_100g),
@@ -239,8 +240,13 @@ function toFood(row: FoodRow): Food {
 }
 
 const FOOD_COLUMNS =
-  'id, coach_id, source, barcode, name, brand, serving_name, serving_g, kcal_100g, protein_100g, carbs_100g, fat_100g';
+  'id, coach_id, source, barcode, name, brand, serving_name, serving_g, food_group, kcal_100g, protein_100g, carbs_100g, fat_100g';
 
+/**
+ * Full-text search over every food she can see: the USDA reference, her coach's own foods
+ * and scanned products. Words match as prefixes and results come back ranked — staples
+ * before brand SKUs — by the database's search_foods function.
+ */
 export async function searchFoods(
   supabase: VelaClient,
   query: string,
@@ -248,22 +254,27 @@ export async function searchFoods(
 ): Promise<Food[]> {
   const q = query.trim();
   if (q.length < 2) return [];
-  // Escape the wildcards rather than interpolating raw input into the pattern: a stray
-  // % turns "search" into "return everything".
-  const pattern = `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
-  const { data } = await supabase
-    .from('foods')
-    .select(FOOD_COLUMNS)
-    .or(`name.ilike.${pattern},brand.ilike.${pattern}`)
-    .order('name')
-    .limit(limit);
-  return (data ?? []).map(toFood);
+  const { data } = await supabase.rpc('search_foods', { p_query: q, p_limit: limit });
+  return ((data ?? []) as FoodRow[]).map(toFood);
 }
 
-export async function foodByBarcode(
-  supabase: VelaClient,
-  barcode: string,
-): Promise<Food | null> {
+export interface FoodPortion {
+  id: string;
+  label: string;
+  gramWeight: number;
+}
+
+/** Household portions for a food — "1 large", "1 cup, chopped" — in the order they were given. */
+export async function listPortions(supabase: VelaClient, foodId: string): Promise<FoodPortion[]> {
+  const { data } = await supabase
+    .from('food_portions')
+    .select('id, label, gram_weight')
+    .eq('food_id', foodId)
+    .order('seq', { ascending: true });
+  return (data ?? []).map((r) => ({ id: r.id, label: r.label, gramWeight: Number(r.gram_weight) }));
+}
+
+export async function foodByBarcode(supabase: VelaClient, barcode: string): Promise<Food | null> {
   const { data } = await supabase
     .from('foods')
     .select(FOOD_COLUMNS)
