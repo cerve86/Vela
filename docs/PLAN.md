@@ -665,3 +665,9 @@ insert any session (policy now allows only a Strava ad-hoc row); a multi-byte st
 the callback (byte lengths); Today could pick the Strava row (ranked); disconnect revoked
 with a stale token (refresh first, report the outcome); the review card reviewed unprescribed
 sessions; the feed made one RPC per session (one for all). pgTAP 104.
+
+**Invitation codes, both kinds.** A re-invitation to a verified address emails a sign-in
+code (the auth API will not invite a confirmed user), and the app's invitation screen only
+tried the invitation type, so the code read as invalid. `verifyInviteCode` now tries the
+invitation type and then the sign-in type; either way `accept_my_invite` finishes the link.
+The portal's message to the coach says the code works on either screen. App 0.2.5.
