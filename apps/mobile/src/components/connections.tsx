@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { Body, Button, Card } from '@/components/kit';
 import { useTheme } from '@/theme';
+import { celebrate } from '@/lib/mascot';
 import {
   connectStrava,
   disconnectStrava,
@@ -58,6 +59,7 @@ export function ConnectionsCard() {
     const res = await syncStrava();
     setBusy(null);
     await strava.reload();
+    if (res.imported > 0) celebrate('strava');
     if (res.error) Alert.alert('Could not sync', res.error);
     else
       Alert.alert(

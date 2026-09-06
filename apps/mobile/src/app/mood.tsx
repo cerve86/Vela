@@ -8,6 +8,7 @@ import { Body, Card, Screen } from '@/components/kit';
 import { Tap } from '@/components/motion';
 import { useTheme } from '@/theme';
 import { WINDOWS, useDailyRead, type Tide } from '@/lib/daily';
+import { celebrate } from '@/lib/mascot';
 
 /**
  * The daily readiness read.
@@ -32,7 +33,9 @@ export default function MoodScreen() {
 
   async function lock() {
     if (shut) {
-      setRefusal(daily.allLogged ? 'Three reads a day is plenty.' : 'This window is already logged.');
+      setRefusal(
+        daily.allLogged ? 'Three reads a day is plenty.' : 'This window is already logged.',
+      );
       return;
     }
     if (picked === null) return;
@@ -44,6 +47,7 @@ export default function MoodScreen() {
       setRefusal('This window is already logged.');
       return;
     }
+    celebrate('read');
     router.back();
   }
 
@@ -58,7 +62,9 @@ export default function MoodScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+        >
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
@@ -196,7 +202,10 @@ export default function MoodScreen() {
               const tone = v === undefined ? t.grid : t.tide[v]!.tone;
 
               return (
-                <View key={w.key} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View
+                  key={w.key}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                >
                   <View style={{ alignItems: 'center', gap: 5, width: 62 }}>
                     <View
                       style={{
@@ -227,7 +236,9 @@ export default function MoodScreen() {
                     </Body>
                   </View>
                   {i < WINDOWS.length - 1 && (
-                    <View style={{ flex: 1, height: 2, borderRadius: 1, backgroundColor: t.grid }} />
+                    <View
+                      style={{ flex: 1, height: 2, borderRadius: 1, backgroundColor: t.grid }}
+                    />
                   )}
                 </View>
               );
@@ -235,8 +246,8 @@ export default function MoodScreen() {
           </View>
 
           <Body size={11} color={t.textSecondary} style={{ marginTop: 16, lineHeight: 16 }}>
-            Three reads a day, each locked once submitted. Enough to see a pattern, not enough
-            to become a chore.
+            Three reads a day, each locked once submitted. Enough to see a pattern, not enough to
+            become a chore.
           </Body>
         </Card>
 

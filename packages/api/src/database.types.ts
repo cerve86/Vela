@@ -725,48 +725,95 @@ export type Database = {
           },
         ]
       }
+      food_portions: {
+        Row: {
+          food_id: string
+          gram_weight: number
+          id: string
+          label: string
+          seq: number
+        }
+        Insert: {
+          food_id: string
+          gram_weight: number
+          id?: string
+          label: string
+          seq?: number
+        }
+        Update: {
+          food_id?: string
+          gram_weight?: number
+          id?: string
+          label?: string
+          seq?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_portions_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       foods: {
         Row: {
+          aliases: string[]
           barcode: string | null
           brand: string | null
           carbs_100g: number
           coach_id: string | null
           created_at: string
           fat_100g: number
+          food_group: string | null
           id: string
           kcal_100g: number
           name: string
+          ndb_no: string | null
           protein_100g: number
+          rank_boost: number
+          search: unknown
           serving_g: number | null
           serving_name: string | null
           source: Database["public"]["Enums"]["food_source"]
         }
         Insert: {
+          aliases?: string[]
           barcode?: string | null
           brand?: string | null
           carbs_100g?: number
           coach_id?: string | null
           created_at?: string
           fat_100g?: number
+          food_group?: string | null
           id?: string
           kcal_100g: number
           name: string
+          ndb_no?: string | null
           protein_100g?: number
+          rank_boost?: number
+          search?: unknown
           serving_g?: number | null
           serving_name?: string | null
           source: Database["public"]["Enums"]["food_source"]
         }
         Update: {
+          aliases?: string[]
           barcode?: string | null
           brand?: string | null
           carbs_100g?: number
           coach_id?: string | null
           created_at?: string
           fat_100g?: number
+          food_group?: string | null
           id?: string
           kcal_100g?: number
           name?: string
+          ndb_no?: string | null
           protein_100g?: number
+          rank_boost?: number
+          search?: unknown
           serving_g?: number | null
           serving_name?: string | null
           source?: Database["public"]["Enums"]["food_source"]
@@ -1359,6 +1406,7 @@ export type Database = {
       import_health_metrics: { Args: { p_samples: Json }; Returns: number }
       is_coach_of: { Args: { target_client: string }; Returns: boolean }
       is_the_client: { Args: { target_client: string }; Returns: boolean }
+      join_words: { Args: { p: string[] }; Returns: string }
       mark_onboarded: { Args: never; Returns: string }
       nutrition_days: {
         Args: { p_client: string; p_from: string; p_to: string }
@@ -1401,6 +1449,35 @@ export type Database = {
         }
         Returns: undefined
       }
+      search_foods: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          aliases: string[]
+          barcode: string | null
+          brand: string | null
+          carbs_100g: number
+          coach_id: string | null
+          created_at: string
+          fat_100g: number
+          food_group: string | null
+          id: string
+          kcal_100g: number
+          name: string
+          ndb_no: string | null
+          protein_100g: number
+          rank_boost: number
+          search: unknown
+          serving_g: number | null
+          serving_name: string | null
+          source: Database["public"]["Enums"]["food_source"]
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "foods"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       challenge_metric: "sessions_completed" | "fuel_days"
@@ -1418,7 +1495,7 @@ export type Database = {
         | "running"
         | "mobility"
       food_log_source: "barcode" | "search" | "custom" | "quick"
-      food_source: "off" | "custom"
+      food_source: "off" | "custom" | "usda"
       meal_slot: "breakfast" | "lunch" | "dinner" | "snack"
       metric_source: "manual" | "healthkit" | "coach"
       metric_type:
@@ -1591,7 +1668,7 @@ export const Constants = {
         "mobility",
       ],
       food_log_source: ["barcode", "search", "custom", "quick"],
-      food_source: ["off", "custom"],
+      food_source: ["off", "custom", "usda"],
       meal_slot: ["breakfast", "lunch", "dinner", "snack"],
       metric_source: ["manual", "healthkit", "coach"],
       metric_type: [
