@@ -119,3 +119,38 @@ Two things in the Supabase dashboard make this work and must stay true:
 - **Authentication → Email Templates**: "Invite user" and "Reset password" are the two
   templates clients receive. Their default links (`{{ .ConfirmationURL }}`) work as they
   are; wording can be changed freely. The "Magic Link" template is only used by coaches.
+
+### Email templates (Supabase → Authentication → Email Templates)
+
+The templates were written for the six-digit-code era and show `{{ .Token }}`. Replace
+the two that clients receive with links to the welcome page. The `token_hash` form is
+deliberate: it does not depend on the Redirect URLs allow list.
+
+**Invite user** — subject `You're invited to Vela`:
+
+```html
+<h2>Your physiotherapist has invited you to Vela</h2>
+<p>Choose a password and you're in. The link works once and for an hour.</p>
+<p><a href="{{ .SiteURL }}/welcome?token_hash={{ .TokenHash }}&type=invite">Set my password</a></p>
+<p>
+  If the link does not open, go to {{ .SiteURL }}/welcome and enter this code:
+  <strong>{{ .Token }}</strong>
+</p>
+```
+
+**Reset password** — subject `Choose a new Vela password`:
+
+```html
+<h2>Choose a new password</h2>
+<p>Someone (probably you) asked for a new Vela password. The link works once and for an hour.</p>
+<p>
+  <a href="{{ .SiteURL }}/welcome?token_hash={{ .TokenHash }}&type=recovery">Choose my password</a>
+</p>
+<p>
+  If the link does not open, go to {{ .SiteURL }}/welcome and enter this code:
+  <strong>{{ .Token }}</strong>
+</p>
+<p>If you did not ask for this, ignore it; nothing changes.</p>
+```
+
+Leave **Magic Link** as it is — coaches sign in to the portal with it.
