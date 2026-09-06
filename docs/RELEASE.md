@@ -104,3 +104,18 @@ SUPABASE_URL=https://eainnbmlzbhfftcpushs.supabase.co SUPABASE_SERVICE_ROLE_KEY=
 EMAIL=tester@example.com PASSWORD='at least twelve characters' \
 SEED_ALLOW_REMOTE=1 node scripts/set-password.mjs
 ```
+
+## How a client gets in
+
+One email, no codes. The coach invites; the client gets an email whose link opens
+`/welcome` on the portal, where she chooses a password (and the pending invitation is
+accepted); she then signs in to the app with email and password. "Forgot your password?"
+in the app sends a link to the same page.
+
+Two things in the Supabase dashboard make this work and must stay true:
+
+- **Authentication → URL Configuration → Redirect URLs** must include
+  `https://www.vela-coaching.com/welcome` (the invitation and reset emails redirect there).
+- **Authentication → Email Templates**: "Invite user" and "Reset password" are the two
+  templates clients receive. Their default links (`{{ .ConfirmationURL }}`) work as they
+  are; wording can be changed freely. The "Magic Link" template is only used by coaches.

@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (104);
+  plan (107);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -427,6 +427,47 @@ select is (
   1::bigint,
   'coach A reads her client''s activity only'
 );
+
+
+-- A second invitation moves the person rather than failing --------------------
+-- Client one is linked to practice A. Practice B invites the same address; accepting
+-- releases the old row and links the new one, instead of dying on the unique key.
+reset role;
+
+insert into public.clients (id, coach_id, email, status, first_name_hint, last_name_hint)
+values
+  ('00000000-0000-4000-8000-0000000000f5', '00000000-0000-4000-8000-0000000000a2', 'client.one@test.local', 'invited', 'One', '');
+
+insert into public.client_invites (coach_id, client_id, email, token_hash, expires_at)
+values
+  ('00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-0000000000f5', 'client.one@test.local', 'move-hash', now() + interval '1 day');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select public.accept_my_invite()),
+  '00000000-0000-4000-8000-0000000000f5'::uuid,
+  'a person already linked elsewhere can accept a new invitation'
+);
+
+select is (
+  (select profile_id from public.clients where id = '00000000-0000-4000-8000-0000000000f5'),
+  '00000000-0000-4000-8000-0000000000c1'::uuid,
+  'and is now the new practice''s client'
+);
+
+reset role;
+
+select is (
+  (select profile_id from public.clients where id = '00000000-0000-4000-8000-0000000000f1'),
+  null,
+  'while the old row keeps its history with no login attached'
+);
+
+-- Put her back where the rest of this file expects her.
+update public.clients set profile_id = null where id = '00000000-0000-4000-8000-0000000000f5';
+update public.clients set profile_id = '00000000-0000-4000-8000-0000000000c1' where id = '00000000-0000-4000-8000-0000000000f1';
 
 
 -- Metrics and health import -------------------------------------------------

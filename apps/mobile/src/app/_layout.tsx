@@ -21,7 +21,7 @@ SplashScreen.preventAutoHideAsync();
 
 /**
  * Routing gate. Four states, in order:
- *   no session              → sign-in (or the invite screen, which is public by design)
+ *   no session              → sign-in
  *   session, no consent     → consent
  *   consented, not onboarded → welcome
  *   all three               → the app
@@ -41,7 +41,6 @@ function Gate() {
   useHealthAutoSync();
 
   const route = segments[0] ?? '';
-  const onInvite = route === 'invite';
   const onSignIn = route === 'sign-in';
   const onConsent = route === 'consent';
   const onWelcome = route === 'welcome';
@@ -49,10 +48,6 @@ function Gate() {
 
   useEffect(() => {
     if (loading) return;
-
-    // The invite screen must stay reachable while signed out — it is how an account
-    // comes into existence in the first place.
-    if (onInvite) return;
 
     // Likewise the deep-link callback: it arrives with no session precisely because it
     // is the thing that creates one. Redirecting to sign-in here would throw away the
@@ -91,7 +86,6 @@ function Gate() {
     session,
     client,
     hasConsent,
-    onInvite,
     onSignIn,
     onConsent,
     onWelcome,
@@ -112,7 +106,6 @@ function Gate() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="sign-in" />
       <Stack.Screen name="auth-callback" />
-      <Stack.Screen name="invite" />
       <Stack.Screen name="consent" />
       <Stack.Screen name="welcome" />
       <Stack.Screen name="readiness" options={{ presentation: 'modal' }} />
