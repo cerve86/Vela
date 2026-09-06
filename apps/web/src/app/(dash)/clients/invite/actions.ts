@@ -143,7 +143,7 @@ export async function inviteClient(formData: FormData): Promise<InviteResult> {
       return {
         ok: true,
         email,
-        note: 'They had verified their email without accepting the invitation. A sign-in code has been emailed instead; entering it in the app finishes the link.',
+        note: `${email} already has a verified account, so a sign-in code was emailed instead of an invitation. It works on the app's invitation screen and on its sign-in screen alike; either finishes the link.`,
       };
     }
     const { error: updateError } = await admin.auth.admin.updateUserById(priorUser.id, {

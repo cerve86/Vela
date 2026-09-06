@@ -62,17 +62,28 @@ export async function acceptMyInvite(
 }
 
 /** Verifies the six-digit invitation code. Signs the user in and marks the email verified. */
+/**
+ * Verifies the code from an invitation email — whichever kind of code it turned out to be.
+ *
+ * A first invitation carries an invite code. A re-invitation to an address that has already
+ * verified itself cannot (the auth API refuses to invite a confirmed user), so the portal
+ * emails a sign-in code instead, and the two are not interchangeable on the auth server: a
+ * sign-in code verified as an invitation is "invalid". The person typing it cannot tell
+ * them apart and should not have to, so both are tried. Either way, accept_my_invite is
+ * what links her afterwards.
+ */
 export async function verifyInviteCode(
   supabase: VelaClient,
   email: string,
   code: string,
 ): Promise<{ error: string | null }> {
-  const { error } = await supabase.auth.verifyOtp({
-    email: email.trim().toLowerCase(),
-    token: code.trim(),
-    type: 'invite',
-  });
-  return { error: error?.message ?? null };
+  const address = email.trim().toLowerCase();
+  const token = code.trim();
+  const asInvite = await supabase.auth.verifyOtp({ email: address, token, type: 'invite' });
+  if (!asInvite.error) return { error: null };
+  const asSignIn = await supabase.auth.verifyOtp({ email: address, token, type: 'email' });
+  if (!asSignIn.error) return { error: null };
+  return { error: asInvite.error.message };
 }
 
 export async function listInvites(supabase: VelaClient): Promise<PendingInvite[]> {
