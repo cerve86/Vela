@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { clientIdFor, requireUser } from '@/lib/apiRoute';
+import { clientIdFor, notAClient, requireUser } from '@/lib/apiRoute';
 import { authorizeUrl, signState, stravaConfig } from '@/lib/strava';
 
 /**
@@ -19,8 +19,7 @@ export async function POST(req: Request) {
   const { supabase, userId, refused } = await requireUser(req);
   if (refused) return refused;
   const clientId = await clientIdFor(supabase, userId);
-  if (!clientId)
-    return NextResponse.json({ error: 'Only a client can connect Strava.' }, { status: 403 });
+  if (!clientId) return notAClient('connect Strava');
 
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? new URL(req.url).origin;
   const url = authorizeUrl(cfg, signState(cfg, clientId, userId), `${site}/api/strava/callback`);
