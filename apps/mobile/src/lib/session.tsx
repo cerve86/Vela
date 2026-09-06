@@ -24,13 +24,19 @@ interface SessionState {
   client: ClientRecord | null;
   /** Health-data consent granted and not revoked. Gates the main app. */
   hasConsent: boolean;
+  /** Why the last attempt to finish a pending invitation failed, if it did. Shown, never hidden. */
+  acceptError: string | null;
   /**
    * Reloads the session and returns what it found.
    *
    * The return value matters: signing in successfully is not the same as getting in, and a
    * caller that awaits this needs to know which happened without waiting for a re-render.
    */
-  refresh: () => Promise<{ session: Session | null; client: ClientRecord | null }>;
+  refresh: () => Promise<{
+    session: Session | null;
+    client: ClientRecord | null;
+    acceptError: string | null;
+  }>;
 }
 
 const Ctx = createContext<SessionState>({
@@ -38,7 +44,8 @@ const Ctx = createContext<SessionState>({
   session: null,
   client: null,
   hasConsent: false,
-  refresh: async () => ({ session: null, client: null }),
+  acceptError: null,
+  refresh: async () => ({ session: null, client: null, acceptError: null }),
 });
 
 type ClientRow = {
@@ -71,6 +78,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [client, setClient] = useState<ClientRecord | null>(null);
   const [hasConsent, setHasConsent] = useState(false);
+  const [acceptError, setAcceptErrorState] = useState<string | null>(null);
+  // Mirrored outside React state so `refresh()` can return what this very load found.
+  let lastAcceptError: string | null = acceptError;
+  const setAcceptError = (v: string | null) => {
+    lastAcceptError = v;
+    setAcceptErrorState(v);
+  };
 
   async function load(current: Session | null): Promise<ClientRecord | null> {
     setSession(current);
@@ -78,6 +92,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (!current) {
       setClient(null);
       setHasConsent(false);
+      setAcceptError(null);
       setLoading(false);
       return null;
     }
@@ -98,8 +113,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
      * she was. One attempt per load; a failure here is not an error to show.
      */
     if (!row) {
-      const { clientId } = await acceptMyInvite(supabase);
+      const { clientId, error } = await acceptMyInvite(supabase);
       if (clientId) row = await fetchClientRow();
+      // "No pending invitation" is the ordinary answer for a coach in the client app;
+      // anything else is a reason the person needs to hear.
+      setAcceptError(error && !/no pending invitation/i.test(error) ? error : null);
+    } else {
+      setAcceptError(null);
     }
 
     const record: ClientRecord | null = row
@@ -147,13 +167,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       session,
       client,
       hasConsent,
+      acceptError,
       refresh: async () => {
         const { data } = await supabase.auth.getSession();
         const next = await load(data.session);
-        return { session: data.session, client: next };
+        return { session: data.session, client: next, acceptError: lastAcceptError };
       },
     }),
-    [loading, session, client, hasConsent],
+    [loading, session, client, hasConsent, acceptError],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

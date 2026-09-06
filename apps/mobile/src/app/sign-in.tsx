@@ -50,7 +50,9 @@ export default function SignInScreen() {
     if (!next.client) {
       setBusy(null);
       setError(
-        'Those details worked, but this address is not set up as a client yet. Ask your physiotherapist to invite you.',
+        next.acceptError
+          ? `Those details worked, but joining your physiotherapist's practice failed: ${next.acceptError}`
+          : 'Those details worked, but there is no invitation waiting for this address. Ask your physiotherapist to invite you.',
       );
     }
   }
