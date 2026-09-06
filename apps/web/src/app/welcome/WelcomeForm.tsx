@@ -5,7 +5,7 @@ import { createClient, type EmailOtpType } from '@supabase/supabase-js';
 import type { Database } from '@vela/api/types';
 import { palette } from '@vela/shared/tokens';
 
-type Stage = 'checking' | 'invalid' | 'set' | 'saving' | 'done';
+type Stage = 'checking' | 'code' | 'verifying' | 'invalid' | 'set' | 'saving' | 'done';
 
 const field = 'w-full rounded-[14px] px-3.5 py-2.5 text-sm outline-none';
 const fieldStyle = { background: 'var(--ghost)', color: 'var(--ink-primary)' };
@@ -65,7 +65,14 @@ export function WelcomeForm() {
       }
       if (cancelled) return;
       if (!sessionEmail) {
-        setStage('invalid');
+        // No usable link. An email written for the old flow shows a six-digit code
+        // instead, and a link that has been used once shows nothing — either way the
+        // code path is the way through, and it ends on the same password form.
+        setStage(
+          tokenHash || hash.get('access_token') || hash.get('error_description')
+            ? 'invalid'
+            : 'code',
+        );
         return;
       }
       // The tokens have done their job; keep them out of the address bar and history.
@@ -78,6 +85,29 @@ export function WelcomeForm() {
       cancelled = true;
     };
   }, [supabase]);
+
+  const [code, setCode] = useState('');
+
+  /** The typed-code door: the same two kinds of code the app used to accept. */
+  async function verifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setStage('verifying');
+    const address = email.trim().toLowerCase();
+    const token = code.trim();
+    let result = await supabase.auth.verifyOtp({ email: address, token, type: 'invite' });
+    if (result.error)
+      result = await supabase.auth.verifyOtp({ email: address, token, type: 'email' });
+    if (result.error || !result.data.user) {
+      setError(
+        'That code did not work. Codes last an hour; ask your physiotherapist to send a new invitation.',
+      );
+      setStage('code');
+      return;
+    }
+    setEmail(result.data.user.email ?? address);
+    setStage('set');
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -115,6 +145,61 @@ export function WelcomeForm() {
     );
   }
 
+  if (stage === 'code' || stage === 'verifying') {
+    return (
+      <form
+        onSubmit={verifyCode}
+        className="surface rounded-[20px] p-6"
+        style={{ background: 'var(--surface)' }}
+      >
+        <h1 className="display-face text-xl font-bold">Welcome to Vela</h1>
+        <p className="mt-1 mb-4 text-sm ink-2">
+          Enter your email and the six-digit code from your invitation email. Then you will choose a
+          password.
+        </p>
+        <label htmlFor="email" className="mb-1.5 block text-xs font-medium ink-2">
+          Email address
+        </label>
+        <input
+          id="email"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className={field}
+          style={fieldStyle}
+        />
+        <label htmlFor="code" className="mt-3 mb-1.5 block text-xs font-medium ink-2">
+          Six-digit code
+        </label>
+        <input
+          id="code"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          required
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          className={`${field} tnum tracking-[0.3em]`}
+          style={fieldStyle}
+        />
+        {error && (
+          <p className="mt-3 text-sm" style={{ color: palette.status.critical }}>
+            {error}
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={stage === 'verifying' || code.length < 6 || email.length < 5}
+          className="display-face mt-5 w-full rounded-full px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"
+          style={{ background: palette.brand[600] }}
+        >
+          {stage === 'verifying' ? 'Checking…' : 'Continue'}
+        </button>
+      </form>
+    );
+  }
+
   if (stage === 'invalid') {
     return (
       <div className="surface rounded-[20px] p-6" style={{ background: 'var(--surface)' }}>
@@ -123,6 +208,16 @@ export function WelcomeForm() {
           Invitation links work once and for a limited time. Ask your physiotherapist to send a new
           one, or use “Forgot your password?” in the app for a fresh link.
         </p>
+        <button
+          type="button"
+          onClick={() => {
+            setError(null);
+            setStage('code');
+          }}
+          className="mt-4 text-sm underline ink-2"
+        >
+          I have a code instead
+        </button>
       </div>
     );
   }

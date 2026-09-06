@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { sendMagicLink, verifyEmailOtp } from '@vela/api';
 import { palette } from '@vela/shared/tokens';
@@ -24,6 +24,20 @@ const fieldStyle = { background: 'var(--ghost)', color: 'var(--ink-primary)' };
  * the PKCE verifier.
  */
 export default function SignInPage() {
+  /**
+   * A client's invitation or set-password link can land here by mistake: Supabase's
+   * verifier redirects to the welcome page only when that address is on the dashboard's
+   * allow list, and otherwise falls back to the site root, which is this page — with the
+   * session tokens still in the URL fragment. Forward them where they belong rather than
+   * showing a physiotherapist's sign-in to a client.
+   */
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (/access_token=/.test(hash) && /type=(recovery|invite|signup)/.test(hash)) {
+      window.location.replace(`/welcome${hash}`);
+    }
+  }, []);
+
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');

@@ -686,3 +686,11 @@ sends a set-password link instead of an invitation the auth API would refuse.
 `accept_my_invite` now releases a person from an earlier client row before linking the
 new one — a second practice, or a re-invite after the old row was left behind, no longer
 dies on the unique key. App 0.2.6.
+
+**Two loose ends, same evening.** A set-password link fell back to the site root — and so
+to the coach sign-in — because the welcome page was not on the dashboard's redirect
+allow list; the sign-in page now forwards a client landing with tokens in its fragment
+to `/welcome`. And the dashboard's email templates still showed the six-digit code from
+the old flow with no link, so the welcome page now also accepts a typed code, and the
+release notes carry the templates to paste, linking by `token_hash` so the allow list no
+longer matters.
