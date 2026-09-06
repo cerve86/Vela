@@ -93,3 +93,14 @@ SEED_ALLOW_REMOTE=1 node scripts/provision-coach.mjs
 
 The service-role key is under Project Settings → API in the Supabase dashboard and must
 never be committed.
+
+## Giving a tester a password
+
+Clients have no password by design; `scripts/set-password.mjs` puts one on an existing
+account for a tester (or App Review) without creating anything or printing it:
+
+```bash
+SUPABASE_URL=https://eainnbmlzbhfftcpushs.supabase.co SUPABASE_SERVICE_ROLE_KEY=… \
+EMAIL=tester@example.com PASSWORD='at least twelve characters' \
+SEED_ALLOW_REMOTE=1 node scripts/set-password.mjs
+```
