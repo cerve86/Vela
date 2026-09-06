@@ -718,9 +718,18 @@ mood with a face calibrated to the five reads — each with a "+" into the thing
 A check-in card asks how the training feels against her goal. Progress lost the
 oldest/mean/now strip for a one, two, four week range of daily points.
 
-**Foods.** The USDA Standard Reference (8,789 generic foods, portions, aliases; public
-domain) joins the foods table as `source = 'usda'` with a weighted full-text column, a
-`search_foods` function that ranks staples first, and household portions the add-food
-screen offers as chips. The schema and the search are in; the data migration is generated
-from the delivered SQLite by `scripts/usda-foods-migration.py` and lands as soon as a
-non-empty copy of the file is to hand.
+**Foods.** The USDA Standard Reference (8,789 generic foods, 24,227 household portions,
+13,241 aliases; public domain) is in the foods table as `source = 'usda'`, with a weighted
+full-text column and the portions the add-food screen offers as chips. Nutrient values
+are copied from the delivered file, never recomputed; the generator
+(`scripts/usda-foods-migration.py`) upserts by USDA number, so a data refresh is a rerun,
+never a renumbering.
+
+**Ranking.** Term-frequency ranking put rice cakes above rice and "Bagels, egg" above an
+egg. A USDA name leads with the head noun and qualifies after commas, so `search_foods`
+ranks in tiers instead: the head (or an alias) exactly the typed words, then the head
+starting with them, then anywhere in the head, then anywhere at all, then prefix-only;
+baby, fast, restaurant and brand-led foods never rise above the fourth. Within a tier the
+delivered plainness boost decides, lifted half a point for sixty everyday staples keyed by
+USDA number in the generator, so whole milk comes before human milk and raw salmon before
+canned.

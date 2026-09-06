@@ -29,6 +29,36 @@ def arr(items):
     return 'ARRAY[' + ','.join(lit(i) for i in items) + ']::text[]' if items else "'{}'::text[]"
 
 groups = dict(c.execute('select id, name from food_groups'))
+
+# The foods people type most, lifted half a point so that among the entries whose head is
+# the typed word the everyday form comes first: whole milk before human milk, raw salmon
+# before canned, cooked rice before rice bran. Keyed by USDA number so a refresh keeps it.
+STAPLES = {
+    '01001', '01009', '01040', '01077', '01079', '01085', '01116', '01123', '01256', '04053',
+    '05006', '05062', '05064', '08121', '09003', '09037', '09040', '09148', '09150', '09200',
+    '09252', '09266', '09316', '10060', '11090', '11124', '11167', '11205', '11215', '11233',
+    '11260', '11282', '11362', '11367', '11457', '11507', '11510', '11529', '11821', '12061',
+    '12220', '13047', '14209', '15015', '15076', '15121', '15236', '16057', '16070', '16087',
+    '16098', '16126', '18069', '18075', '19165', '19296', '20037', '20038', '20045', '20121',
+    '20137', '23572',
+}
+STAPLE_LIFT = 0.5
+
+# Words people type that the reference spells differently, added to the search aliases of
+# the entry they mean.
+EXTRA_ALIASES = {
+    '08121': ['oatmeal', 'porridge'],
+    '20038': ['oatmeal', 'rolled oats', 'porridge oats'],
+    '01077': ['full fat milk', 'whole milk'],
+    '01079': ['semi skimmed milk', 'semi-skimmed milk'],
+    '01085': ['skimmed milk', 'skim milk'],
+    '05062': ['chicken breast', 'chicken fillet'],
+    '20045': ['white rice'],
+    '20037': ['brown rice'],
+    '18075': ['wholemeal bread', 'brown bread'],
+    '16057': ['chickpeas', 'garbanzo'],
+    '01256': ['greek yogurt', 'greek yoghurt'],
+}
 aliases = {}
 for food_id, alias in c.execute('select food_id, alias from aliases'):
     aliases.setdefault(food_id, []).append(alias)
@@ -67,7 +97,7 @@ def flush_foods():
     batch.clear()
 for fid, ndb, name, group, kcal, prot, carbs, fat, sg, sl, boost in rows:
     uid = uuid.uuid5(NS, f'usda:{ndb}'); ids[fid] = str(uid)
-    batch.append(f"({lit(uid)}, 'usda', {lit(name)}, {lit(groups.get(group))}, {num(kcal)}, {num(prot or 0)}, {num(carbs or 0)}, {num(fat or 0)}, {num(sg)}, {lit(sl)}, {lit(ndb)}, {num(boost or 1)}, {arr(aliases.get(fid, []))})")
+    batch.append(f"({lit(uid)}, 'usda', {lit(name)}, {lit(groups.get(group))}, {num(kcal)}, {num(prot or 0)}, {num(carbs or 0)}, {num(fat or 0)}, {num(sg)}, {lit(sl)}, {lit(ndb)}, {num((boost or 1) + (STAPLE_LIFT if ndb in STAPLES else 0))}, {arr(aliases.get(fid, []) + EXTRA_ALIASES.get(ndb, []))})")
     if len(batch) >= 400: flush_foods()
 flush_foods()
 
