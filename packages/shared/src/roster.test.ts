@@ -8,18 +8,21 @@ const s = (
   daysAgo: number,
   status: string,
   painAfter: number | null = null,
+  programDayId: string | null = 'pd-1',
 ): {
   clientId: string;
   scheduledDate: string;
   status: string;
   painAfter: number | null;
   completedAt: string | null;
+  programDayId: string | null;
 } => ({
   clientId,
   scheduledDate: shiftDate(TODAY, -daysAgo),
   status,
   painAfter,
   completedAt: status === 'completed' ? `${shiftDate(TODAY, -daysAgo)}T18:00:00Z` : null,
+  programDayId,
 });
 
 describe('dates', () => {
@@ -53,6 +56,27 @@ describe('rosterRollups', () => {
     assert.equal(r.done7d, 1);
     assert.equal(r.missed7d, 2);
     assert.equal(r.adherence7d, 0.333);
+  });
+
+  it('does not let recorded activities stand in for prescribed sessions', () => {
+    const r = rosterRollups({
+      clientIds: ['a'],
+      today: TODAY,
+      sessions: [
+        s('a', 6, 'skipped'),
+        s('a', 4, 'skipped'),
+        s('a', 2, 'skipped'),
+        s('a', 5, 'completed', null, null),
+        s('a', 3, 'completed', null, null),
+        s('a', 1, 'completed', null, null),
+      ],
+      metrics: [],
+      reads: [],
+    }).get('a')!;
+    assert.equal(r.due7d, 3);
+    assert.equal(r.done7d, 0);
+    assert.equal(r.adherence7d, 0);
+    assert.equal(r.daysSinceLastActivity, 1, 'the rides still count as activity');
   });
 
   it('reports null adherence for a quiet week rather than zero', () => {

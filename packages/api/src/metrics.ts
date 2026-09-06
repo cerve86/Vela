@@ -23,10 +23,7 @@ export type MetricType =
 
 export type MetricSource = 'manual' | 'healthkit' | 'coach';
 
-export const METRIC_META: Record<
-  MetricType,
-  { label: string; unit: string; decimals: number }
-> = {
+export const METRIC_META: Record<MetricType, { label: string; unit: string; decimals: number }> = {
   weight_kg: { label: 'Weight', unit: 'kg', decimals: 1 },
   body_fat_pct: { label: 'Body fat', unit: '%', decimals: 1 },
   waist_cm: { label: 'Waist', unit: 'cm', decimals: 1 },
@@ -182,6 +179,64 @@ export interface SessionPlanItem {
   tempo: string | null;
   restSec: number;
   notes: string | null;
+}
+
+/** The prescriptions for many sessions in one call, keyed by session id. Same ownership rule. */
+export async function getSessionPlans(
+  supabase: VelaClient,
+  sessionIds: string[],
+): Promise<
+  Map<
+    string,
+    Pick<
+      SessionPlanItem,
+      | 'exerciseName'
+      | 'block'
+      | 'sets'
+      | 'reps'
+      | 'targetLoadKg'
+      | 'targetRpe'
+      | 'tempo'
+      | 'restSec'
+      | 'notes'
+    >[]
+  >
+> {
+  const out = new Map<
+    string,
+    Pick<
+      SessionPlanItem,
+      | 'exerciseName'
+      | 'block'
+      | 'sets'
+      | 'reps'
+      | 'targetLoadKg'
+      | 'targetRpe'
+      | 'tempo'
+      | 'restSec'
+      | 'notes'
+    >[]
+  >();
+  if (sessionIds.length === 0) return out;
+  const { data } = await supabase.rpc('get_session_plans', { p_session_ids: sessionIds });
+  for (const raw of (data as unknown[]) ?? []) {
+    const r = raw as Record<string, unknown>;
+    const id = r.session_id as string;
+    const list = out.get(id) ?? [];
+    list.push({
+      exerciseName: r.exercise_name as string,
+      block: r.block as string,
+      sets: r.sets as number,
+      reps: r.reps as string,
+      targetLoadKg: r.target_load_kg === null ? null : Number(r.target_load_kg),
+      targetRpe: r.target_rpe === null ? null : Number(r.target_rpe),
+      tempo: (r.tempo as string) ?? null,
+      restSec: r.rest_sec as number,
+      notes: (r.notes as string) ?? null,
+    });
+    out.set(id, list);
+  }
+  return out;
 }
 
 /** The prescription for one session. Narrow by design — see get_session_plan. */

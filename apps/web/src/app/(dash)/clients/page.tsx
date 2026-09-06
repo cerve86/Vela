@@ -50,7 +50,7 @@ export default async function ClientsPage() {
       .order('created_at', { ascending: false }),
     supabase
       .from('sessions')
-      .select('client_id, status, scheduled_date, pain_after, completed_at')
+      .select('client_id, status, scheduled_date, pain_after, completed_at, program_day_id')
       .gte('scheduled_date', since28),
     supabase
       .from('metrics')
@@ -88,6 +88,7 @@ export default async function ClientsPage() {
       status: s.status,
       painAfter: s.pain_after,
       completedAt: s.completed_at,
+      programDayId: s.program_day_id,
     })),
     metrics: (metrics ?? []).map((m) => ({
       clientId: m.client_id,

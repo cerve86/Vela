@@ -79,6 +79,12 @@ export function ConnectionsCard() {
           const res = await disconnectStrava();
           setBusy(null);
           if (!res.ok) Alert.alert('Strava', res.error);
+          else if (!res.deauthorized) {
+            Alert.alert(
+              'Disconnected here',
+              'Strava did not confirm, so Vela may still be listed under Settings → My Apps on Strava. Remove it there too.',
+            );
+          }
           await strava.reload();
         },
       },

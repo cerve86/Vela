@@ -67,8 +67,11 @@ export function verifyState(
   const expected = createHmac('sha256', cfg.clientSecret)
     .update(`${clientId}.${userId}.${exp}`)
     .digest('base64url');
-  if (sig.length !== expected.length || !timingSafeEqual(Buffer.from(sig), Buffer.from(expected)))
-    return null;
+  // Byte lengths, not string lengths: timingSafeEqual throws on a byte-length mismatch,
+  // and a multi-byte character can match the character count without matching the bytes.
+  const given = Buffer.from(sig);
+  const want = Buffer.from(expected);
+  if (given.length !== want.length || !timingSafeEqual(given, want)) return null;
   if (Number(exp) < now) return null;
   return { clientId, userId };
 }
@@ -116,11 +119,17 @@ export function refreshTokens(cfg: StravaConfig, refreshToken: string) {
   return tokenCall(cfg, { refresh_token: refreshToken, grant_type: 'refresh_token' });
 }
 
-export async function deauthorize(cfg: StravaConfig, accessToken: string): Promise<void> {
-  await fetch(`${cfg.apiBase}/oauth/deauthorize`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}` },
-  }).catch(() => undefined);
+/** Revokes Vela at Strava. False when Strava did not confirm — the caller should say so. */
+export async function deauthorize(cfg: StravaConfig, accessToken: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${cfg.apiBase}/oauth/deauthorize`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 /** A summary activity as Strava lists it — only the fields that are read. */
@@ -145,6 +154,20 @@ export interface StravaActivity {
   calories?: number;
   suffer_score?: number;
   map?: { summary_polyline?: string };
+}
+
+/** One activity by id — what a webhook names, and all a webhook needs. */
+export async function fetchActivity(
+  cfg: StravaConfig,
+  accessToken: string,
+  id: number,
+): Promise<StravaActivity | null> {
+  const res = await fetch(`${cfg.apiBase}/api/v3/activities/${id}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Strava activity call failed: ${res.status}`);
+  return (await res.json()) as StravaActivity;
 }
 
 export async function fetchActivities(
@@ -175,7 +198,7 @@ export async function fetchActivities(
  * ───────────────────────────────────────────────────────────── */
 
 /** The token row, refreshed if it is about to expire. */
-async function usableAccessToken(
+export async function usableAccessToken(
   cfg: StravaConfig,
   admin: Admin,
   clientId: string,
@@ -207,13 +230,17 @@ export interface SyncResult {
   error: string | null;
 }
 
+async function failLink(admin: Admin, clientId: string, result: SyncResult): Promise<SyncResult> {
+  await admin.from('strava_links').update({ last_error: result.error }).eq('client_id', clientId);
+  return result;
+}
+
 /**
  * Pulls what is new since the last sync and files it.
  *
- * Every activity becomes one row in `activities` and one session: the planned session it
- * fulfils if there is one on the same local day with the same discipline, otherwise a new
- * completed session of its own. Re-running is safe — the activity's Strava id is unique
- * per source — and the first sync reaches back 60 days so the record starts with context.
+ * Re-running is safe, and so is running twice at once: see `importActivities`. The first
+ * sync reaches back 60 days so the record starts with context; later ones overlap the
+ * last sync by a week so an activity uploaded late is still caught.
  */
 export async function syncStrava(
   cfg: StravaConfig,
@@ -234,11 +261,9 @@ export async function syncStrava(
   });
   if (!accessToken) {
     result.error ??= 'Strava is not connected.';
-    await admin.from('strava_links').update({ last_error: result.error }).eq('client_id', clientId);
-    return result;
+    return failLink(admin, clientId, result);
   }
 
-  // Overlap the window by a week: an activity uploaded late, or edited, is still caught.
   const since = link?.last_synced_at
     ? new Date(link.last_synced_at).getTime() - 7 * 86_400_000
     : Date.now() - 60 * 86_400_000;
@@ -248,88 +273,94 @@ export async function syncStrava(
     activities = await fetchActivities(cfg, accessToken, Math.floor(since / 1000));
   } catch (e) {
     result.error = e instanceof Error ? e.message : String(e);
-    await admin.from('strava_links').update({ last_error: result.error }).eq('client_id', clientId);
-    return result;
+    return failLink(admin, clientId, result);
   }
 
-  if (activities.length > 0) {
-    const ids = activities.map((a) => String(a.id));
-    const { data: existing } = await asUser
+  await importActivities(asUser, clientId, activities, result);
+  await admin
+    .from('strava_links')
+    .update({ last_synced_at: new Date().toISOString(), last_error: result.error })
+    .eq('client_id', clientId);
+  return result;
+}
+
+/** A webhook names one activity: fetch that one, file it, and touch nothing else. */
+export async function syncStravaActivity(
+  cfg: StravaConfig,
+  admin: Admin,
+  asUser: AsUser,
+  clientId: string,
+  activityId: number,
+): Promise<SyncResult> {
+  const result: SyncResult = { imported: 0, matched: 0, skipped: 0, error: null };
+  const accessToken = await usableAccessToken(cfg, admin, clientId).catch((e: Error) => {
+    result.error = e.message;
+    return null;
+  });
+  if (!accessToken) {
+    result.error ??= 'Strava is not connected.';
+    return failLink(admin, clientId, result);
+  }
+  let activity: StravaActivity | null;
+  try {
+    activity = await fetchActivity(cfg, accessToken, activityId);
+  } catch (e) {
+    result.error = e instanceof Error ? e.message : String(e);
+    return failLink(admin, clientId, result);
+  }
+  if (activity) await importActivities(asUser, clientId, [activity], result);
+  await admin.from('strava_links').update({ last_error: result.error }).eq('client_id', clientId);
+  return result;
+}
+
+/**
+ * Files activities as the client, through RLS.
+ *
+ * The activity row is written first, with no session, and only then is a session matched
+ * or created and attached. The activity's Strava id is unique per source, so the insert is
+ * the lock: two syncs racing on the same upload — a webhook retry against the original, or
+ * the callback's first import against the first webhook — both try to insert the activity,
+ * one loses on the unique key and stops there, and no orphan session is ever created. If
+ * the session step fails the activity still exists, unattached, which is the honest state
+ * rather than a duplicate.
+ */
+export async function importActivities(
+  asUser: AsUser,
+  clientId: string,
+  activities: StravaActivity[],
+  result: SyncResult,
+): Promise<void> {
+  if (activities.length === 0) return;
+
+  const dates = activities.map((a) => a.start_date_local.slice(0, 10)).sort();
+  const { data: planned } = await asUser
+    .from('sessions')
+    .select('id, scheduled_date, discipline, status')
+    .eq('client_id', clientId)
+    .gte('scheduled_date', dates[0]!)
+    .lte('scheduled_date', dates[dates.length - 1]!)
+    .in('status', ['scheduled', 'in_progress'])
+    .order('scheduled_date', { ascending: true });
+  // The unclaimed planned sessions. An entry is removed once an activity claims it, so two
+  // activities on one day cannot both complete the same session.
+  const open = (planned ?? []).map((s) => ({
+    id: s.id,
+    scheduledDate: s.scheduled_date,
+    discipline: s.discipline,
+    status: s.status,
+  }));
+
+  for (const a of [...activities].sort((x, y) => x.start_date.localeCompare(y.start_date))) {
+    const localDate = a.start_date_local.slice(0, 10);
+    const completedAt = new Date(
+      new Date(a.start_date).getTime() + a.elapsed_time * 1000,
+    ).toISOString();
+
+    const { data: inserted, error: actError } = await asUser
       .from('activities')
-      .select('external_id')
-      .eq('source', 'strava')
-      .in('external_id', ids);
-    const seen = new Set((existing ?? []).map((r) => r.external_id));
-
-    const dates = activities.map((a) => a.start_date_local.slice(0, 10)).sort();
-    const { data: planned } = await asUser
-      .from('sessions')
-      .select('id, scheduled_date, discipline, status')
-      .eq('client_id', clientId)
-      .gte('scheduled_date', dates[0]!)
-      .lte('scheduled_date', dates[dates.length - 1]!)
-      .order('scheduled_date', { ascending: true });
-    const open = (planned ?? []).map((s) => ({
-      id: s.id,
-      scheduledDate: s.scheduled_date,
-      discipline: s.discipline,
-      status: s.status,
-    }));
-
-    for (const a of activities.sort((x, y) => x.start_date.localeCompare(y.start_date))) {
-      if (seen.has(String(a.id))) {
-        result.skipped++;
-        continue;
-      }
-      const localDate = a.start_date_local.slice(0, 10);
-      const completedAt = new Date(
-        new Date(a.start_date).getTime() + a.elapsed_time * 1000,
-      ).toISOString();
-      let sessionId = matchPlannedSession({ sportType: a.sport_type, localDate }, open);
-
-      if (sessionId) {
-        const { error } = await asUser
-          .from('sessions')
-          .update({
-            status: 'completed',
-            completed_at: completedAt,
-            duration_sec: a.moving_time,
-            logged_via: 'strava',
-          })
-          .eq('id', sessionId);
-        if (error) sessionId = null;
-        else {
-          result.matched++;
-          const s = open.find((o) => o.id === sessionId);
-          if (s) s.status = 'completed';
-        }
-      }
-      if (!sessionId) {
-        const { data: created, error } = await asUser
-          .from('sessions')
-          .insert({
-            client_id: clientId,
-            title: a.name,
-            discipline: disciplineForSport(a.sport_type),
-            scheduled_date: localDate,
-            status: 'completed',
-            started_at: a.start_date,
-            completed_at: completedAt,
-            duration_sec: a.moving_time,
-            logged_via: 'strava',
-          })
-          .select('id')
-          .single();
-        if (error || !created) {
-          result.error = error?.message ?? 'Could not create the session.';
-          continue;
-        }
-        sessionId = created.id;
-      }
-
-      const { error: actError } = await asUser.from('activities').insert({
+      .insert({
         client_id: clientId,
-        session_id: sessionId,
+        session_id: null,
         source: 'strava',
         external_id: String(a.id),
         sport_type: a.sport_type,
@@ -351,18 +382,59 @@ export async function syncStrava(
         suffer_score: a.suffer_score ?? null,
         polyline: a.map?.summary_polyline ?? null,
         raw: a as unknown as Database['public']['Tables']['activities']['Insert']['raw'],
-      });
-      if (actError) {
-        result.error = actError.message;
+      })
+      .select('id')
+      .single();
+    if (actError || !inserted) {
+      if (actError?.code === '23505') result.skipped++;
+      else result.error = actError?.message ?? 'Could not record the activity.';
+      continue;
+    }
+
+    let sessionId = matchPlannedSession({ sportType: a.sport_type, localDate }, open);
+    if (sessionId) {
+      const { error } = await asUser
+        .from('sessions')
+        .update({
+          status: 'completed',
+          completed_at: completedAt,
+          duration_sec: a.moving_time,
+          logged_via: 'strava',
+        })
+        .eq('id', sessionId);
+      if (error) sessionId = null;
+      else {
+        result.matched++;
+        open.splice(
+          open.findIndex((o) => o.id === sessionId),
+          1,
+        );
+      }
+    }
+    if (!sessionId) {
+      const { data: created, error } = await asUser
+        .from('sessions')
+        .insert({
+          client_id: clientId,
+          title: a.name,
+          discipline: disciplineForSport(a.sport_type),
+          scheduled_date: localDate,
+          status: 'completed',
+          started_at: a.start_date,
+          completed_at: completedAt,
+          duration_sec: a.moving_time,
+          logged_via: 'strava',
+        })
+        .select('id')
+        .single();
+      if (error || !created) {
+        result.error = error?.message ?? 'Could not create the session.';
         continue;
       }
-      result.imported++;
+      sessionId = created.id;
     }
-  }
 
-  await admin
-    .from('strava_links')
-    .update({ last_synced_at: new Date().toISOString(), last_error: result.error })
-    .eq('client_id', clientId);
-  return result;
+    await asUser.from('activities').update({ session_id: sessionId }).eq('id', inserted.id);
+    result.imported++;
+  }
 }

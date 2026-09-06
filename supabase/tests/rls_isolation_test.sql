@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (100);
+  plan (104);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -350,6 +350,12 @@ insert into public.strava_tokens (client_id, access_token, refresh_token, expire
 values
   ('00000000-0000-4000-8000-0000000000f1', 'access', 'refresh', now() + interval '6 hours');
 
+-- A programme day with a known id: a client cannot read program_days, so a subquery for
+-- one would come back NULL and the insert below would pass for the wrong reason.
+insert into public.program_days (id, program_id, week_no, day_no, title)
+values
+  ('00000000-0000-4000-8000-00000000dd01', '00000000-0000-4000-8000-00000000d0a1', 1, 1, 'Day one');
+
 set local role authenticated;
 set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
 
@@ -382,6 +388,36 @@ select is (
   (select public.ensure_calendar_token()),
   (select token from public.calendar_tokens),
   'and calling again returns the same one'
+);
+
+select throws_ok (
+  $$update public.calendar_tokens set profile_id = '00000000-0000-4000-8000-0000000000a1'$$,
+  '42501',
+  null,
+  'but she cannot point her token at another user — the feed would mint a session as them'
+);
+
+select lives_ok (
+  $$insert into public.sessions (client_id, title, discipline, scheduled_date, status, logged_via)
+    values ('00000000-0000-4000-8000-0000000000f1', 'Evening ride', 'run', current_date, 'completed', 'strava')$$,
+  'she can file a session for a recorded activity'
+);
+
+select throws_ok (
+  $$insert into public.sessions (client_id, title, discipline, scheduled_date, status, logged_via)
+    values ('00000000-0000-4000-8000-0000000000f1', 'Made up', 'strength', current_date - 3, 'completed', 'app')$$,
+  '42501',
+  null,
+  'but not a session that claims to be app-logged training'
+);
+
+select throws_ok (
+  $$insert into public.sessions (client_id, title, discipline, scheduled_date, status, logged_via, program_day_id)
+    values ('00000000-0000-4000-8000-0000000000f1', 'Fake plan', 'strength', current_date, 'completed', 'strava',
+      '00000000-0000-4000-8000-00000000dd01')$$,
+  '42501',
+  null,
+  'nor one attached to a programme day she did not receive'
 );
 
 set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
