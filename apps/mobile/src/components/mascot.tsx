@@ -6,50 +6,64 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { useTheme } from '@/theme';
 import { onCelebrate, recentCelebration, type CheerKind } from '@/lib/mascot';
 
-export type MascotMood = 'greeting' | 'low-energy' | 'celebration' | 'healthy';
+export type MascotMood = 'greeting' | 'sleep' | 'celebration' | 'healthy' | 'sit';
 
 /**
- * The scenes. Each is a 2.5-second square clip cut from the mascot film, and a still of
- * the same pose for when motion is reduced. Both live in assets/vela-mascot-poses.
+ * The scenes. Each is a short square clip cut from the mascot films, and a still of the
+ * same pose for when motion is reduced. Both live in assets/vela-mascot-poses. `sleep` is
+ * the panda curled up asleep, for a day trending below the mark; `sit` is the panda
+ * settled and content, for a session done.
  */
 const CLIPS: Record<MascotMood, VideoSource> = {
   greeting: require('../../assets/vela-mascot-poses/greeting.mp4'),
-  'low-energy': require('../../assets/vela-mascot-poses/low-energy.mp4'),
+  sleep: require('../../assets/vela-mascot-poses/sleep.mp4'),
   celebration: require('../../assets/vela-mascot-poses/celebration.mp4'),
   healthy: require('../../assets/vela-mascot-poses/healthy.mp4'),
+  sit: require('../../assets/vela-mascot-poses/sit.mp4'),
 };
 const STILLS: Record<MascotMood, number> = {
   greeting: require('../../assets/vela-mascot-poses/greeting.png'),
-  'low-energy': require('../../assets/vela-mascot-poses/low-energy.png'),
+  sleep: require('../../assets/vela-mascot-poses/sleep.png'),
   celebration: require('../../assets/vela-mascot-poses/celebration.png'),
   healthy: require('../../assets/vela-mascot-poses/healthy.png'),
+  sit: require('../../assets/vela-mascot-poses/sit.png'),
 };
 
 const IDLE_STIR_MS = 24_000;
+/** How long a cheer stays up, whatever its clip's length: enough to be seen, never a loop. */
+const CHEER_HOLD_MS = 2_500;
 
 const CHEER_POSE: Record<CheerKind, MascotMood> = {
   food: 'healthy',
-  session: 'celebration',
+  session: 'sit',
   read: 'celebration',
-  strava: 'celebration',
+  strava: 'sit',
 };
 
 /**
  * The mascot: a short film of the pose the day calls for, looping quietly in a round
  * window, and a different scene when something happens.
  *
- * `mood` is the idle scene — waving by default, sleepy when she said she is, cheering when
- * the session is done — and it loops. A cheer from anywhere in the app (a meal logged, a
- * read given, a session sent, a Strava import) plays that moment's scene once, apple and
- * all, and hands back to the idle scene when it ends: two and a half seconds, then calm.
- * With Reduce Motion on, the still of the same pose is shown instead.
+ * `mood` is the idle scene — waving by default, asleep when the day is trending below the
+ * mark. A cheer from anywhere in the app plays that moment's scene once and hands back to
+ * the idle scene when it ends: an apple for a meal logged, arms up for a read given, and
+ * the panda settling down, content, for a training done (logged here or imported from
+ * Strava). A few seconds, then calm. With Reduce Motion on, the still of the same pose is
+ * shown instead.
  */
 export function Mascot({ mood, size = 168 }: { mood: MascotMood; size?: number }) {
   const reduced = useReducedMotion();
   const [cheer, setCheer] = useState<CheerKind | null>(null);
+  const cheerStartedAt = useRef(0);
   const pose: MascotMood = cheer ? CHEER_POSE[cheer] : mood;
 
-  const player = useVideoPlayer(CLIPS[mood], (p) => {
+  // One player for the life of the mascot. expo-video builds a new player whenever the
+  // source it was given changes, and a mood change landing in the same moment as a cheer
+  // then replaced the cheering player with an idle one, mid-cheer. So the player is made
+  // once, with the scene the mascot first appeared in, and every change after that goes
+  // through `replaceAsync` below.
+  const [firstScene] = useState<MascotMood>(() => mood);
+  const player = useVideoPlayer(CLIPS[firstScene], (p) => {
     p.loop = false;
     p.muted = true;
     p.play();
@@ -59,7 +73,7 @@ export function Mascot({ mood, size = 168 }: { mood: MascotMood; size?: number }
   // is a fidget, and the mascot is company, not a screensaver. The idle scene stirs again
   // on its own every so often. The source is only replaced when the scene actually
   // changes; replacing it with itself restarts the load and parks the player on frame one.
-  const current = useRef<MascotMood>(mood);
+  const current = useRef<MascotMood>(firstScene);
   useEffect(() => {
     player.loop = false;
     if (current.current === pose) {
@@ -83,24 +97,34 @@ export function Mascot({ mood, size = 168 }: { mood: MascotMood; size?: number }
   }, [player, cheer]);
 
   // Play when ready, whatever the timing of play() against the load; a cheer hands back
-  // to the idle scene when its clip ends.
+  // to the idle scene when its clip ends — resting on its last frame first if the clip was
+  // shorter than a cheer should be, so a moment is a moment and not a flicker.
   useEffect(() => {
     const ready = player.addListener('statusChange', ({ status }) => {
       if (status === 'readyToPlay' && !player.playing) player.play();
     });
+    let hold: ReturnType<typeof setTimeout> | null = null;
     const ended = player.addListener('playToEnd', () => {
-      if (cheer !== null) setCheer(null);
+      if (cheer === null) return;
+      const left = CHEER_HOLD_MS - (Date.now() - cheerStartedAt.current);
+      hold = setTimeout(() => setCheer(null), Math.max(0, left));
     });
     return () => {
       ready.remove();
       ended.remove();
+      if (hold) clearTimeout(hold);
     };
   }, [player, cheer]);
 
+  const startCheer = (kind: CheerKind) => {
+    cheerStartedAt.current = Date.now();
+    setCheer(kind);
+  };
   useEffect(() => {
     const recent = recentCelebration();
-    if (recent) setCheer(recent);
-    return onCelebrate((kind) => setCheer(kind));
+    if (recent) startCheer(recent);
+    return onCelebrate(startCheer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const label =
@@ -108,9 +132,11 @@ export function Mascot({ mood, size = 168 }: { mood: MascotMood; size?: number }
       ? 'Vela cheering'
       : pose === 'healthy'
         ? 'Vela with an apple'
-        : pose === 'low-energy'
-          ? 'Vela resting'
-          : 'Vela waving';
+        : pose === 'sit'
+          ? 'Vela sitting down, pleased'
+          : pose === 'sleep'
+            ? 'Vela asleep'
+            : 'Vela waving';
 
   if (reduced) {
     return (
@@ -142,7 +168,7 @@ export function Mascot({ mood, size = 168 }: { mood: MascotMood; size?: number }
 /**
  * The trend gauge: one arc over the mascot, from eight o'clock over the top to four, with
  * a mark at the top. The fill runs to where the day sits; above the mark it is green and
- * the mascot is up for it, below it is amber and the mascot is tired. Only the filled
+ * the mascot is up for it, below it is orange and the mascot is asleep. Only the filled
  * part is drawn: the arc is how far the day has come, not a scale with an end. Nothing
  * read yet: a knob at the start and no arc. No words on it — the sentence underneath does
  * the explaining.
