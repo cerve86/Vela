@@ -21,7 +21,18 @@ export async function POST(req: Request) {
   const clientId = await clientIdFor(supabase, userId);
   if (!clientId) return notAClient('connect Strava');
 
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? new URL(req.url).origin;
+  // The origin the app actually called, not a configured site URL: Strava checks the
+  // redirect host against the application's callback domain to the letter, and a site
+  // URL set without "www" (or to a preview host) is refused before the login screen.
+  const site = requestOrigin(req);
   const url = authorizeUrl(cfg, signState(cfg, clientId, userId), `${site}/api/strava/callback`);
   return NextResponse.json({ url });
+}
+
+/** The public origin of this request, behind Vercel's proxy or not. */
+function requestOrigin(req: Request): string {
+  const forwardedHost = req.headers.get('x-forwarded-host');
+  const forwardedProto = req.headers.get('x-forwarded-proto') ?? 'https';
+  if (forwardedHost) return `${forwardedProto}://${forwardedHost}`;
+  return new URL(req.url).origin;
 }
