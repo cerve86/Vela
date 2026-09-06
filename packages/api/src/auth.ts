@@ -72,6 +72,30 @@ export async function signInWithPassword(
   return { error: error?.message ?? null };
 }
 
+/**
+ * Emails a link to set a new password. The link lands on the portal's welcome page, which
+ * is the same page an invitation leads to: choose a password, and you are in.
+ */
+export async function requestPasswordReset(
+  supabase: VelaClient,
+  email: string,
+  redirectTo: string,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo,
+  });
+  return { error: error?.message ?? null };
+}
+
+/** Sets the signed-in user's password. */
+export async function setPassword(
+  supabase: VelaClient,
+  password: string,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.auth.updateUser({ password });
+  return { error: error?.message ?? null };
+}
+
 export async function getSessionUser(supabase: VelaClient): Promise<SessionUser | null> {
   const { data: auth } = await supabase.auth.getUser();
   const user = auth.user;
@@ -98,9 +122,7 @@ export async function signOut(supabase: VelaClient): Promise<void> {
 }
 
 /** GDPR Article 17. Hard delete, cascading, executed as the caller. */
-export async function deleteMyAccount(
-  supabase: VelaClient,
-): Promise<{ error: string | null }> {
+export async function deleteMyAccount(supabase: VelaClient): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('delete_my_account');
   return { error: error?.message ?? null };
 }

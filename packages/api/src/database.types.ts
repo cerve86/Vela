@@ -1,1551 +1,1572 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
 export type Database = {
   graphql_public: {
     Tables: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     Views: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     Functions: {
       graphql: {
         Args: {
-          extensions?: Json;
-          operationName?: string;
-          query?: string;
-          variables?: Json;
-        };
-        Returns: Json;
-      };
-    };
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
     Enums: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activities: {
         Row: {
-          avg_cadence: number | null;
-          avg_hr: number | null;
-          avg_speed_mps: number | null;
-          avg_watts: number | null;
-          calories: number | null;
-          client_id: string;
-          created_at: string;
-          distance_m: number | null;
-          elapsed_sec: number;
-          elevation_gain_m: number | null;
-          external_id: string;
-          id: string;
-          local_date: string;
-          max_hr: number | null;
-          max_watts: number | null;
-          moving_sec: number;
-          name: string;
-          polyline: string | null;
-          raw: Json | null;
-          session_id: string | null;
-          source: string;
-          sport_type: string;
-          started_at: string;
-          suffer_score: number | null;
-          weighted_watts: number | null;
-        };
+          avg_cadence: number | null
+          avg_hr: number | null
+          avg_speed_mps: number | null
+          avg_watts: number | null
+          calories: number | null
+          client_id: string
+          created_at: string
+          distance_m: number | null
+          elapsed_sec: number
+          elevation_gain_m: number | null
+          external_id: string
+          id: string
+          local_date: string
+          max_hr: number | null
+          max_watts: number | null
+          moving_sec: number
+          name: string
+          polyline: string | null
+          raw: Json | null
+          session_id: string | null
+          source: string
+          sport_type: string
+          started_at: string
+          suffer_score: number | null
+          weighted_watts: number | null
+        }
         Insert: {
-          avg_cadence?: number | null;
-          avg_hr?: number | null;
-          avg_speed_mps?: number | null;
-          avg_watts?: number | null;
-          calories?: number | null;
-          client_id: string;
-          created_at?: string;
-          distance_m?: number | null;
-          elapsed_sec: number;
-          elevation_gain_m?: number | null;
-          external_id: string;
-          id?: string;
-          local_date: string;
-          max_hr?: number | null;
-          max_watts?: number | null;
-          moving_sec: number;
-          name: string;
-          polyline?: string | null;
-          raw?: Json | null;
-          session_id?: string | null;
-          source: string;
-          sport_type: string;
-          started_at: string;
-          suffer_score?: number | null;
-          weighted_watts?: number | null;
-        };
+          avg_cadence?: number | null
+          avg_hr?: number | null
+          avg_speed_mps?: number | null
+          avg_watts?: number | null
+          calories?: number | null
+          client_id: string
+          created_at?: string
+          distance_m?: number | null
+          elapsed_sec: number
+          elevation_gain_m?: number | null
+          external_id: string
+          id?: string
+          local_date: string
+          max_hr?: number | null
+          max_watts?: number | null
+          moving_sec: number
+          name: string
+          polyline?: string | null
+          raw?: Json | null
+          session_id?: string | null
+          source: string
+          sport_type: string
+          started_at: string
+          suffer_score?: number | null
+          weighted_watts?: number | null
+        }
         Update: {
-          avg_cadence?: number | null;
-          avg_hr?: number | null;
-          avg_speed_mps?: number | null;
-          avg_watts?: number | null;
-          calories?: number | null;
-          client_id?: string;
-          created_at?: string;
-          distance_m?: number | null;
-          elapsed_sec?: number;
-          elevation_gain_m?: number | null;
-          external_id?: string;
-          id?: string;
-          local_date?: string;
-          max_hr?: number | null;
-          max_watts?: number | null;
-          moving_sec?: number;
-          name?: string;
-          polyline?: string | null;
-          raw?: Json | null;
-          session_id?: string | null;
-          source?: string;
-          sport_type?: string;
-          started_at?: string;
-          suffer_score?: number | null;
-          weighted_watts?: number | null;
-        };
+          avg_cadence?: number | null
+          avg_hr?: number | null
+          avg_speed_mps?: number | null
+          avg_watts?: number | null
+          calories?: number | null
+          client_id?: string
+          created_at?: string
+          distance_m?: number | null
+          elapsed_sec?: number
+          elevation_gain_m?: number | null
+          external_id?: string
+          id?: string
+          local_date?: string
+          max_hr?: number | null
+          max_watts?: number | null
+          moving_sec?: number
+          name?: string
+          polyline?: string | null
+          raw?: Json | null
+          session_id?: string | null
+          source?: string
+          sport_type?: string
+          started_at?: string
+          suffer_score?: number | null
+          weighted_watts?: number | null
+        }
         Relationships: [
           {
-            foreignKeyName: 'activities_client_id_fkey';
-            columns: ['client_id'];
-            isOneToOne: false;
-            referencedRelation: 'clients';
-            referencedColumns: ['id'];
+            foreignKeyName: "activities_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'activities_session_id_fkey';
-            columns: ['session_id'];
-            isOneToOne: false;
-            referencedRelation: 'sessions';
-            referencedColumns: ['id'];
+            foreignKeyName: "activities_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       api_keys: {
         Row: {
-          coach_id: string;
-          created_at: string;
-          id: string;
-          key_hash: string;
-          last_used_at: string | null;
-          name: string;
-          prefix: string;
-          revoked_at: string | null;
-        };
+          coach_id: string
+          created_at: string
+          id: string
+          key_hash: string
+          last_used_at: string | null
+          name: string
+          prefix: string
+          revoked_at: string | null
+        }
         Insert: {
-          coach_id: string;
-          created_at?: string;
-          id?: string;
-          key_hash: string;
-          last_used_at?: string | null;
-          name: string;
-          prefix: string;
-          revoked_at?: string | null;
-        };
+          coach_id: string
+          created_at?: string
+          id?: string
+          key_hash: string
+          last_used_at?: string | null
+          name: string
+          prefix: string
+          revoked_at?: string | null
+        }
         Update: {
-          coach_id?: string;
-          created_at?: string;
-          id?: string;
-          key_hash?: string;
-          last_used_at?: string | null;
-          name?: string;
-          prefix?: string;
-          revoked_at?: string | null;
-        };
+          coach_id?: string
+          created_at?: string
+          id?: string
+          key_hash?: string
+          last_used_at?: string | null
+          name?: string
+          prefix?: string
+          revoked_at?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: 'api_keys_coach_id_fkey';
-            columns: ['coach_id'];
-            isOneToOne: false;
-            referencedRelation: 'coaches';
-            referencedColumns: ['id'];
+            foreignKeyName: "api_keys_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       assignments: {
         Row: {
-          client_id: string;
-          coach_id: string;
-          created_at: string;
-          id: string;
-          program_id: string;
-          start_date: string;
-          status: string;
-        };
+          client_id: string
+          coach_id: string
+          created_at: string
+          id: string
+          program_id: string
+          start_date: string
+          status: string
+        }
         Insert: {
-          client_id: string;
-          coach_id: string;
-          created_at?: string;
-          id?: string;
-          program_id: string;
-          start_date: string;
-          status?: string;
-        };
+          client_id: string
+          coach_id: string
+          created_at?: string
+          id?: string
+          program_id: string
+          start_date: string
+          status?: string
+        }
         Update: {
-          client_id?: string;
-          coach_id?: string;
-          created_at?: string;
-          id?: string;
-          program_id?: string;
-          start_date?: string;
-          status?: string;
-        };
+          client_id?: string
+          coach_id?: string
+          created_at?: string
+          id?: string
+          program_id?: string
+          start_date?: string
+          status?: string
+        }
         Relationships: [
           {
-            foreignKeyName: 'assignments_client_id_fkey';
-            columns: ['client_id'];
-            isOneToOne: false;
-            referencedRelation: 'clients';
-            referencedColumns: ['id'];
+            foreignKeyName: "assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'assignments_coach_id_fkey';
-            columns: ['coach_id'];
-            isOneToOne: false;
-            referencedRelation: 'coaches';
-            referencedColumns: ['id'];
+            foreignKeyName: "assignments_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'assignments_program_id_fkey';
-            columns: ['program_id'];
-            isOneToOne: false;
-            referencedRelation: 'programs';
-            referencedColumns: ['id'];
+            foreignKeyName: "assignments_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       audit_log: {
         Row: {
-          action: string;
-          actor_id: string | null;
-          entity: string;
-          entity_id: string | null;
-          id: number;
-          occurred_at: string;
-        };
+          action: string
+          actor_id: string | null
+          entity: string
+          entity_id: string | null
+          id: number
+          occurred_at: string
+        }
         Insert: {
-          action: string;
-          actor_id?: string | null;
-          entity: string;
-          entity_id?: string | null;
-          id?: number;
-          occurred_at?: string;
-        };
+          action: string
+          actor_id?: string | null
+          entity: string
+          entity_id?: string | null
+          id?: number
+          occurred_at?: string
+        }
         Update: {
-          action?: string;
-          actor_id?: string | null;
-          entity?: string;
-          entity_id?: string | null;
-          id?: number;
-          occurred_at?: string;
-        };
-        Relationships: [];
-      };
+          action?: string
+          actor_id?: string | null
+          entity?: string
+          entity_id?: string | null
+          id?: number
+          occurred_at?: string
+        }
+        Relationships: []
+      }
       calendar_tokens: {
         Row: {
-          client_id: string;
-          created_at: string;
-          profile_id: string;
-          revoked_at: string | null;
-          token: string;
-        };
+          client_id: string
+          created_at: string
+          profile_id: string
+          revoked_at: string | null
+          token: string
+        }
         Insert: {
-          client_id: string;
-          created_at?: string;
-          profile_id: string;
-          revoked_at?: string | null;
-          token: string;
-        };
+          client_id: string
+          created_at?: string
+          profile_id: string
+          revoked_at?: string | null
+          token: string
+        }
         Update: {
-          client_id?: string;
-          created_at?: string;
-          profile_id?: string;
-          revoked_at?: string | null;
-          token?: string;
-        };
+          client_id?: string
+          created_at?: string
+          profile_id?: string
+          revoked_at?: string | null
+          token?: string
+        }
         Relationships: [
           {
-            foreignKeyName: 'calendar_tokens_client_id_fkey';
-            columns: ['client_id'];
-            isOneToOne: true;
-            referencedRelation: 'clients';
-            referencedColumns: ['id'];
+            foreignKeyName: "calendar_tokens_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       challenge_participants: {
         Row: {
-          challenge_id: string;
-          client_id: string;
-          coach_id: string;
-          joined_at: string;
-        };
+          challenge_id: string
+          client_id: string
+          coach_id: string
+          joined_at: string
+        }
         Insert: {
-          challenge_id: string;
-          client_id: string;
-          coach_id: string;
-          joined_at?: string;
-        };
+          challenge_id: string
+          client_id: string
+          coach_id: string
+          joined_at?: string
+        }
         Update: {
-          challenge_id?: string;
-          client_id?: string;
-          coach_id?: string;
-          joined_at?: string;
-        };
+          challenge_id?: string
+          client_id?: string
+          coach_id?: string
+          joined_at?: string
+        }
         Relationships: [
           {
-            foreignKeyName: 'challenge_participants_challenge_id_coach_id_fkey';
-            columns: ['challenge_id', 'coach_id'];
-            isOneToOne: false;
-            referencedRelation: 'challenges';
-            referencedColumns: ['id', 'coach_id'];
+            foreignKeyName: "challenge_participants_challenge_id_coach_id_fkey"
+            columns: ["challenge_id", "coach_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id", "coach_id"]
           },
           {
-            foreignKeyName: 'challenge_participants_client_id_fkey';
-            columns: ['client_id'];
-            isOneToOne: false;
-            referencedRelation: 'clients';
-            referencedColumns: ['id'];
+            foreignKeyName: "challenge_participants_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       challenges: {
         Row: {
-          coach_id: string;
-          created_at: string;
-          id: string;
-          metric: Database['public']['Enums']['challenge_metric'];
-          name: string;
-          program_id: string | null;
-          starts_on: string;
-          summary: string | null;
-          weekly_target: number;
-          weeks: number;
-        };
+          coach_id: string
+          created_at: string
+          id: string
+          metric: Database["public"]["Enums"]["challenge_metric"]
+          name: string
+          program_id: string | null
+          starts_on: string
+          summary: string | null
+          weekly_target: number
+          weeks: number
+        }
         Insert: {
-          coach_id: string;
-          created_at?: string;
-          id?: string;
-          metric?: Database['public']['Enums']['challenge_metric'];
-          name: string;
-          program_id?: string | null;
-          starts_on?: string;
-          summary?: string | null;
-          weekly_target: number;
-          weeks: number;
-        };
+          coach_id: string
+          created_at?: string
+          id?: string
+          metric?: Database["public"]["Enums"]["challenge_metric"]
+          name: string
+          program_id?: string | null
+          starts_on?: string
+          summary?: string | null
+          weekly_target: number
+          weeks: number
+        }
         Update: {
-          coach_id?: string;
-          created_at?: string;
-          id?: string;
-          metric?: Database['public']['Enums']['challenge_metric'];
-          name?: string;
-          program_id?: string | null;
-          starts_on?: string;
-          summary?: string | null;
-          weekly_target?: number;
-          weeks?: number;
-        };
+          coach_id?: string
+          created_at?: string
+          id?: string
+          metric?: Database["public"]["Enums"]["challenge_metric"]
+          name?: string
+          program_id?: string | null
+          starts_on?: string
+          summary?: string | null
+          weekly_target?: number
+          weeks?: number
+        }
         Relationships: [
           {
-            foreignKeyName: 'challenges_coach_id_fkey';
-            columns: ['coach_id'];
-            isOneToOne: false;
-            referencedRelation: 'coaches';
-            referencedColumns: ['id'];
+            foreignKeyName: "challenges_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'challenges_program_id_fkey';
-            columns: ['program_id'];
-            isOneToOne: false;
-            referencedRelation: 'programs';
-            referencedColumns: ['id'];
+            foreignKeyName: "challenges_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       client_invites: {
         Row: {
-          accepted_at: string | null;
-          client_id: string;
-          coach_id: string;
-          created_at: string;
-          email: string;
-          expires_at: string;
-          id: string;
-          revoked_at: string | null;
-          token: string | null;
-          token_hash: string | null;
-        };
+          accepted_at: string | null
+          client_id: string
+          coach_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          revoked_at: string | null
+          token: string | null
+          token_hash: string | null
+        }
         Insert: {
-          accepted_at?: string | null;
-          client_id: string;
-          coach_id: string;
-          created_at?: string;
-          email: string;
-          expires_at: string;
-          id?: string;
-          revoked_at?: string | null;
-          token?: string | null;
-          token_hash?: string | null;
-        };
+          accepted_at?: string | null
+          client_id: string
+          coach_id: string
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          revoked_at?: string | null
+          token?: string | null
+          token_hash?: string | null
+        }
         Update: {
-          accepted_at?: string | null;
-          client_id?: string;
-          coach_id?: string;
-          created_at?: string;
-          email?: string;
-          expires_at?: string;
-          id?: string;
-          revoked_at?: string | null;
-          token?: string | null;
-          token_hash?: string | null;
-        };
+          accepted_at?: string | null
+          client_id?: string
+          coach_id?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          revoked_at?: string | null
+          token?: string | null
+          token_hash?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: 'client_invites_client_id_fkey';
-            columns: ['client_id'];
-            isOneToOne: false;
-            referencedRelation: 'clients';
-            referencedColumns: ['id'];
+            foreignKeyName: "client_invites_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'client_invites_coach_id_fkey';
-            columns: ['coach_id'];
-            isOneToOne: false;
-            referencedRelation: 'coaches';
-            referencedColumns: ['id'];
+            foreignKeyName: "client_invites_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       clients: {
         Row: {
-          breastfeeding: boolean;
-          coach_id: string;
-          condition: string | null;
-          created_at: string;
-          date_of_birth: string | null;
-          delivery_type: Database['public']['Enums']['delivery_type'];
-          email: string;
-          first_name_hint: string | null;
-          goal: string | null;
-          height_cm: number | null;
-          id: string;
-          last_name_hint: string | null;
-          onboarded_at: string | null;
-          profile_id: string | null;
-          sex: string | null;
-          started_on: string;
-          status: Database['public']['Enums']['client_status'];
-          updated_at: string;
-          weeks_postpartum: number | null;
-        };
+          breastfeeding: boolean
+          coach_id: string
+          condition: string | null
+          created_at: string
+          date_of_birth: string | null
+          delivery_type: Database["public"]["Enums"]["delivery_type"]
+          email: string
+          first_name_hint: string | null
+          goal: string | null
+          height_cm: number | null
+          id: string
+          last_name_hint: string | null
+          onboarded_at: string | null
+          profile_id: string | null
+          sex: string | null
+          started_on: string
+          status: Database["public"]["Enums"]["client_status"]
+          updated_at: string
+          weeks_postpartum: number | null
+        }
         Insert: {
-          breastfeeding?: boolean;
-          coach_id: string;
-          condition?: string | null;
-          created_at?: string;
-          date_of_birth?: string | null;
-          delivery_type?: Database['public']['Enums']['delivery_type'];
-          email: string;
-          first_name_hint?: string | null;
-          goal?: string | null;
-          height_cm?: number | null;
-          id?: string;
-          last_name_hint?: string | null;
-          onboarded_at?: string | null;
-          profile_id?: string | null;
-          sex?: string | null;
-          started_on?: string;
-          status?: Database['public']['Enums']['client_status'];
-          updated_at?: string;
-          weeks_postpartum?: number | null;
-        };
+          breastfeeding?: boolean
+          coach_id: string
+          condition?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          delivery_type?: Database["public"]["Enums"]["delivery_type"]
+          email: string
+          first_name_hint?: string | null
+          goal?: string | null
+          height_cm?: number | null
+          id?: string
+          last_name_hint?: string | null
+          onboarded_at?: string | null
+          profile_id?: string | null
+          sex?: string | null
+          started_on?: string
+          status?: Database["public"]["Enums"]["client_status"]
+          updated_at?: string
+          weeks_postpartum?: number | null
+        }
         Update: {
-          breastfeeding?: boolean;
-          coach_id?: string;
-          condition?: string | null;
-          created_at?: string;
-          date_of_birth?: string | null;
-          delivery_type?: Database['public']['Enums']['delivery_type'];
-          email?: string;
-          first_name_hint?: string | null;
-          goal?: string | null;
-          height_cm?: number | null;
-          id?: string;
-          last_name_hint?: string | null;
-          onboarded_at?: string | null;
-          profile_id?: string | null;
-          sex?: string | null;
-          started_on?: string;
-          status?: Database['public']['Enums']['client_status'];
-          updated_at?: string;
-          weeks_postpartum?: number | null;
-        };
+          breastfeeding?: boolean
+          coach_id?: string
+          condition?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          delivery_type?: Database["public"]["Enums"]["delivery_type"]
+          email?: string
+          first_name_hint?: string | null
+          goal?: string | null
+          height_cm?: number | null
+          id?: string
+          last_name_hint?: string | null
+          onboarded_at?: string | null
+          profile_id?: string | null
+          sex?: string | null
+          started_on?: string
+          status?: Database["public"]["Enums"]["client_status"]
+          updated_at?: string
+          weeks_postpartum?: number | null
+        }
         Relationships: [
           {
-            foreignKeyName: 'clients_coach_id_fkey';
-            columns: ['coach_id'];
-            isOneToOne: false;
-            referencedRelation: 'coaches';
-            referencedColumns: ['id'];
+            foreignKeyName: "clients_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'clients_profile_id_fkey';
-            columns: ['profile_id'];
-            isOneToOne: true;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
+            foreignKeyName: "clients_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       coaches: {
         Row: {
-          created_at: string;
-          id: string;
-          practice_name: string;
-        };
+          created_at: string
+          id: string
+          practice_name: string
+        }
         Insert: {
-          created_at?: string;
-          id: string;
-          practice_name: string;
-        };
+          created_at?: string
+          id: string
+          practice_name: string
+        }
         Update: {
-          created_at?: string;
-          id?: string;
-          practice_name?: string;
-        };
+          created_at?: string
+          id?: string
+          practice_name?: string
+        }
         Relationships: [
           {
-            foreignKeyName: 'coaches_id_fkey';
-            columns: ['id'];
-            isOneToOne: true;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
+            foreignKeyName: "coaches_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       consents: {
         Row: {
-          client_id: string;
-          granted_at: string;
-          id: string;
-          policy_version: string;
-          revoked_at: string | null;
-          type: Database['public']['Enums']['consent_type'];
-        };
+          client_id: string
+          granted_at: string
+          id: string
+          policy_version: string
+          revoked_at: string | null
+          type: Database["public"]["Enums"]["consent_type"]
+        }
         Insert: {
-          client_id: string;
-          granted_at?: string;
-          id?: string;
-          policy_version: string;
-          revoked_at?: string | null;
-          type: Database['public']['Enums']['consent_type'];
-        };
+          client_id: string
+          granted_at?: string
+          id?: string
+          policy_version: string
+          revoked_at?: string | null
+          type: Database["public"]["Enums"]["consent_type"]
+        }
         Update: {
-          client_id?: string;
-          granted_at?: string;
-          id?: string;
-          policy_version?: string;
-          revoked_at?: string | null;
-          type?: Database['public']['Enums']['consent_type'];
-        };
+          client_id?: string
+          granted_at?: string
+          id?: string
+          policy_version?: string
+          revoked_at?: string | null
+          type?: Database["public"]["Enums"]["consent_type"]
+        }
         Relationships: [
           {
-            foreignKeyName: 'consents_client_id_fkey';
-            columns: ['client_id'];
-            isOneToOne: false;
-            referencedRelation: 'clients';
-            referencedColumns: ['id'];
+            foreignKeyName: "consents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       daily_reads: {
         Row: {
-          client_id: string;
-          created_at: string;
-          id: string;
-          read_on: string;
-          read_window: Database['public']['Enums']['read_window'];
-          readiness: number;
-          symptom: string;
-        };
+          client_id: string
+          created_at: string
+          id: string
+          read_on: string
+          read_window: Database["public"]["Enums"]["read_window"]
+          readiness: number
+          symptom: string
+        }
         Insert: {
-          client_id: string;
-          created_at?: string;
-          id?: string;
-          read_on: string;
-          read_window: Database['public']['Enums']['read_window'];
-          readiness: number;
-          symptom?: string;
-        };
+          client_id: string
+          created_at?: string
+          id?: string
+          read_on: string
+          read_window: Database["public"]["Enums"]["read_window"]
+          readiness: number
+          symptom?: string
+        }
         Update: {
-          client_id?: string;
-          created_at?: string;
-          id?: string;
-          read_on?: string;
-          read_window?: Database['public']['Enums']['read_window'];
-          readiness?: number;
-          symptom?: string;
-        };
+          client_id?: string
+          created_at?: string
+          id?: string
+          read_on?: string
+          read_window?: Database["public"]["Enums"]["read_window"]
+          readiness?: number
+          symptom?: string
+        }
         Relationships: [
           {
-            foreignKeyName: 'daily_reads_client_id_fkey';
-            columns: ['client_id'];
-            isOneToOne: false;
-            referencedRelation: 'clients';
-            referencedColumns: ['id'];
+            foreignKeyName: "daily_reads_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       exercises: {
         Row: {
-          archived_at: string | null;
-          category: Database['public']['Enums']['exercise_category'];
-          coach_id: string | null;
-          created_at: string;
-          cues: string[];
-          equipment: string;
-          id: string;
-          muscle_groups: string[];
-          name: string;
-          notes: string | null;
-          updated_at: string;
-          video_path: string | null;
-        };
+          archived_at: string | null
+          category: Database["public"]["Enums"]["exercise_category"]
+          coach_id: string | null
+          created_at: string
+          cues: string[]
+          equipment: string
+          id: string
+          muscle_groups: string[]
+          name: string
+          notes: string | null
+          updated_at: string
+          video_path: string | null
+        }
         Insert: {
-          archived_at?: string | null;
-          category?: Database['public']['Enums']['exercise_category'];
-          coach_id?: string | null;
-          created_at?: string;
-          cues?: string[];
-          equipment?: string;
-          id?: string;
-          muscle_groups?: string[];
-          name: string;
-          notes?: string | null;
-          updated_at?: string;
-          video_path?: string | null;
-        };
+          archived_at?: string | null
+          category?: Database["public"]["Enums"]["exercise_category"]
+          coach_id?: string | null
+          created_at?: string
+          cues?: string[]
+          equipment?: string
+          id?: string
+          muscle_groups?: string[]
+          name: string
+          notes?: string | null
+          updated_at?: string
+          video_path?: string | null
+        }
         Update: {
-          archived_at?: string | null;
-          category?: Database['public']['Enums']['exercise_category'];
-          coach_id?: string | null;
-          created_at?: string;
-          cues?: string[];
-          equipment?: string;
-          id?: string;
-          muscle_groups?: string[];
-          name?: string;
-          notes?: string | null;
-          updated_at?: string;
-          video_path?: string | null;
-        };
+          archived_at?: string | null
+          category?: Database["public"]["Enums"]["exercise_category"]
+          coach_id?: string | null
+          created_at?: string
+          cues?: string[]
+          equipment?: string
+          id?: string
+          muscle_groups?: string[]
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          video_path?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: 'exercises_coach_id_fkey';
-            columns: ['coach_id'];
-            isOneToOne: false;
-            referencedRelation: 'coaches';
-            referencedColumns: ['id'];
+            foreignKeyName: "exercises_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       food_logs: {
         Row: {
-          carbs_g: number;
-          client_id: string;
-          created_at: string;
-          description: string;
-          fat_g: number;
-          food_id: string | null;
-          id: string;
-          kcal: number;
-          logged_on: string;
-          meal: Database['public']['Enums']['meal_slot'];
-          protein_g: number;
-          quantity_g: number | null;
-          source: Database['public']['Enums']['food_log_source'];
-        };
+          carbs_g: number
+          client_id: string
+          created_at: string
+          description: string
+          fat_g: number
+          food_id: string | null
+          id: string
+          kcal: number
+          logged_on: string
+          meal: Database["public"]["Enums"]["meal_slot"]
+          protein_g: number
+          quantity_g: number | null
+          source: Database["public"]["Enums"]["food_log_source"]
+        }
         Insert: {
-          carbs_g?: number;
-          client_id: string;
-          created_at?: string;
-          description: string;
-          fat_g?: number;
-          food_id?: string | null;
-          id?: string;
-          kcal: number;
-          logged_on: string;
-          meal: Database['public']['Enums']['meal_slot'];
-          protein_g?: number;
-          quantity_g?: number | null;
-          source: Database['public']['Enums']['food_log_source'];
-        };
+          carbs_g?: number
+          client_id: string
+          created_at?: string
+          description: string
+          fat_g?: number
+          food_id?: string | null
+          id?: string
+          kcal: number
+          logged_on: string
+          meal: Database["public"]["Enums"]["meal_slot"]
+          protein_g?: number
+          quantity_g?: number | null
+          source: Database["public"]["Enums"]["food_log_source"]
+        }
         Update: {
-          carbs_g?: number;
-          client_id?: string;
-          created_at?: string;
-          description?: string;
-          fat_g?: number;
-          food_id?: string | null;
-          id?: string;
-          kcal?: number;
-          logged_on?: string;
-          meal?: Database['public']['Enums']['meal_slot'];
-          protein_g?: number;
-          quantity_g?: number | null;
-          source?: Database['public']['Enums']['food_log_source'];
-        };
+          carbs_g?: number
+          client_id?: string
+          created_at?: string
+          description?: string
+          fat_g?: number
+          food_id?: string | null
+          id?: string
+          kcal?: number
+          logged_on?: string
+          meal?: Database["public"]["Enums"]["meal_slot"]
+          protein_g?: number
+          quantity_g?: number | null
+          source?: Database["public"]["Enums"]["food_log_source"]
+        }
         Relationships: [
           {
-            foreignKeyName: 'food_logs_client_id_fkey';
-            columns: ['client_id'];
-            isOneToOne: false;
-            referencedRelation: 'clients';
-            referencedColumns: ['id'];
+            foreignKeyName: "food_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'food_logs_food_id_fkey';
-            columns: ['food_id'];
-            isOneToOne: false;
-            referencedRelation: 'foods';
-            referencedColumns: ['id'];
+            foreignKeyName: "food_logs_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       foods: {
         Row: {
-          barcode: string | null;
-          brand: string | null;
-          carbs_100g: number;
-          coach_id: string | null;
-          created_at: string;
-          fat_100g: number;
-          id: string;
-          kcal_100g: number;
-          name: string;
-          protein_100g: number;
-          serving_g: number | null;
-          serving_name: string | null;
-          source: Database['public']['Enums']['food_source'];
-        };
+          barcode: string | null
+          brand: string | null
+          carbs_100g: number
+          coach_id: string | null
+          created_at: string
+          fat_100g: number
+          id: string
+          kcal_100g: number
+          name: string
+          protein_100g: number
+          serving_g: number | null
+          serving_name: string | null
+          source: Database["public"]["Enums"]["food_source"]
+        }
         Insert: {
-          barcode?: string | null;
-          brand?: string | null;
-          carbs_100g?: number;
-          coach_id?: string | null;
-          created_at?: string;
-          fat_100g?: number;
-          id?: string;
-          kcal_100g: number;
-          name: string;
-          protein_100g?: number;
-          serving_g?: number | null;
-          serving_name?: string | null;
-          source: Database['public']['Enums']['food_source'];
-        };
+          barcode?: string | null
+          brand?: string | null
+          carbs_100g?: number
+          coach_id?: string | null
+          created_at?: string
+          fat_100g?: number
+          id?: string
+          kcal_100g: number
+          name: string
+          protein_100g?: number
+          serving_g?: number | null
+          serving_name?: string | null
+          source: Database["public"]["Enums"]["food_source"]
+        }
         Update: {
-          barcode?: string | null;
-          brand?: string | null;
-          carbs_100g?: number;
-          coach_id?: string | null;
-          created_at?: string;
-          fat_100g?: number;
-          id?: string;
-          kcal_100g?: number;
-          name?: string;
-          protein_100g?: number;
-          serving_g?: number | null;
-          serving_name?: string | null;
-          source?: Database['public']['Enums']['food_source'];
-        };
+          barcode?: string | null
+          brand?: string | null
+          carbs_100g?: number
+          coach_id?: string | null
+          created_at?: string
+          fat_100g?: number
+          id?: string
+          kcal_100g?: number
+          name?: string
+          protein_100g?: number
+          serving_g?: number | null
+          serving_name?: string | null
+          source?: Database["public"]["Enums"]["food_source"]
+        }
         Relationships: [
           {
-            foreignKeyName: 'foods_coach_id_fkey';
-            columns: ['coach_id'];
-            isOneToOne: false;
-            referencedRelation: 'coaches';
-            referencedColumns: ['id'];
+            foreignKeyName: "foods_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       messages: {
         Row: {
-          body: string;
-          client_id: string;
-          created_at: string;
-          id: string;
-          read_at: string | null;
-          sender: Database['public']['Enums']['user_role'];
-          session_id: string | null;
-        };
+          body: string
+          client_id: string
+          created_at: string
+          id: string
+          read_at: string | null
+          sender: Database["public"]["Enums"]["user_role"]
+          session_id: string | null
+        }
         Insert: {
-          body: string;
-          client_id: string;
-          created_at?: string;
-          id?: string;
-          read_at?: string | null;
-          sender: Database['public']['Enums']['user_role'];
-          session_id?: string | null;
-        };
+          body: string
+          client_id: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          sender: Database["public"]["Enums"]["user_role"]
+          session_id?: string | null
+        }
         Update: {
-          body?: string;
-          client_id?: string;
-          created_at?: string;
-          id?: string;
-          read_at?: string | null;
-          sender?: Database['public']['Enums']['user_role'];
-          session_id?: string | null;
-        };
+          body?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          sender?: Database["public"]["Enums"]["user_role"]
+          session_id?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: 'messages_client_id_fkey';
-            columns: ['client_id'];
-            isOneToOne: false;
-            referencedRelation: 'clients';
-            referencedColumns: ['id'];
+            foreignKeyName: "messages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'messages_session_id_fkey';
-            columns: ['session_id'];
-            isOneToOne: false;
-            referencedRelation: 'sessions';
-            referencedColumns: ['id'];
+            foreignKeyName: "messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       metrics: {
         Row: {
-          client_id: string;
-          created_at: string;
-          external_id: string | null;
-          id: string;
-          recorded_at: string;
-          source: Database['public']['Enums']['metric_source'];
-          type: Database['public']['Enums']['metric_type'];
-          value: number;
-        };
+          client_id: string
+          created_at: string
+          external_id: string | null
+          id: string
+          recorded_at: string
+          source: Database["public"]["Enums"]["metric_source"]
+          type: Database["public"]["Enums"]["metric_type"]
+          value: number
+        }
         Insert: {
-          client_id: string;
-          created_at?: string;
-          external_id?: string | null;
-          id?: string;
-          recorded_at: string;
-          source?: Database['public']['Enums']['metric_source'];
-          type: Database['public']['Enums']['metric_type'];
-          value: number;
-        };
+          client_id: string
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          recorded_at: string
+          source?: Database["public"]["Enums"]["metric_source"]
+          type: Database["public"]["Enums"]["metric_type"]
+          value: number
+        }
         Update: {
-          client_id?: string;
-          created_at?: string;
-          external_id?: string | null;
-          id?: string;
-          recorded_at?: string;
-          source?: Database['public']['Enums']['metric_source'];
-          type?: Database['public']['Enums']['metric_type'];
-          value?: number;
-        };
+          client_id?: string
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          recorded_at?: string
+          source?: Database["public"]["Enums"]["metric_source"]
+          type?: Database["public"]["Enums"]["metric_type"]
+          value?: number
+        }
         Relationships: [
           {
-            foreignKeyName: 'metrics_client_id_fkey';
-            columns: ['client_id'];
-            isOneToOne: false;
-            referencedRelation: 'clients';
-            referencedColumns: ['id'];
+            foreignKeyName: "metrics_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       nutrition_targets: {
         Row: {
-          carbs_g: number;
-          client_id: string;
-          coach_id: string;
-          created_at: string;
-          effective_from: string;
-          fat_g: number;
-          id: string;
-          kcal: number;
-          note: string | null;
-          protein_g: number;
-        };
+          carbs_g: number
+          client_id: string
+          coach_id: string
+          created_at: string
+          effective_from: string
+          fat_g: number
+          id: string
+          kcal: number
+          note: string | null
+          protein_g: number
+        }
         Insert: {
-          carbs_g: number;
-          client_id: string;
-          coach_id: string;
-          created_at?: string;
-          effective_from: string;
-          fat_g: number;
-          id?: string;
-          kcal: number;
-          note?: string | null;
-          protein_g: number;
-        };
+          carbs_g: number
+          client_id: string
+          coach_id: string
+          created_at?: string
+          effective_from: string
+          fat_g: number
+          id?: string
+          kcal: number
+          note?: string | null
+          protein_g: number
+        }
         Update: {
-          carbs_g?: number;
-          client_id?: string;
-          coach_id?: string;
-          created_at?: string;
-          effective_from?: string;
-          fat_g?: number;
-          id?: string;
-          kcal?: number;
-          note?: string | null;
-          protein_g?: number;
-        };
+          carbs_g?: number
+          client_id?: string
+          coach_id?: string
+          created_at?: string
+          effective_from?: string
+          fat_g?: number
+          id?: string
+          kcal?: number
+          note?: string | null
+          protein_g?: number
+        }
         Relationships: [
           {
-            foreignKeyName: 'nutrition_targets_client_id_fkey';
-            columns: ['client_id'];
-            isOneToOne: false;
-            referencedRelation: 'clients';
-            referencedColumns: ['id'];
+            foreignKeyName: "nutrition_targets_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'nutrition_targets_coach_id_fkey';
-            columns: ['coach_id'];
-            isOneToOne: false;
-            referencedRelation: 'coaches';
-            referencedColumns: ['id'];
+            foreignKeyName: "nutrition_targets_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       profiles: {
         Row: {
-          avatar_path: string | null;
-          created_at: string;
-          first_name: string;
-          id: string;
-          last_name: string;
-          locale: string;
-          role: Database['public']['Enums']['user_role'];
-          timezone: string;
-          updated_at: string;
-        };
+          avatar_path: string | null
+          created_at: string
+          first_name: string
+          id: string
+          last_name: string
+          locale: string
+          role: Database["public"]["Enums"]["user_role"]
+          timezone: string
+          updated_at: string
+        }
         Insert: {
-          avatar_path?: string | null;
-          created_at?: string;
-          first_name: string;
-          id: string;
-          last_name: string;
-          locale?: string;
-          role: Database['public']['Enums']['user_role'];
-          timezone?: string;
-          updated_at?: string;
-        };
+          avatar_path?: string | null
+          created_at?: string
+          first_name: string
+          id: string
+          last_name: string
+          locale?: string
+          role: Database["public"]["Enums"]["user_role"]
+          timezone?: string
+          updated_at?: string
+        }
         Update: {
-          avatar_path?: string | null;
-          created_at?: string;
-          first_name?: string;
-          id?: string;
-          last_name?: string;
-          locale?: string;
-          role?: Database['public']['Enums']['user_role'];
-          timezone?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
+          avatar_path?: string | null
+          created_at?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          locale?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       program_days: {
         Row: {
-          day_no: number;
-          discipline: string;
-          id: string;
-          notes: string | null;
-          program_id: string;
-          title: string;
-          week_no: number;
-        };
+          day_no: number
+          discipline: string
+          id: string
+          notes: string | null
+          program_id: string
+          title: string
+          week_no: number
+        }
         Insert: {
-          day_no: number;
-          discipline?: string;
-          id?: string;
-          notes?: string | null;
-          program_id: string;
-          title: string;
-          week_no: number;
-        };
+          day_no: number
+          discipline?: string
+          id?: string
+          notes?: string | null
+          program_id: string
+          title: string
+          week_no: number
+        }
         Update: {
-          day_no?: number;
-          discipline?: string;
-          id?: string;
-          notes?: string | null;
-          program_id?: string;
-          title?: string;
-          week_no?: number;
-        };
+          day_no?: number
+          discipline?: string
+          id?: string
+          notes?: string | null
+          program_id?: string
+          title?: string
+          week_no?: number
+        }
         Relationships: [
           {
-            foreignKeyName: 'program_days_program_id_fkey';
-            columns: ['program_id'];
-            isOneToOne: false;
-            referencedRelation: 'programs';
-            referencedColumns: ['id'];
+            foreignKeyName: "program_days_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       program_items: {
         Row: {
-          block: string;
-          exercise_id: string;
-          id: string;
-          notes: string | null;
-          order_index: number;
-          program_day_id: string;
-          reps: string;
-          rest_sec: number;
-          sets: number;
-          target_load_kg: number | null;
-          target_rpe: number | null;
-          tempo: string | null;
-        };
+          block: string
+          exercise_id: string
+          id: string
+          notes: string | null
+          order_index: number
+          program_day_id: string
+          reps: string
+          rest_sec: number
+          sets: number
+          target_load_kg: number | null
+          target_rpe: number | null
+          tempo: string | null
+        }
         Insert: {
-          block?: string;
-          exercise_id: string;
-          id?: string;
-          notes?: string | null;
-          order_index?: number;
-          program_day_id: string;
-          reps?: string;
-          rest_sec?: number;
-          sets?: number;
-          target_load_kg?: number | null;
-          target_rpe?: number | null;
-          tempo?: string | null;
-        };
+          block?: string
+          exercise_id: string
+          id?: string
+          notes?: string | null
+          order_index?: number
+          program_day_id: string
+          reps?: string
+          rest_sec?: number
+          sets?: number
+          target_load_kg?: number | null
+          target_rpe?: number | null
+          tempo?: string | null
+        }
         Update: {
-          block?: string;
-          exercise_id?: string;
-          id?: string;
-          notes?: string | null;
-          order_index?: number;
-          program_day_id?: string;
-          reps?: string;
-          rest_sec?: number;
-          sets?: number;
-          target_load_kg?: number | null;
-          target_rpe?: number | null;
-          tempo?: string | null;
-        };
+          block?: string
+          exercise_id?: string
+          id?: string
+          notes?: string | null
+          order_index?: number
+          program_day_id?: string
+          reps?: string
+          rest_sec?: number
+          sets?: number
+          target_load_kg?: number | null
+          target_rpe?: number | null
+          tempo?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: 'program_items_exercise_id_fkey';
-            columns: ['exercise_id'];
-            isOneToOne: false;
-            referencedRelation: 'exercises';
-            referencedColumns: ['id'];
+            foreignKeyName: "program_items_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'program_items_program_day_id_fkey';
-            columns: ['program_day_id'];
-            isOneToOne: false;
-            referencedRelation: 'program_days';
-            referencedColumns: ['id'];
+            foreignKeyName: "program_items_program_day_id_fkey"
+            columns: ["program_day_id"]
+            isOneToOne: false
+            referencedRelation: "program_days"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       programs: {
         Row: {
-          archived_at: string | null;
-          coach_id: string;
-          created_at: string;
-          description: string | null;
-          duration_weeks: number;
-          id: string;
-          is_template: boolean;
-          name: string;
-          updated_at: string;
-        };
+          archived_at: string | null
+          coach_id: string
+          created_at: string
+          description: string | null
+          duration_weeks: number
+          id: string
+          is_template: boolean
+          name: string
+          updated_at: string
+        }
         Insert: {
-          archived_at?: string | null;
-          coach_id: string;
-          created_at?: string;
-          description?: string | null;
-          duration_weeks?: number;
-          id?: string;
-          is_template?: boolean;
-          name: string;
-          updated_at?: string;
-        };
+          archived_at?: string | null
+          coach_id: string
+          created_at?: string
+          description?: string | null
+          duration_weeks?: number
+          id?: string
+          is_template?: boolean
+          name: string
+          updated_at?: string
+        }
         Update: {
-          archived_at?: string | null;
-          coach_id?: string;
-          created_at?: string;
-          description?: string | null;
-          duration_weeks?: number;
-          id?: string;
-          is_template?: boolean;
-          name?: string;
-          updated_at?: string;
-        };
+          archived_at?: string | null
+          coach_id?: string
+          created_at?: string
+          description?: string | null
+          duration_weeks?: number
+          id?: string
+          is_template?: boolean
+          name?: string
+          updated_at?: string
+        }
         Relationships: [
           {
-            foreignKeyName: 'programs_coach_id_fkey';
-            columns: ['coach_id'];
-            isOneToOne: false;
-            referencedRelation: 'coaches';
-            referencedColumns: ['id'];
+            foreignKeyName: "programs_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       sessions: {
         Row: {
-          assignment_id: string | null;
-          client_id: string;
-          client_notes: string | null;
-          coach_feedback: string | null;
-          completed_at: string | null;
-          created_at: string;
-          discipline: string;
-          duration_sec: number | null;
-          id: string;
-          logged_via: string;
-          pain_after: number | null;
-          pain_before: number | null;
-          program_day_id: string | null;
-          scheduled_date: string;
-          session_rpe: number | null;
-          sets_done: number | null;
-          sets_planned: number | null;
-          started_at: string | null;
-          status: Database['public']['Enums']['session_status'];
-          title: string;
-          updated_at: string;
-        };
+          assignment_id: string | null
+          client_id: string
+          client_notes: string | null
+          coach_feedback: string | null
+          completed_at: string | null
+          created_at: string
+          discipline: string
+          duration_sec: number | null
+          id: string
+          logged_via: string
+          pain_after: number | null
+          pain_before: number | null
+          program_day_id: string | null
+          scheduled_date: string
+          session_rpe: number | null
+          sets_done: number | null
+          sets_planned: number | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["session_status"]
+          title: string
+          updated_at: string
+        }
         Insert: {
-          assignment_id?: string | null;
-          client_id: string;
-          client_notes?: string | null;
-          coach_feedback?: string | null;
-          completed_at?: string | null;
-          created_at?: string;
-          discipline?: string;
-          duration_sec?: number | null;
-          id?: string;
-          logged_via?: string;
-          pain_after?: number | null;
-          pain_before?: number | null;
-          program_day_id?: string | null;
-          scheduled_date: string;
-          session_rpe?: number | null;
-          sets_done?: number | null;
-          sets_planned?: number | null;
-          started_at?: string | null;
-          status?: Database['public']['Enums']['session_status'];
-          title: string;
-          updated_at?: string;
-        };
+          assignment_id?: string | null
+          client_id: string
+          client_notes?: string | null
+          coach_feedback?: string | null
+          completed_at?: string | null
+          created_at?: string
+          discipline?: string
+          duration_sec?: number | null
+          id?: string
+          logged_via?: string
+          pain_after?: number | null
+          pain_before?: number | null
+          program_day_id?: string | null
+          scheduled_date: string
+          session_rpe?: number | null
+          sets_done?: number | null
+          sets_planned?: number | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["session_status"]
+          title: string
+          updated_at?: string
+        }
         Update: {
-          assignment_id?: string | null;
-          client_id?: string;
-          client_notes?: string | null;
-          coach_feedback?: string | null;
-          completed_at?: string | null;
-          created_at?: string;
-          discipline?: string;
-          duration_sec?: number | null;
-          id?: string;
-          logged_via?: string;
-          pain_after?: number | null;
-          pain_before?: number | null;
-          program_day_id?: string | null;
-          scheduled_date?: string;
-          session_rpe?: number | null;
-          sets_done?: number | null;
-          sets_planned?: number | null;
-          started_at?: string | null;
-          status?: Database['public']['Enums']['session_status'];
-          title?: string;
-          updated_at?: string;
-        };
+          assignment_id?: string | null
+          client_id?: string
+          client_notes?: string | null
+          coach_feedback?: string | null
+          completed_at?: string | null
+          created_at?: string
+          discipline?: string
+          duration_sec?: number | null
+          id?: string
+          logged_via?: string
+          pain_after?: number | null
+          pain_before?: number | null
+          program_day_id?: string | null
+          scheduled_date?: string
+          session_rpe?: number | null
+          sets_done?: number | null
+          sets_planned?: number | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["session_status"]
+          title?: string
+          updated_at?: string
+        }
         Relationships: [
           {
-            foreignKeyName: 'sessions_assignment_id_fkey';
-            columns: ['assignment_id'];
-            isOneToOne: false;
-            referencedRelation: 'assignments';
-            referencedColumns: ['id'];
+            foreignKeyName: "sessions_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'sessions_client_id_fkey';
-            columns: ['client_id'];
-            isOneToOne: false;
-            referencedRelation: 'clients';
-            referencedColumns: ['id'];
+            foreignKeyName: "sessions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'sessions_program_day_id_fkey';
-            columns: ['program_day_id'];
-            isOneToOne: false;
-            referencedRelation: 'program_days';
-            referencedColumns: ['id'];
+            foreignKeyName: "sessions_program_day_id_fkey"
+            columns: ["program_day_id"]
+            isOneToOne: false
+            referencedRelation: "program_days"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       strava_links: {
         Row: {
-          athlete_id: number;
-          athlete_name: string | null;
-          client_id: string;
-          connected_at: string;
-          last_error: string | null;
-          last_synced_at: string | null;
-          profile_id: string;
-        };
+          athlete_id: number
+          athlete_name: string | null
+          client_id: string
+          connected_at: string
+          last_error: string | null
+          last_synced_at: string | null
+          profile_id: string
+        }
         Insert: {
-          athlete_id: number;
-          athlete_name?: string | null;
-          client_id: string;
-          connected_at?: string;
-          last_error?: string | null;
-          last_synced_at?: string | null;
-          profile_id: string;
-        };
+          athlete_id: number
+          athlete_name?: string | null
+          client_id: string
+          connected_at?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          profile_id: string
+        }
         Update: {
-          athlete_id?: number;
-          athlete_name?: string | null;
-          client_id?: string;
-          connected_at?: string;
-          last_error?: string | null;
-          last_synced_at?: string | null;
-          profile_id?: string;
-        };
+          athlete_id?: number
+          athlete_name?: string | null
+          client_id?: string
+          connected_at?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          profile_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: 'strava_links_client_id_fkey';
-            columns: ['client_id'];
-            isOneToOne: true;
-            referencedRelation: 'clients';
-            referencedColumns: ['id'];
+            foreignKeyName: "strava_links_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       strava_tokens: {
         Row: {
-          access_token: string;
-          client_id: string;
-          expires_at: string;
-          refresh_token: string;
-          scope: string;
-        };
+          access_token: string
+          client_id: string
+          expires_at: string
+          refresh_token: string
+          scope: string
+        }
         Insert: {
-          access_token: string;
-          client_id: string;
-          expires_at: string;
-          refresh_token: string;
-          scope?: string;
-        };
+          access_token: string
+          client_id: string
+          expires_at: string
+          refresh_token: string
+          scope?: string
+        }
         Update: {
-          access_token?: string;
-          client_id?: string;
-          expires_at?: string;
-          refresh_token?: string;
-          scope?: string;
-        };
+          access_token?: string
+          client_id?: string
+          expires_at?: string
+          refresh_token?: string
+          scope?: string
+        }
         Relationships: [
           {
-            foreignKeyName: 'strava_tokens_client_id_fkey';
-            columns: ['client_id'];
-            isOneToOne: true;
-            referencedRelation: 'clients';
-            referencedColumns: ['id'];
+            foreignKeyName: "strava_tokens_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
           },
-        ];
-      };
-    };
+        ]
+      }
+    }
     Views: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     Functions: {
-      accept_my_invite: { Args: never; Returns: string };
+      accept_my_invite: { Args: never; Returns: string }
       assign_program: {
         Args: {
-          p_client_id: string;
-          p_program_id: string;
-          p_start_date: string;
-        };
-        Returns: string;
-      };
+          p_client_id: string
+          p_program_id: string
+          p_start_date: string
+        }
+        Returns: string
+      }
       challenge_board: {
-        Args: { p_challenge: string };
+        Args: { p_challenge: string }
         Returns: {
-          client_id: string;
-          done: number;
-          name: string;
-          target: number;
-        }[];
-      };
+          client_id: string
+          done: number
+          name: string
+          target: number
+        }[]
+      }
       challenge_standing: {
-        Args: { p_challenge: string };
+        Args: { p_challenge: string }
         Returns: {
-          group_target: number;
-          group_total: number;
-          mine: number;
-          participants: number;
-        }[];
-      };
+          group_target: number
+          group_total: number
+          mine: number
+          participants: number
+        }[]
+      }
       challenge_weeks: {
-        Args: { p_challenge: string };
+        Args: { p_challenge: string }
         Returns: {
-          target: number;
-          total: number;
-          week_no: number;
-        }[];
-      };
+          target: number
+          total: number
+          week_no: number
+        }[]
+      }
       create_client_invite: {
         Args: {
-          p_breastfeeding?: boolean;
-          p_condition?: string;
-          p_delivery_type?: Database['public']['Enums']['delivery_type'];
-          p_email: string;
-          p_first_name: string;
-          p_goal?: string;
-          p_last_name: string;
-          p_weeks_postpartum?: number;
-        };
+          p_breastfeeding?: boolean
+          p_condition?: string
+          p_delivery_type?: Database["public"]["Enums"]["delivery_type"]
+          p_email: string
+          p_first_name: string
+          p_goal?: string
+          p_last_name: string
+          p_weeks_postpartum?: number
+        }
         Returns: {
-          client_id: string;
-          invite_id: string;
-          token: string;
-        }[];
-      };
-      delete_my_account: { Args: never; Returns: undefined };
-      ensure_calendar_token: { Args: { p_rotate?: boolean }; Returns: string };
+          client_id: string
+          invite_id: string
+          token: string
+        }[]
+      }
+      delete_my_account: { Args: never; Returns: undefined }
+      ensure_calendar_token: { Args: { p_rotate?: boolean }; Returns: string }
       get_session_plan: {
-        Args: { p_session_id: string };
+        Args: { p_session_id: string }
         Returns: {
-          block: string;
-          cues: string[];
-          exercise_id: string;
-          exercise_name: string;
-          item_id: string;
-          notes: string;
-          reps: string;
-          rest_sec: number;
-          sets: number;
-          target_load_kg: number;
-          target_rpe: number;
-          tempo: string;
-        }[];
-      };
+          block: string
+          cues: string[]
+          exercise_id: string
+          exercise_name: string
+          item_id: string
+          notes: string
+          reps: string
+          rest_sec: number
+          sets: number
+          target_load_kg: number
+          target_rpe: number
+          tempo: string
+        }[]
+      }
       get_session_plans: {
-        Args: { p_session_ids: string[] };
+        Args: { p_session_ids: string[] }
         Returns: {
-          block: string;
-          exercise_name: string;
-          item_id: string;
-          notes: string;
-          reps: string;
-          rest_sec: number;
-          session_id: string;
-          sets: number;
-          target_load_kg: number;
-          target_rpe: number;
-          tempo: string;
-        }[];
-      };
-      has_health_consent: { Args: { p_client: string }; Returns: boolean };
-      import_health_metrics: { Args: { p_samples: Json }; Returns: number };
-      is_coach_of: { Args: { target_client: string }; Returns: boolean };
-      is_the_client: { Args: { target_client: string }; Returns: boolean };
-      mark_onboarded: { Args: never; Returns: string };
+          block: string
+          exercise_name: string
+          item_id: string
+          notes: string
+          reps: string
+          rest_sec: number
+          session_id: string
+          sets: number
+          target_load_kg: number
+          target_rpe: number
+          tempo: string
+        }[]
+      }
+      has_health_consent: { Args: { p_client: string }; Returns: boolean }
+      import_health_metrics: { Args: { p_samples: Json }; Returns: number }
+      is_coach_of: { Args: { target_client: string }; Returns: boolean }
+      is_the_client: { Args: { target_client: string }; Returns: boolean }
+      mark_onboarded: { Args: never; Returns: string }
       nutrition_days: {
-        Args: { p_client: string; p_from: string; p_to: string };
+        Args: { p_client: string; p_from: string; p_to: string }
         Returns: {
-          carbs_g: number;
-          day: string;
-          entries: number;
-          fat_g: number;
-          kcal: number;
-          protein_g: number;
-          target_kcal: number;
-          target_protein_g: number;
-        }[];
-      };
+          carbs_g: number
+          day: string
+          entries: number
+          fat_g: number
+          kcal: number
+          protein_g: number
+          target_kcal: number
+          target_protein_g: number
+        }[]
+      }
       nutrition_target_on: {
-        Args: { p_client: string; p_on: string };
+        Args: { p_client: string; p_on: string }
         Returns: {
-          carbs_g: number;
-          client_id: string;
-          coach_id: string;
-          created_at: string;
-          effective_from: string;
-          fat_g: number;
-          id: string;
-          kcal: number;
-          note: string | null;
-          protein_g: number;
-        };
+          carbs_g: number
+          client_id: string
+          coach_id: string
+          created_at: string
+          effective_from: string
+          fat_g: number
+          id: string
+          kcal: number
+          note: string | null
+          protein_g: number
+        }
         SetofOptions: {
-          from: '*';
-          to: 'nutrition_targets';
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
-      };
+          from: "*"
+          to: "nutrition_targets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       record_consent: {
         Args: {
-          p_types: Database['public']['Enums']['consent_type'][];
-          p_version: string;
-        };
-        Returns: undefined;
-      };
-    };
+          p_types: Database["public"]["Enums"]["consent_type"][]
+          p_version: string
+        }
+        Returns: undefined
+      }
+    }
     Enums: {
-      challenge_metric: 'sessions_completed' | 'fuel_days';
-      client_status: 'invited' | 'active' | 'paused' | 'archived';
-      consent_type: 'tos' | 'privacy' | 'health_data_processing';
-      delivery_type: 'vaginal' | 'assisted_vaginal' | 'caesarean' | 'not_applicable';
-      exercise_category: 'pelvic_floor' | 'strength' | 'plyometric' | 'running' | 'mobility';
-      food_log_source: 'barcode' | 'search' | 'custom' | 'quick';
-      food_source: 'off' | 'custom';
-      meal_slot: 'breakfast' | 'lunch' | 'dinner' | 'snack';
-      metric_source: 'manual' | 'healthkit' | 'coach';
+      challenge_metric: "sessions_completed" | "fuel_days"
+      client_status: "invited" | "active" | "paused" | "archived"
+      consent_type: "tos" | "privacy" | "health_data_processing"
+      delivery_type:
+        | "vaginal"
+        | "assisted_vaginal"
+        | "caesarean"
+        | "not_applicable"
+      exercise_category:
+        | "pelvic_floor"
+        | "strength"
+        | "plyometric"
+        | "running"
+        | "mobility"
+      food_log_source: "barcode" | "search" | "custom" | "quick"
+      food_source: "off" | "custom"
+      meal_slot: "breakfast" | "lunch" | "dinner" | "snack"
+      metric_source: "manual" | "healthkit" | "coach"
       metric_type:
-        | 'weight_kg'
-        | 'body_fat_pct'
-        | 'waist_cm'
-        | 'resting_hr'
-        | 'hrv_ms'
-        | 'bp_systolic'
-        | 'bp_diastolic'
-        | 'spo2_pct'
-        | 'sleep_min'
-        | 'steps'
-        | 'vo2max'
-        | 'active_energy_kcal'
-        | 'exercise_min'
-        | 'sleep_deep_min'
-        | 'sleep_rem_min'
-        | 'sleep_core_min'
-        | 'sleep_awake_min'
-        | 'cardio_load'
-        | 'respiratory_rate';
-      read_window: 'morning' | 'midday' | 'evening';
-      session_status: 'scheduled' | 'in_progress' | 'completed' | 'skipped';
-      user_role: 'coach' | 'client';
-    };
+        | "weight_kg"
+        | "body_fat_pct"
+        | "waist_cm"
+        | "resting_hr"
+        | "hrv_ms"
+        | "bp_systolic"
+        | "bp_diastolic"
+        | "spo2_pct"
+        | "sleep_min"
+        | "steps"
+        | "vo2max"
+        | "active_energy_kcal"
+        | "exercise_min"
+        | "sleep_deep_min"
+        | "sleep_rem_min"
+        | "sleep_core_min"
+        | "sleep_awake_min"
+        | "cardio_load"
+        | "respiratory_rate"
+      read_window: "morning" | "midday" | "evening"
+      session_status: "scheduled" | "in_progress" | "completed" | "skipped"
+      user_role: "coach" | "client"
+    }
     CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
-};
+      [_ in never]: never
+    }
+  }
+}
 
-type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>;
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>];
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
-    : never) = never,
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
-      Row: infer R;
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
-    ? (DefaultSchema['Tables'] & DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R;
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
       }
       ? R
       : never
-    : never;
+    : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema['Tables'] | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
-    : never) = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
-      Insert: infer I;
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
-    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I;
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
       }
       ? I
       : never
-    : never;
+    : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema['Tables'] | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
-    : never) = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
-      Update: infer U;
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
-    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U;
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
       }
       ? U
       : never
-    : never;
+    : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    keyof DefaultSchema['Enums'] | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
-    : never) = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
-    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
-    : never;
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    keyof DefaultSchema['CompositeTypes'] | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
-    : never) = never,
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
-    ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
-    : never;
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
 export const Constants = {
   graphql_public: {
@@ -1553,39 +1574,51 @@ export const Constants = {
   },
   public: {
     Enums: {
-      challenge_metric: ['sessions_completed', 'fuel_days'],
-      client_status: ['invited', 'active', 'paused', 'archived'],
-      consent_type: ['tos', 'privacy', 'health_data_processing'],
-      delivery_type: ['vaginal', 'assisted_vaginal', 'caesarean', 'not_applicable'],
-      exercise_category: ['pelvic_floor', 'strength', 'plyometric', 'running', 'mobility'],
-      food_log_source: ['barcode', 'search', 'custom', 'quick'],
-      food_source: ['off', 'custom'],
-      meal_slot: ['breakfast', 'lunch', 'dinner', 'snack'],
-      metric_source: ['manual', 'healthkit', 'coach'],
-      metric_type: [
-        'weight_kg',
-        'body_fat_pct',
-        'waist_cm',
-        'resting_hr',
-        'hrv_ms',
-        'bp_systolic',
-        'bp_diastolic',
-        'spo2_pct',
-        'sleep_min',
-        'steps',
-        'vo2max',
-        'active_energy_kcal',
-        'exercise_min',
-        'sleep_deep_min',
-        'sleep_rem_min',
-        'sleep_core_min',
-        'sleep_awake_min',
-        'cardio_load',
-        'respiratory_rate',
+      challenge_metric: ["sessions_completed", "fuel_days"],
+      client_status: ["invited", "active", "paused", "archived"],
+      consent_type: ["tos", "privacy", "health_data_processing"],
+      delivery_type: [
+        "vaginal",
+        "assisted_vaginal",
+        "caesarean",
+        "not_applicable",
       ],
-      read_window: ['morning', 'midday', 'evening'],
-      session_status: ['scheduled', 'in_progress', 'completed', 'skipped'],
-      user_role: ['coach', 'client'],
+      exercise_category: [
+        "pelvic_floor",
+        "strength",
+        "plyometric",
+        "running",
+        "mobility",
+      ],
+      food_log_source: ["barcode", "search", "custom", "quick"],
+      food_source: ["off", "custom"],
+      meal_slot: ["breakfast", "lunch", "dinner", "snack"],
+      metric_source: ["manual", "healthkit", "coach"],
+      metric_type: [
+        "weight_kg",
+        "body_fat_pct",
+        "waist_cm",
+        "resting_hr",
+        "hrv_ms",
+        "bp_systolic",
+        "bp_diastolic",
+        "spo2_pct",
+        "sleep_min",
+        "steps",
+        "vo2max",
+        "active_energy_kcal",
+        "exercise_min",
+        "sleep_deep_min",
+        "sleep_rem_min",
+        "sleep_core_min",
+        "sleep_awake_min",
+        "cardio_load",
+        "respiratory_rate",
+      ],
+      read_window: ["morning", "midday", "evening"],
+      session_status: ["scheduled", "in_progress", "completed", "skipped"],
+      user_role: ["coach", "client"],
     },
   },
-} as const;
+} as const
+

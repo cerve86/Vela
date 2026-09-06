@@ -671,3 +671,18 @@ code (the auth API will not invite a confirmed user), and the app's invitation s
 tried the invitation type, so the code read as invalid. `verifyInviteCode` now tries the
 invitation type and then the sign-in type; either way `accept_my_invite` finishes the link.
 The portal's message to the coach says the code works on either screen. App 0.2.5.
+
+## One email, no codes (6 September 2026)
+
+Clients were signing in with a six-digit code typed between a mailbox and a phone, and
+an invitation involved a code of a different kind that the app could not tell apart.
+Now: the coach invites, the client gets one email, its link opens `/welcome` where she
+chooses a password and the invitation is accepted, and the app signs in with email and
+password. "Forgot your password?" leads to the same page. The invitation screen and the
+code screens are gone from the app; the session loader still accepts a pending invitation
+on sign-in as a safety net. A re-invitation of an address that already has an account
+sends a set-password link instead of an invitation the auth API would refuse.
+
+`accept_my_invite` now releases a person from an earlier client row before linking the
+new one — a second practice, or a re-invite after the old row was left behind, no longer
+dies on the unique key. App 0.2.6.

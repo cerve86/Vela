@@ -99,53 +99,52 @@ export async function inviteClient(formData: FormData): Promise<InviteResult> {
   const { data: existing } = await admin.auth.admin.listUsers();
   const priorUser = existing?.users.find((u) => u.email?.toLowerCase() === email);
 
-  if (priorUser) {
-    if (priorUser.email_confirmed_at) {
-      /**
-       * A verified account is one of two things, and they need different answers.
-       *
-       * Linked — the client row carries her profile — and she is simply a client already:
-       * there is nothing to invite her to. Or verified but never linked: she tapped the
-       * link in the invitation email, or typed the code on the sign-in screen, and was
-       * confirmed without the invitation being accepted. The invite created above is
-       * pending for her, and the app accepts it the moment she signs in — so what she
-       * needs is a sign-in code, not another invitation the auth API would refuse.
-       * Sending that code from here is what turns a dead end into one more email.
-       */
-      const { data: linked } = await supabase
-        .from('clients')
-        .select('profile_id')
-        .eq('email', email)
-        .not('profile_id', 'is', null)
-        .maybeSingle();
-      if (linked) {
-        return {
-          ok: false,
-          error: 'That email is already one of your clients — ask them to sign in to the app.',
-        };
-      }
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.vela-coaching.com';
+  const welcome = `${site}/welcome`;
 
-      const anon = createClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { auth: { autoRefreshToken: false, persistSession: false } },
-      );
-      const { error: codeError } = await anon.auth.signInWithOtp({
-        email,
-        options: { shouldCreateUser: false },
-      });
-      if (codeError) {
-        return {
-          ok: false,
-          error: `They verified their email but never accepted the invitation, and the sign-in code could not be sent: ${codeError.message}`,
-        };
-      }
+  if (priorUser?.email_confirmed_at) {
+    /**
+     * A verified account is one of two things, and they need different answers.
+     *
+     * Linked — the client row carries her profile — and she is simply a client already:
+     * there is nothing to invite her to. Or verified but not linked to this practice: she
+     * exists, so the auth API will not "invite" her again. What she gets instead is the
+     * same welcome page an invitation leads to, reached through a set-password link, and
+     * the invitation created above is accepted there. From her side the two emails ask
+     * the same thing: choose a password.
+     */
+    const { data: linked } = await supabase
+      .from('clients')
+      .select('profile_id')
+      .eq('email', email)
+      .not('profile_id', 'is', null)
+      .maybeSingle();
+    if (linked) {
       return {
-        ok: true,
-        email,
-        note: `${email} already has a verified account, so a sign-in code was emailed instead of an invitation. It works on the app's invitation screen and on its sign-in screen alike; either finishes the link.`,
+        ok: false,
+        error: 'That email is already one of your clients — ask them to sign in to the app.',
       };
     }
+
+    const anon = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } },
+    );
+    const { error: linkError } = await anon.auth.resetPasswordForEmail(email, {
+      redirectTo: welcome,
+    });
+    if (linkError) {
+      return { ok: false, error: `Could not email the invitation link: ${linkError.message}` };
+    }
+    return {
+      ok: true,
+      email,
+      note: `${email} already had a Vela account, so they were emailed a link to choose a password and join your practice.`,
+    };
+  }
+
+  if (priorUser) {
     const { error: updateError } = await admin.auth.admin.updateUserById(priorUser.id, {
       user_metadata: metadata,
     });
@@ -154,8 +153,13 @@ export async function inviteClient(formData: FormData): Promise<InviteResult> {
     }
   }
 
+  /**
+   * The invitation email carries a link to the welcome page, where she chooses a password
+   * and the invitation is accepted. No code to type, no second email.
+   */
   const { error: mailError } = await admin.auth.admin.inviteUserByEmail(email, {
     data: metadata,
+    redirectTo: welcome,
   });
 
   if (mailError) {
