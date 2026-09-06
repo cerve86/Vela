@@ -160,7 +160,7 @@ export default function TodayScreen() {
   /**
    * How the day is trending, as one figure: recovery when it has been read, otherwise
    * her own read, otherwise nothing. Above the middle mark she is up for it; below it she
-   * is tired — and the mascot says so before a single number does.
+   * is tired — the arc turns orange and the mascot is asleep before a single number says so.
    */
   const trend: number | null =
     vitality.recovery.score !== null
@@ -168,7 +168,7 @@ export default function TodayScreen() {
       : daily.current !== null
         ? daily.current / 4
         : null;
-  const mascotMood: MascotMood = trend !== null && trend < 0.5 ? 'low-energy' : 'greeting';
+  const mascotMood: MascotMood = trend !== null && trend < 0.5 ? 'sleep' : 'greeting';
 
   return (
     <Screen>
@@ -193,7 +193,7 @@ export default function TodayScreen() {
             {/* The mascot, under the trend gauge: how today is going, before any number. */}
             <TrendGauge
               value={trend}
-              tone={trend !== null && trend >= 0.5 ? t.status.good : t.status.warning}
+              tone={trend !== null && trend >= 0.5 ? t.status.good : t.status.seriousFill}
             >
               <Mascot mood={mascotMood} size={172} />
             </TrendGauge>

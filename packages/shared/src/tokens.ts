@@ -88,6 +88,8 @@ export const palette = {
     /** Partial attendance, and the snack slot glyph. */
     warningFill: '#E8A200',
     serious: '#B85A12',
+    /** The trend gauge's arc below the mark: a clear orange for a stroke, not for text. */
+    seriousFill: '#E07A22',
     critical: '#C4184A',
   },
 
