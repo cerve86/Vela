@@ -694,3 +694,9 @@ to `/welcome`. And the dashboard's email templates still showed the six-digit co
 the old flow with no link, so the welcome page now also accepts a typed code, and the
 release notes carry the templates to paste, linking by `token_hash` so the allow list no
 longer matters.
+
+**No profile, still in.** A client on the hosted project set her password and the accept
+failed on the profile foreign key: the sign-up trigger had not made her profile.
+`accept_my_invite` now creates a missing profile itself, and the migration re-asserts the
+trigger. pgTAP 109.
+
