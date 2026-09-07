@@ -192,7 +192,9 @@ export function TrendGauge({
   children: ReactNode;
 }) {
   const t = useTheme();
-  const r = size / 2 - stroke;
+  // The knob at the end of the arc is wider than the arc — its radius plus its own ring —
+  // so the arc sits far enough in that the knob never crosses the edge of the box.
+  const r = size / 2 - stroke * 1.5;
   const c = size / 2;
   const v = value === null ? 0 : Math.max(0, Math.min(1, value));
   const mid = GAUGE_START + GAUGE_SWEEP / 2; // the top
