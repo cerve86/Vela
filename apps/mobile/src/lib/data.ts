@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   currentTarget,
+  getAssignedProgram,
   getSession,
   getSessionPlan,
   listFoodLogs,
   listMetrics,
   listSessions,
   nutritionDays,
+  type AssignedProgram,
   type FoodLogEntry,
   type Metric,
   type MetricType,
@@ -130,6 +132,19 @@ export function useWeek() {
     weekStart: from,
     todaySession: [...todays].sort((a, b) => rank(a) - rank(b))[0] ?? null,
   };
+}
+
+/**
+ * The programme she is on, for the one kind the sessions cannot show: a written
+ * programme is a piece of text, and Today shows it as such. Null between programmes.
+ */
+export function useAssignedProgram() {
+  const { client } = useSession();
+  return useAsync<AssignedProgram | null>(
+    async () => (client ? getAssignedProgram(supabase, client.id) : null),
+    null,
+    [client?.id],
+  );
 }
 
 /**

@@ -14,6 +14,7 @@ export function NewProgramForm() {
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [kind, setKind] = useState<'structured' | 'descriptive'>('structured');
 
   if (!open) {
     return (
@@ -87,10 +88,58 @@ export function NewProgramForm() {
           />
         </div>
 
-        <label className="flex items-center gap-2 text-sm ink-2">
-          <input type="checkbox" name="isTemplate" />
-          Save as a reusable template
-        </label>
+        {/* Two shapes of programme. Days of prescriptions go on the calendar as sessions;
+            a piece of text goes on her phone to read through. */}
+        <fieldset className="flex gap-4 text-sm ink-2">
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="kind"
+              value="structured"
+              checked={kind === 'structured'}
+              onChange={() => setKind('structured')}
+            />
+            Days of exercises
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="kind"
+              value="descriptive"
+              checked={kind === 'descriptive'}
+              onChange={() => setKind('descriptive')}
+            />
+            A written programme
+          </label>
+        </fieldset>
+
+        {kind === 'descriptive' ? (
+          <div>
+            <label htmlFor="body" className="mb-1.5 block text-xs font-medium ink-2">
+              What to do
+            </label>
+            <textarea
+              id="body"
+              name="body"
+              required
+              rows={10}
+              placeholder={
+                'Three times this week:\n\n1. Walk 10 min, run 2 min, walk 2 min — repeat four times.\n2. Pelvic floor set: 10 long holds, 10 quick flicks, twice a day.\n3. Glute bridges 3 × 12, slow on the way down.\n\nStop if anything feels heavy or dragging, and tell me.'
+              }
+              className={`${field} w-full font-[inherit]`}
+              style={fieldStyle}
+            />
+            <p className="mt-1.5 text-xs ink-3">
+              She reads this as it is written, on her phone. Blank lines make paragraphs; lines
+              starting with a number or a dash become a list.
+            </p>
+          </div>
+        ) : (
+          <label className="flex items-center gap-2 text-sm ink-2">
+            <input type="checkbox" name="isTemplate" />
+            Save as a reusable template
+          </label>
+        )}
 
         {error && (
           <p className="text-sm" style={{ color: palette.status.critical }}>
@@ -105,7 +154,7 @@ export function NewProgramForm() {
             className="display-face rounded-full px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
             style={{ background: palette.brand[600] }}
           >
-            {pending ? 'Creating…' : 'Create and build'}
+            {pending ? 'Creating…' : kind === 'descriptive' ? 'Create' : 'Create and build'}
           </button>
           <button
             type="button"

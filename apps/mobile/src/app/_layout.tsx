@@ -110,6 +110,7 @@ function Gate() {
       <Stack.Screen name="welcome" />
       <Stack.Screen name="readiness" options={{ presentation: 'modal' }} />
       <Stack.Screen name="mood" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="program" />
       {/* A pushed screen, not a sheet: the keyboard and a sheet fight each other. */}
       <Stack.Screen name="messages" />
       <Stack.Screen name="health" options={{ presentation: 'modal' }} />

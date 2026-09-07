@@ -5,6 +5,7 @@ import {
   addDay,
   addItem,
   assignProgram,
+  createDescriptiveProgram,
   createProgram,
   deleteDay,
   deleteItem,
@@ -13,6 +14,7 @@ import {
   listExercises,
   listPrograms,
   updateItem,
+  updateProgramBody,
   createBundledProgram,
   type Discipline,
 } from '@vela/api';
@@ -73,6 +75,19 @@ export async function createProgramAction(formData: FormData): Promise<Result> {
   const name = String(formData.get('name') ?? '').trim();
   if (name.length < 2) return { ok: false, error: 'Give the programme a name.' };
 
+  // A descriptive programme is the text and nothing else: no days to build.
+  if (formData.get('kind') === 'descriptive') {
+    const { id, error } = await createDescriptiveProgram(supabase, userId, {
+      name,
+      description: String(formData.get('description') ?? ''),
+      durationWeeks: Number(formData.get('durationWeeks') ?? 4) || 4,
+      body: String(formData.get('body') ?? ''),
+    });
+    if (error || !id) return { ok: false, error: error ?? 'Could not create the programme.' };
+    revalidatePath('/programs');
+    return { ok: true, id };
+  }
+
   const { id, error } = await createProgram(supabase, userId, {
     name,
     description: String(formData.get('description') ?? ''),
@@ -132,6 +147,14 @@ export async function updateItemAction(
 export async function deleteItemAction(programId: string, id: string): Promise<Result> {
   const { supabase } = await ctx();
   const { error } = await deleteItem(supabase, id);
+  if (error) return { ok: false, error };
+  revalidatePath(`/programs/${programId}`);
+  return { ok: true };
+}
+
+export async function saveProgramBodyAction(programId: string, body: string): Promise<Result> {
+  const { supabase } = await ctx();
+  const { error } = await updateProgramBody(supabase, programId, body);
   if (error) return { ok: false, error };
   revalidatePath(`/programs/${programId}`);
   return { ok: true };

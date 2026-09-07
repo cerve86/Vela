@@ -1105,34 +1105,40 @@ export type Database = {
       programs: {
         Row: {
           archived_at: string | null
+          body: string | null
           coach_id: string
           created_at: string
           description: string | null
           duration_weeks: number
           id: string
           is_template: boolean
+          kind: string
           name: string
           updated_at: string
         }
         Insert: {
           archived_at?: string | null
+          body?: string | null
           coach_id: string
           created_at?: string
           description?: string | null
           duration_weeks?: number
           id?: string
           is_template?: boolean
+          kind?: string
           name: string
           updated_at?: string
         }
         Update: {
           archived_at?: string | null
+          body?: string | null
           coach_id?: string
           created_at?: string
           description?: string | null
           duration_weeks?: number
           id?: string
           is_template?: boolean
+          kind?: string
           name?: string
           updated_at?: string
         }

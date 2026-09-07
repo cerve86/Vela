@@ -33,6 +33,7 @@ import {
   useUpcoming,
   useWeek,
   weekAdherence,
+  useAssignedProgram,
 } from '@/lib/data';
 import { useDailyRead } from '@/lib/daily';
 import { syncHealthNow } from '@/lib/healthSync';
@@ -55,6 +56,7 @@ export default function TodayScreen() {
   const { client } = useSession();
 
   const week = useWeek();
+  const assigned = useAssignedProgram();
   const upcoming = useUpcoming(3);
   const plan = useSessionPlan(week.todaySession?.id ?? null);
   const nutrition = useNutrition(1);
@@ -102,6 +104,7 @@ export default function TodayScreen() {
         // to pick up "an overnight backfill" and did nothing of the kind — it reloaded the
         // same rows the backfill had not yet been imported into.
         syncHealthNow().then(() => vitality.reload()),
+        assigned.reload(),
       ]);
     } finally {
       setRefreshing(false);
@@ -109,7 +112,7 @@ export default function TodayScreen() {
     // Depends on the reloaders rather than on nothing. With an empty list this captured the
     // closures as they were at mount — and at mount `client` is still null, so every one of
     // them was a no-op that returned immediately and refreshed precisely nothing.
-  }, [week.reload, nutrition.reload, daily.reload, plan.reload, vitality.reload]);
+  }, [week.reload, nutrition.reload, daily.reload, plan.reload, vitality.reload, assigned.reload]);
 
   const firstName = client?.email.split('@')[0]?.split('.')[0] || 'there';
   const name = firstName.charAt(0).toUpperCase() + firstName.slice(1);
@@ -301,6 +304,32 @@ export default function TodayScreen() {
           allLogged={daily.allLogged}
           readGiven={daily.current !== null}
         />
+
+        {/* A written programme: the text is the plan, so it comes before the day's session
+            card, which for such a programme is a rest day with nothing on the calendar. */}
+        {assigned.data?.kind === 'descriptive' && assigned.data.body ? (
+          <Link href="/program" asChild>
+            <Pressable accessibilityRole="button" accessibilityLabel="Read your programme">
+              <Card style={{ borderRadius: 22, paddingVertical: 20 }}>
+                <PlanTag label="YOUR PROGRAMME" tone={t.brand[600]} />
+                <Display size={22} style={{ marginTop: 10 }}>
+                  {assigned.data.name}
+                </Display>
+                <Body
+                  size={14}
+                  color={t.textSecondary}
+                  style={{ marginTop: 6, lineHeight: 20 }}
+                  numberOfLines={4}
+                >
+                  {assigned.data.body}
+                </Body>
+                <Body size={13} weight="medium" color={t.brand[600]} style={{ marginTop: 12 }}>
+                  Read it through →
+                </Body>
+              </Card>
+            </Pressable>
+          </Link>
+        ) : null}
 
         {week.loading ? (
           <Card>

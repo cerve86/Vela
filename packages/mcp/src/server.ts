@@ -18,6 +18,7 @@ How to work:
 2. A programme is weeks of days. weekNo is 1–52; dayNo is 1–7 and is the order within the week, not a weekday. Each day has a title, a discipline (strength, run, mobility, rehab) and one or more items: exercise, block letter (items sharing a letter are a superset), sets, reps as free text ("8-10", "AMRAP", "30s each side"), and optionally loadKg, rpe, tempo, restSec and notes.
 3. Call preview_program first and show the coach the result. Only call create_program once she has agreed to the draft.
 4. create_program makes a programme in her account and returns a link. It never assigns a programme to a client; she does that herself in the portal, with a start date.
+5. Not every plan is days of sets and reps. When the coach wants to send instructions as prose — what to do this week, in her own words — use create_descriptive_program with the text as she wrote or approved it. The client reads it on her phone exactly as written; blank lines make paragraphs, lines starting with a number or a dash become a list. Do not turn prose into a structured programme, or the other way round, unless she asks.
 
 Be exact with prescriptions: sets, reps, load and rest are clinical instructions, not suggestions to round.`;
 
@@ -141,6 +142,44 @@ export function buildServer(api: VelaApi): McpServer {
       guarded(async () => {
         const out = formatOutcome(await api.importProgram(program, { dryRun: false }), portal);
         return text(out.text, out.isError);
+      }),
+  );
+
+  server.registerTool(
+    'create_descriptive_program',
+    {
+      title: 'Create a written programme',
+      description:
+        "Creates a programme that is a piece of text — what to do, in the coach's words — in her Vela account and returns a link. The client reads it on her phone as written. Nothing is assigned; she does that in the portal. Only call this with text the coach has written or agreed to.",
+      inputSchema: {
+        name: z.string().trim().min(2).max(120).describe('What the programme is called.'),
+        weeks: z.number().int().min(1).max(52).default(4).describe('How long it runs, in weeks.'),
+        description: z
+          .string()
+          .trim()
+          .max(240)
+          .optional()
+          .describe('One line for the list, optional.'),
+        body: z
+          .string()
+          .trim()
+          .min(1)
+          .max(20000)
+          .describe(
+            'The programme itself, as prose. Blank lines make paragraphs; lines starting with a number or a dash become a list.',
+          ),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    (input) =>
+      guarded(async () => {
+        const { id, url } = await api.createDescriptiveProgram(input);
+        return text(`Created. She can assign it in the portal: ${url}\n(id ${id})`);
       }),
   );
 

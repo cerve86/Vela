@@ -55,10 +55,16 @@ export default async function ProgramsPage() {
                     {p.description && <div className="text-xs ink-3">{p.description}</div>}
                   </td>
                   <td className="tnum py-2.5 ink-2">{p.durationWeeks}</td>
-                  <td className="tnum py-2.5 ink-2">{p.dayCount}</td>
-                  <td className="tnum py-2.5 ink-2">{p.itemCount}</td>
+                  <td className="tnum py-2.5 ink-2">
+                    {p.kind === 'descriptive' ? '—' : p.dayCount}
+                  </td>
+                  <td className="tnum py-2.5 ink-2">
+                    {p.kind === 'descriptive' ? '—' : p.itemCount}
+                  </td>
                   <td className="py-2.5">
-                    {p.isTemplate ? (
+                    {p.kind === 'descriptive' ? (
+                      <StatusPill tone="warning">Written</StatusPill>
+                    ) : p.isTemplate ? (
                       <StatusPill tone="neutral">Template</StatusPill>
                     ) : (
                       <StatusPill tone="good">Programme</StatusPill>

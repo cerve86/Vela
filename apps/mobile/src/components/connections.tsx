@@ -169,6 +169,11 @@ export function ConnectionsCard() {
             See every planned session in your own calendar, with the exercises in the notes and a
             link to mark the whole session done without opening the app.
           </Body>
+          <Body size={12} color={t.textMuted} style={{ marginTop: 6, lineHeight: 17 }}>
+            Your calendar app refreshes a subscribed calendar on its own schedule, so a new
+            programme can take a while to appear. To see it now: in Apple Calendar, open Calendars
+            and pull down; in Google Calendar it refreshes within a day.
+          </Body>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
             <View style={{ flex: 1 }}>
               <Button

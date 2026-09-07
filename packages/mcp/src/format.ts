@@ -35,7 +35,9 @@ export function formatProgramList(rows: ProgramSummary[], portalUrl: string): st
   if (rows.length === 0) return 'No programmes yet.';
   const lines = rows.map(
     (p) =>
-      `- ${p.name}${p.isTemplate ? ' [template]' : ''} — ${p.durationWeeks} wk, ${p.dayCount} days, ${p.itemCount} items · id ${p.id} · ${portalUrl}/programs/${p.id}` +
+      `- ${p.name}${p.isTemplate ? ' [template]' : ''} — ${p.durationWeeks} wk, ${
+        p.kind === 'descriptive' ? 'written programme' : `${p.dayCount} days, ${p.itemCount} items`
+      } · id ${p.id} · ${portalUrl}/programs/${p.id}` +
       (p.description ? `\n  ${p.description}` : ''),
   );
   return lines.join('\n');
@@ -49,6 +51,10 @@ export function formatProgram(p: Program, portalUrl: string): string {
   ]
     .filter(Boolean)
     .join('\n');
+
+  if (p.kind === 'descriptive') {
+    return `${head}\n\nA written programme — the client reads this text as it is:\n\n${p.body ?? ''}`;
+  }
 
   const days = p.days.map((d) => {
     const items = d.items.map((i) => {
