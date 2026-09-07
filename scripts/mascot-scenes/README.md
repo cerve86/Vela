@@ -15,6 +15,6 @@ The gradient colours go through the video pipeline's tone curve and come out a f
 lighter than the film. Sample the film's edge rows with `px`, export, sample the seam on the
 exported still (film row against band row), subtract the difference from the inputs and
 export again; two passes bring the seam within two units. The sleep scene shipped with
-`clipgrad … 0.13 3.04 1.3 757 445 bdbdbd,c5c5c5,bebcb8 d8d8d8,dddbd9,e8e7e3 bcbab6,c3c1bf,e5e4e0`
+`clipgrad … 0.13 3.04 1.3 700 445 bdbdbd,c5c5c5,bebcb8 d8d8d8,dddbd9,e8e7e3 bcbab6,c3c1bf,e5e4e0`
 (zoom 1.3, centred on the panda so it fills the round window)
 (the first 0.13 s of that film is a frame of the sitting pose).

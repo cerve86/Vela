@@ -51,9 +51,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A fixed version, the one `npx supabase` runs locally. Asking for "latest" made
+      # the action look the release up on GitHub's API unauthenticated, which is
+      # rate-limited and failed a run for it. Bump this when bumping the local CLI.
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.116.0
 
       - name: Start local Supabase
         run: supabase start
