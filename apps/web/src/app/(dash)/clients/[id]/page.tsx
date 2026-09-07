@@ -10,7 +10,14 @@ import {
   type MetricType,
   type ScheduledSession,
 } from '@vela/api';
-import { adherenceBand, formatDistance, painColor, painLabel, tide } from '@vela/shared';
+import {
+  adherenceBand,
+  formatDistance,
+  painColor,
+  painLabel,
+  tide,
+  hrvGuidance,
+} from '@vela/shared';
 import { adherenceStyle, palette } from '@vela/shared/tokens';
 import { Card, PainDot, StatusPill } from '@/components/ui';
 import { TimeSeriesPanels, type Panel, type Point } from '@/components/charts';
@@ -61,12 +68,57 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
 
   const [sessions, metrics, reads, activities] = await Promise.all([
     listSessions(supabase, { clientId: id, from: since28 }),
-    listMetrics(supabase, { clientId: id, types: VITALS, since: sinceTimestamp(28) }),
+    listMetrics(supabase, {
+      clientId: id,
+      // Cardio load is not a vital on the page; it is the training load the HRV read needs.
+      types: [...VITALS, 'cardio_load'],
+      since: sinceTimestamp(28),
+    }),
     listDailyReads(supabase, { clientId: id, from: daysBack(6) }),
     listActivities(supabase, { clientId: id, from: since28 }),
   ]);
 
   const week = adherenceOver(sessions, daysBack(6), todayIso);
+
+  /**
+   * The week's HRV through the training decision tree — the same read the client sees
+   * under her gauge, here in the framework's own words for the physiotherapist. Daily
+   * series by local day of the reading; load is cardio load where the watch gives it and
+   * sets done otherwise, as on the phone.
+   */
+  const daily = (type: string, reduce: 'mean' | 'sum') => {
+    const acc = new Map<string, { total: number; n: number }>();
+    for (const m of metrics.filter((m) => m.type === type)) {
+      const day = m.recordedAt.slice(0, 10);
+      const e = acc.get(day) ?? { total: 0, n: 0 };
+      e.total += m.value;
+      e.n += 1;
+      acc.set(day, e);
+    }
+    return [...acc].map(([day, v]) => ({
+      day,
+      value: reduce === 'mean' ? v.total / v.n : v.total,
+    }));
+  };
+  const completedSessions = sessions.filter((s) => s.status === 'completed');
+  const setsByDay = new Map<string, number>();
+  for (const s of completedSessions)
+    setsByDay.set(s.scheduledDate, (setsByDay.get(s.scheduledDate) ?? 0) + (s.setsDone ?? 0));
+  const cardioLoad = daily('cardio_load', 'sum');
+  const readToday = reads.find((r) => r.readOn === todayIso) ?? null;
+  const guidance = hrvGuidance({
+    today: todayIso,
+    hrv: daily('hrv_ms', 'mean'),
+    restingHr: daily('resting_hr', 'mean'),
+    load:
+      cardioLoad.length >= 3 ? cardioLoad : [...setsByDay].map(([day, value]) => ({ day, value })),
+    sessions: completedSessions.map((s) => ({
+      day: s.scheduledDate,
+      discipline: s.discipline,
+      rpe: null,
+    })),
+    readiness: readToday ? readToday.readiness : null,
+  });
   const band = adherenceBand(week.ratio);
 
   // Pain lives on the session, so it is real today. Volume load needs set-by-set logs,
@@ -417,6 +469,17 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
       </Card>
 
       <ReadingGroup title="Body" hint="Latest reading · 28-day trend">
+        <Reading
+          size="full"
+          label="HRV read"
+          value={guidance ? GUIDANCE_WORD[guidance.stance] : '—'}
+          caption={
+            guidance
+              ? `${guidance.advice} ${guidance.summary}.`
+              : 'Needs about ten mornings of HRV before this week can be read against her range.'
+          }
+          captionColor={guidance ? GUIDANCE_COLOR[guidance.stance] : undefined}
+        />
         {VITALS.map((type) => {
           const m = latest(type);
           const meta = METRIC_META[type];
@@ -597,3 +660,19 @@ function readinessColor(r: number): string {
     ][r] ?? 'var(--ink-muted)'
   );
 }
+
+/** One word for the stance, and a colour that says which way it leans. */
+const GUIDANCE_WORD = {
+  push: 'Room to add',
+  hold: 'On track',
+  ease: 'Ease off',
+  rest: 'Rest',
+  check: 'Check',
+} as const;
+const GUIDANCE_COLOR = {
+  push: palette.status.good,
+  hold: undefined,
+  ease: palette.status.warning,
+  rest: palette.status.critical,
+  check: palette.status.serious,
+} as const;

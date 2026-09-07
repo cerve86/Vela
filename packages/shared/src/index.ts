@@ -13,4 +13,5 @@ export * from './activities';
 export * from './ics';
 export * from './milestones';
 export * from './vitality';
+export * from './hrvGuidance';
 export * from './mock';

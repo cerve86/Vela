@@ -3,9 +3,11 @@ import { useFocusEffect } from 'expo-router';
 import { listMetrics } from '@vela/api';
 import {
   baseline,
+  hrvGuidance,
   peakOf,
   recovery,
   strain,
+  type HrvGuidance,
   type Readiness,
   type Recovery,
   type Strain,
@@ -25,6 +27,11 @@ const WINDOW_DAYS = 28;
 interface Vitality {
   recovery: Recovery;
   strain: Strain;
+  /**
+   * The week's HRV read through the training decision tree, with her own read folded
+   * in. Null until there are enough mornings of HRV to have a range to read against.
+   */
+  guidance: HrvGuidance | null;
   loading: boolean;
   reload: () => Promise<void>;
 }
@@ -43,7 +50,16 @@ interface Vitality {
 export function useVitality(readiness: Readiness | null): Vitality {
   const { client } = useSession();
   const [metrics, setMetrics] = useState<{ recordedAt: string; value: number; type: string }[]>([]);
-  const [volume, setVolume] = useState<{ date: string; done: number; planned: number }[]>([]);
+  const [volume, setVolume] = useState<
+    {
+      date: string;
+      done: number;
+      planned: number;
+      status: string;
+      discipline: string;
+      rpe: number | null;
+    }[]
+  >([]);
   const [loading, setLoading] = useState(true);
 
   /**
@@ -86,7 +102,7 @@ export function useVitality(readiness: Readiness | null): Vitality {
       }),
       supabase
         .from('sessions')
-        .select('scheduled_date, sets_done, sets_planned, status')
+        .select('scheduled_date, sets_done, sets_planned, status, discipline, session_rpe')
         .gte('scheduled_date', from)
         .lte('scheduled_date', todayIso),
     ]);
@@ -99,6 +115,9 @@ export function useVitality(readiness: Readiness | null): Vitality {
         date: s.scheduled_date,
         done: s.sets_done ?? 0,
         planned: s.sets_planned ?? 0,
+        status: s.status,
+        discipline: s.discipline,
+        rpe: s.session_rpe === null ? null : Number(s.session_rpe),
       })),
     );
     setLoading(false);
@@ -230,7 +249,29 @@ export function useVitality(readiness: Readiness | null): Vitality {
     // used to set the ceiling for a month and the dial never filled. See `peakOf`.
     const peak = peakOf(history(new Map([...byDay].map(([d, v]) => [d, v.done]))));
 
+    /**
+     * The week through the decision tree.
+     *
+     * Load is cardio load where the watch gives it and sets done otherwise — the tree only
+     * reads the ratio of this week to the ones before, so the unit does not matter, but
+     * mixing the two would. A series is a day's value per day, in local days like the rest.
+     */
+    const asSeries = (series: Map<string, number>) =>
+      [...series.entries()].map(([day, value]) => ({ day, value }));
+    const completed = volume.filter((v) => v.status === 'completed');
+    const setsByDay = new Map<string, number>();
+    for (const v of completed) setsByDay.set(v.date, (setsByDay.get(v.date) ?? 0) + v.done);
+    const guidance = hrvGuidance({
+      today: todayIso,
+      hrv: asSeries(hrv),
+      restingHr: asSeries(resting),
+      load: load.size >= 3 ? asSeries(load) : asSeries(setsByDay),
+      sessions: completed.map((v) => ({ day: v.date, discipline: v.discipline, rpe: v.rpe })),
+      readiness,
+    });
+
     return {
+      guidance,
       recovery: recovery({
         sleepMinutes: lastSleep,
         sleepBaselineMinutes: sleepBaseline,
