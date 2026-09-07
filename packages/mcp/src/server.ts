@@ -144,5 +144,30 @@ export function buildServer(api: VelaApi): McpServer {
       }),
   );
 
+  server.registerTool(
+    'delete_program',
+    {
+      title: 'Delete a programme',
+      description:
+        "Removes a programme from the coach's list. One a client was ever assigned is archived instead, so her sessions stay on her calendar; otherwise it is deleted with its days and exercises. Only call this after the coach has named the programme and agreed.",
+      inputSchema: { id: z.string().uuid().describe('Programme id from list_programs.') },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    ({ id }) =>
+      guarded(async () => {
+        const mode = await api.deleteProgram(id);
+        return text(
+          mode === 'archived'
+            ? 'Archived. A client was assigned this programme at some point, so it has left the list but her sessions stay on her calendar.'
+            : 'Deleted, with its days and exercises.',
+        );
+      }),
+  );
+
   return server;
 }

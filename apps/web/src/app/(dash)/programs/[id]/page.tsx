@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { StatusPill } from '@/components/ui';
 import { loadAssignableClients, loadLibraryForPicker, loadProgram } from '../actions';
 import { Builder } from './Builder';
+import { DeleteProgramButton } from '../DeleteProgramButton';
 
 export default async function ProgramPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -30,7 +31,10 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
             {program.description ? ` · ${program.description}` : ''}
           </p>
         </div>
-        {program.isTemplate && <StatusPill tone="neutral">Template</StatusPill>}
+        <div className="flex items-center gap-3">
+          {program.isTemplate && <StatusPill tone="neutral">Template</StatusPill>}
+          <DeleteProgramButton id={program.id} name={program.name} afterDelete="list" />
+        </div>
       </header>
 
       <Builder program={program} library={library} clients={clients} />

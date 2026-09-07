@@ -92,7 +92,9 @@ export function Builder({
       }
       // Re-fetch so the new day ids are available before adding items to them.
       router.refresh();
-      setNotice(`Copied week ${from} structure into week ${to}. Add the exercises and progress the load.`);
+      setNotice(
+        `Copied week ${from} structure into week ${to}. Add the exercises and progress the load.`,
+      );
     });
   }
 
@@ -164,8 +166,8 @@ export function Builder({
       {daysThisWeek.length === 0 ? (
         <Card>
           <p className="text-sm ink-2">
-            Week {week} is empty. Add a training day above — day 1 is the first session of
-            the week, and the start date you assign decides what that means on a calendar.
+            Week {week} is empty. Add a training day above — day 1 is the first session of the week,
+            and the start date you assign decides what that means on a calendar.
           </p>
         </Card>
       ) : (
@@ -233,8 +235,9 @@ export function Builder({
       )}
 
       <p className="text-xs ink-3">
-        Editing this programme never changes sessions already completed — the prescription
-        and the logged work are separate records. <Link href="/library" className="underline">
+        Editing this programme never changes sessions already completed — the prescription and the
+        logged work are separate records.{' '}
+        <Link href="/library" className="underline">
           Adjust exercises or add your own
         </Link>{' '}
         in the library.
@@ -373,8 +376,29 @@ function ExercisePicker({
   onPick: (exerciseId: string) => void;
 }) {
   const [value, setValue] = useState('');
+  const [filter, setFilter] = useState('');
+  // Nine hundred movements is too many for a bare select: a few letters first, then the
+  // list is short enough to pick from. Her own come first, then the library, by name.
+  const shown = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    const hits = q ? library.filter((e) => e.name.toLowerCase().includes(q)) : library;
+    return [...hits].sort(
+      (a, b) => Number(b.isMine) - Number(a.isMine) || a.name.localeCompare(b.name),
+    );
+  }, [library, filter]);
   return (
     <div className="flex items-center gap-2">
+      <input
+        value={filter}
+        onChange={(e) => {
+          setFilter(e.target.value);
+          setValue('');
+        }}
+        placeholder="Find an exercise…"
+        className={`${input} w-40`}
+        style={inputStyle}
+        aria-label="Find an exercise"
+      />
       <select
         value={value}
         onChange={(e) => setValue(e.target.value)}
@@ -382,8 +406,10 @@ function ExercisePicker({
         style={inputStyle}
         aria-label="Add an exercise"
       >
-        <option value="">Add an exercise…</option>
-        {library.map((e) => (
+        <option value="">
+          {shown.length === 0 ? 'No match' : `Add an exercise… (${shown.length})`}
+        </option>
+        {shown.map((e) => (
           <option key={e.id} value={e.id}>
             {e.name}
             {e.isMine ? ' (mine)' : ''}
@@ -542,9 +568,8 @@ function AssignCard({
             </button>
           </div>
           <p className="mt-2 text-xs ink-3">
-            Assigning replaces any live programme and clears her <em>future</em> scheduled
-            sessions. Anything already completed stays — that is training history, not a
-            draft.
+            Assigning replaces any live programme and clears her <em>future</em> scheduled sessions.
+            Anything already completed stays — that is training history, not a draft.
           </p>
         </>
       )}

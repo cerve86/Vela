@@ -69,11 +69,12 @@ describe('configFromEnv', () => {
 });
 
 describe('tools', () => {
-  it('publishes the six tools with the programme schema described field by field', async () => {
+  it('publishes the seven tools with the programme schema described field by field', async () => {
     const client = await connect(fakePortal({}).fetchImpl);
     const { tools } = await client.listTools();
     assert.deepEqual(tools.map((t) => t.name).sort(), [
       'create_program',
+      'delete_program',
       'get_program',
       'list_exercises',
       'list_programs',

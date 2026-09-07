@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getProgram } from '@vela/api';
+import { deleteProgram, getProgram } from '@vela/api';
 import { requireCoach } from '@/lib/apiRoute';
 
 /**
@@ -17,4 +17,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!program) return NextResponse.json({ error: 'No such programme.' }, { status: 404 });
 
   return NextResponse.json({ program });
+}
+
+/**
+ * DELETE /api/programs/{id} — remove it from her list.
+ *
+ * Deleted outright when no client was ever assigned it; archived otherwise, so a plan
+ * already on a phone carries on. The body says which: `{ "mode": "deleted" | "archived" }`.
+ */
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { supabase, refused } = await requireCoach(req);
+  if (refused) return refused;
+
+  const { id } = await params;
+  const { mode, error } = await deleteProgram(supabase, id);
+  if (error === 'No such programme.') return NextResponse.json({ error }, { status: 404 });
+  if (error || !mode)
+    return NextResponse.json({ error: error ?? 'Could not delete.' }, { status: 500 });
+  return NextResponse.json({ mode });
 }
