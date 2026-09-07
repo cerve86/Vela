@@ -18,7 +18,8 @@ How to work:
 2. A programme is weeks of days. weekNo is 1–52; dayNo is 1–7 and is the order within the week, not a weekday. Each day has a title, a discipline (strength, run, mobility, rehab) and one or more items: exercise, block letter (items sharing a letter are a superset), sets, reps as free text ("8-10", "AMRAP", "30s each side"), and optionally loadKg, rpe, tempo, restSec and notes.
 3. Call preview_program first and show the coach the result. Only call create_program once she has agreed to the draft.
 4. create_program makes a programme in her account and returns a link. It never assigns a programme to a client; she does that herself in the portal, with a start date.
-5. Not every plan is days of sets and reps. When the coach wants to send instructions as prose — what to do this week, in her own words — use create_descriptive_program with the text as she wrote or approved it. The client reads it on her phone exactly as written; blank lines make paragraphs, lines starting with a number or a dash become a list. Do not turn prose into a structured programme, or the other way round, unless she asks.
+5. The week's plan for one client — what to do this week, in the coach's words — is send_weekly_plan: call list_clients for the client's id, then send the text as she wrote or approved it. It lands on her phone at once with a message saying it is there; nothing to assign. Use this for the weekly note; use a programme for a block that runs for weeks.
+6. Not every plan is days of sets and reps. When the coach wants to send instructions as prose — what to do this week, in her own words — use create_descriptive_program with the text as she wrote or approved it. The client reads it on her phone exactly as written; blank lines make paragraphs, lines starting with a number or a dash become a list. Do not turn prose into a structured programme, or the other way round, unless she asks.
 
 Be exact with prescriptions: sets, reps, load and rest are clinical instructions, not suggestions to round.`;
 
@@ -142,6 +143,68 @@ export function buildServer(api: VelaApi): McpServer {
       guarded(async () => {
         const out = formatOutcome(await api.importProgram(program, { dryRun: false }), portal);
         return text(out.text, out.isError);
+      }),
+  );
+
+  server.registerTool(
+    'list_clients',
+    {
+      title: 'List clients',
+      description: "The coach's active clients, by name, with the ids send_weekly_plan needs.",
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    () =>
+      guarded(async () => {
+        const rows = await api.clients();
+        return text(
+          rows.length === 0
+            ? 'No active clients.'
+            : rows.map((c) => `- ${c.name} · id ${c.id}`).join('\n'),
+        );
+      }),
+  );
+
+  server.registerTool(
+    'send_weekly_plan',
+    {
+      title: "Send a client this week's plan",
+      description:
+        "Saves the week's plan for one client — what to do this week, in the coach's words — to her phone, and messages her that it is there. Rewrites the plan if one already exists for that week. Only send text the coach has written or agreed to.",
+      inputSchema: {
+        client_id: z.string().uuid().describe('The client, from list_clients.'),
+        body: z
+          .string()
+          .trim()
+          .min(1)
+          .max(10000)
+          .describe(
+            'The plan as prose. Blank lines make paragraphs; lines starting with a number or a dash become a list.',
+          ),
+        week_start: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional()
+          .describe(
+            'Any date in the week it is for (snapped to its Monday). Defaults to this week.',
+          ),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    ({ client_id, body, week_start }) =>
+      guarded(async () => {
+        const { weekStart } = await api.sendWeeklyPlan({
+          clientId: client_id,
+          body,
+          weekStart: week_start,
+        });
+        return text(
+          `Sent. It is on her phone as the plan for the week of ${weekStart}, and she has a message saying so.`,
+        );
       }),
   );
 

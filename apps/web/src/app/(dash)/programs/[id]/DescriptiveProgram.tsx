@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Program } from '@vela/api';
+import type { Program, ProgramAssignment } from '@vela/api';
 import { palette } from '@vela/shared/tokens';
 import { Card } from '@/components/ui';
-import { assignProgramAction, saveProgramBodyAction } from '../actions';
+import { assignProgramAction, saveProgramBodyAction, unassignAction } from '../actions';
 import { AssignCard } from './Builder';
 
 const field = 'rounded-[14px] px-3.5 py-2.5 text-sm outline-none';
@@ -21,9 +21,11 @@ const fieldStyle = { background: 'var(--ghost)', color: 'var(--ink-primary)' };
 export function DescriptiveProgram({
   program,
   clients,
+  assignments = [],
 }: {
   program: Program;
   clients: { id: string; name: string }[];
+  assignments?: ProgramAssignment[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -81,7 +83,12 @@ export function DescriptiveProgram({
 
       <AssignCard
         clients={clients}
+        assignments={assignments}
         pending={pending}
+        onUnassign={(assignmentId, clientName) => {
+          if (!window.confirm(`Take this programme off ${clientName}?`)) return;
+          run(() => unassignAction(program.id, assignmentId), `Taken off ${clientName}.`);
+        }}
         onAssign={(clientId, startDate) =>
           run(
             () => assignProgramAction(program.id, clientId, startDate),

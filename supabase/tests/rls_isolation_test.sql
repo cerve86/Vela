@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (111);
+  plan (115);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -271,6 +271,25 @@ select is (
   0::bigint,
   'client two reads nothing from that assignment'
 );
+
+-- Weekly plans: a coach writes for her own clients, a client reads her own ------------
+reset role;
+
+insert into public.client_plans (coach_id, client_id, week_start, body)
+values ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000f1', '2026-09-07', 'Three easy sessions.');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+select is ((select count(*) from public.client_plans), 1::bigint, 'coach A sees the plan she wrote');
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+select is ((select count(*) from public.client_plans), 0::bigint, 'coach B sees no plan of client one');
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+select is ((select count(*) from public.client_plans), 1::bigint, 'client one reads her own weekly plan');
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c2';
+select is ((select count(*) from public.client_plans), 0::bigint, 'client two reads nothing of it');
 
 
 -- API keys -----------------------------------------------------------------

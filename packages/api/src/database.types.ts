@@ -429,6 +429,51 @@ export type Database = {
           },
         ]
       }
+      client_plans: {
+        Row: {
+          body: string
+          client_id: string
+          coach_id: string
+          created_at: string
+          id: string
+          updated_at: string
+          week_start: string
+        }
+        Insert: {
+          body: string
+          client_id: string
+          coach_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          week_start: string
+        }
+        Update: {
+          body?: string
+          client_id?: string
+          coach_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_plans_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_plans_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           breastfeeding: boolean
@@ -1483,6 +1528,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      unassign_program: {
+        Args: { p_assignment_id: string }
+        Returns: undefined
       }
     }
     Enums: {

@@ -401,6 +401,53 @@ export async function deleteProgram(
   return { mode: 'deleted', error: null };
 }
 
+export interface ProgramAssignment {
+  id: string;
+  clientId: string;
+  clientName: string;
+  startDate: string;
+}
+
+/** Who is on this programme now — active assignments, with the client's name. */
+export async function listAssignmentsFor(
+  supabase: VelaClient,
+  programId: string,
+): Promise<ProgramAssignment[]> {
+  const { data } = await supabase
+    .from('assignments')
+    .select('id, client_id, start_date, clients ( email, first_name_hint, last_name_hint )')
+    .eq('program_id', programId)
+    .eq('status', 'active')
+    .order('start_date', { ascending: false });
+  return (data ?? []).map((a) => {
+    const c = (a.clients ?? null) as {
+      email: string;
+      first_name_hint: string | null;
+      last_name_hint: string | null;
+    } | null;
+    return {
+      id: a.id,
+      clientId: a.client_id,
+      clientName: c
+        ? `${c.first_name_hint ?? ''} ${c.last_name_hint ?? ''}`.trim() || c.email
+        : '—',
+      startDate: a.start_date,
+    };
+  });
+}
+
+/**
+ * Take a programme off a client: the assignment is cancelled and her future scheduled
+ * sessions from it removed; what she completed stays. Server-side, like assigning.
+ */
+export async function unassignProgram(
+  supabase: VelaClient,
+  assignmentId: string,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('unassign_program', { p_assignment_id: assignmentId });
+  return { error: error?.message ?? null };
+}
+
 /** Returns the new assignment id. Generates the scheduled sessions server-side. */
 export async function assignProgram(
   supabase: VelaClient,

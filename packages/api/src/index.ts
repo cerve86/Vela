@@ -3,6 +3,7 @@ export * from './auth';
 export * from './invites';
 export * from './exercises';
 export * from './programs';
+export * from './clientPlans';
 export * from './metrics';
 export * from './nutrition';
 export * from './openfoodfacts';

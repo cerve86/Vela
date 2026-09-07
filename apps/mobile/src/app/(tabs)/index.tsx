@@ -34,6 +34,7 @@ import {
   useWeek,
   weekAdherence,
   useAssignedProgram,
+  useWeeklyPlan,
 } from '@/lib/data';
 import { useDailyRead } from '@/lib/daily';
 import { syncHealthNow } from '@/lib/healthSync';
@@ -57,6 +58,7 @@ export default function TodayScreen() {
 
   const week = useWeek();
   const assigned = useAssignedProgram();
+  const weekly = useWeeklyPlan();
   const upcoming = useUpcoming(3);
   const plan = useSessionPlan(week.todaySession?.id ?? null);
   const nutrition = useNutrition(1);
@@ -105,6 +107,7 @@ export default function TodayScreen() {
         // same rows the backfill had not yet been imported into.
         syncHealthNow().then(() => vitality.reload()),
         assigned.reload(),
+        weekly.reload(),
       ]);
     } finally {
       setRefreshing(false);
@@ -112,7 +115,15 @@ export default function TodayScreen() {
     // Depends on the reloaders rather than on nothing. With an empty list this captured the
     // closures as they were at mount — and at mount `client` is still null, so every one of
     // them was a no-op that returned immediately and refreshed precisely nothing.
-  }, [week.reload, nutrition.reload, daily.reload, plan.reload, vitality.reload, assigned.reload]);
+  }, [
+    week.reload,
+    nutrition.reload,
+    daily.reload,
+    plan.reload,
+    vitality.reload,
+    assigned.reload,
+    weekly.reload,
+  ]);
 
   const firstName = client?.email.split('@')[0]?.split('.')[0] || 'there';
   const name = firstName.charAt(0).toUpperCase() + firstName.slice(1);
@@ -304,6 +315,24 @@ export default function TodayScreen() {
           allLogged={daily.allLogged}
           readGiven={daily.current !== null}
         />
+
+        {/* This week's plan from the physio: written on her page or sent from her Claude,
+            read live here. A plan written for a coming week says so. */}
+        {weekly.data ? (
+          <Link href="/weekly" asChild>
+            <Pressable accessibilityRole="button" accessibilityLabel="Read this week's plan">
+              <Card style={{ borderRadius: 22, paddingVertical: 20 }}>
+                <PlanTag label={weeklyLabel(weekly.data.weekStart, todayIso)} tone={t.brand[600]} />
+                <Body size={15} style={{ marginTop: 10, lineHeight: 21 }} numberOfLines={5}>
+                  {weekly.data.body}
+                </Body>
+                <Body size={13} weight="medium" color={t.brand[600]} style={{ marginTop: 12 }}>
+                  Read it through →
+                </Body>
+              </Card>
+            </Pressable>
+          </Link>
+        ) : null}
 
         {/* A written programme: the text is the plan, so it comes before the day's session
             card, which for such a programme is a rest day with nothing on the calendar. */}
@@ -557,6 +586,17 @@ function greeting(
   if (readiness <= 1) return `Gently today, ${name}. Something is better than the full thing.`;
   if (readiness >= 4) return `You're in good shape today, ${name}. There's room if you want it.`;
   return `Good to see you, ${name}. Today is ready when you are.`;
+}
+
+/** "THIS WEEK FROM YOUR PHYSIO", or which week it is for when it is not this one. */
+function weeklyLabel(weekStart: string, todayIso: string): string {
+  const [y, m, d] = todayIso.split('-').map(Number);
+  const dt = new Date(y!, (m ?? 1) - 1, d ?? 1);
+  const monday = addDays(todayIso, -((dt.getDay() + 6) % 7));
+  if (weekStart === monday) return 'THIS WEEK FROM YOUR PHYSIO';
+  if (weekStart > monday)
+    return `FROM ${friendlyDate(weekStart, todayIso).toUpperCase()} · FROM YOUR PHYSIO`;
+  return `WEEK OF ${friendlyDate(weekStart, todayIso).toUpperCase()} · FROM YOUR PHYSIO`;
 }
 
 function friendlyDate(iso: string, todayIso: string): string {

@@ -9,6 +9,8 @@ import {
   listSessions,
   type MetricType,
   type ScheduledSession,
+  listClientPlans,
+  mondayOf,
 } from '@vela/api';
 import {
   adherenceBand,
@@ -24,6 +26,7 @@ import { TimeSeriesPanels, type Panel, type Point } from '@/components/charts';
 import { FillBar, Reading, ReadingGroup, ScaleBar } from '@/components/readings';
 import { dateWindow } from '@/lib/series';
 import { createServerSupabase } from '@/lib/supabase/server';
+import { WeeklyPlanCard } from './WeeklyPlanCard';
 
 const VITALS: MetricType[] = ['weight_kg', 'resting_hr', 'hrv_ms', 'steps'];
 
@@ -60,13 +63,17 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
   const { id } = await params;
   const supabase = await createServerSupabase();
 
-  const { data: client } = await supabase.from('clients').select('id').eq('id', id).maybeSingle();
+  const { data: client } = await supabase
+    .from('clients')
+    .select('id, email, first_name_hint')
+    .eq('id', id)
+    .maybeSingle();
   if (!client) notFound();
 
   const todayIso = new Date().toISOString().slice(0, 10);
   const since28 = daysBack(27);
 
-  const [sessions, metrics, reads, activities] = await Promise.all([
+  const [sessions, metrics, reads, activities, plans] = await Promise.all([
     listSessions(supabase, { clientId: id, from: since28 }),
     listMetrics(supabase, {
       clientId: id,
@@ -76,7 +83,9 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
     }),
     listDailyReads(supabase, { clientId: id, from: daysBack(6) }),
     listActivities(supabase, { clientId: id, from: since28 }),
+    listClientPlans(supabase, id),
   ]);
+  const firstName = client.first_name_hint?.trim() || client.email.split('@')[0] || 'her';
 
   const week = adherenceOver(sessions, daysBack(6), todayIso);
 
@@ -376,6 +385,13 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
           </Link>
         </div>
       )}
+
+      <WeeklyPlanCard
+        clientId={id}
+        firstName={firstName}
+        thisWeek={mondayOf(todayIso)}
+        plans={plans}
+      />
 
       <ReadingGroup title="Training" hint="Last 7 days · trends over 4 weeks">
         <Reading
