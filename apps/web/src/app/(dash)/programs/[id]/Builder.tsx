@@ -512,7 +512,7 @@ function AddDayCard({
   );
 }
 
-function AssignCard({
+export function AssignCard({
   clients,
   pending,
   onAssign,

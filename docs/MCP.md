@@ -67,6 +67,7 @@ to `http://localhost:4310` against a local stack.
 | `preview_program` | Validates a draft and matches every exercise name. Creates nothing.           |
 | `create_program`  | Creates the programme and returns its link. Never assigns.                    |
 | `delete_program`  | Removes a programme; one a client was ever assigned is archived instead.      |
+| `create_descriptive_program` | A written programme: name, weeks and the text the client reads as it is. |
 
 The programme shape is the one in [IMPORT.md](IMPORT.md): the server publishes the
 import schema, field by field, as the tool's input, so a draft that passes here is exactly

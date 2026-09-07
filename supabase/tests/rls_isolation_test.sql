@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (109);
+  plan (111);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -245,7 +245,31 @@ select is (
 select is (
   (select count(*) from public.programs),
   0::bigint,
-  'a client cannot read programmes at all — she reads sessions, not prescriptions'
+  'a client reads no programme she is not assigned — she reads sessions, not prescriptions'
+);
+
+-- Assigned, she reads that one programme and still no other: a written programme is a
+-- piece of text she has to be able to open.
+reset role;
+
+insert into public.assignments (coach_id, client_id, program_id, start_date)
+values ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000f1', '00000000-0000-4000-8000-00000000d0a1', current_date);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select count(*) from public.programs),
+  1::bigint,
+  'client one reads the programme she is assigned'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c2';
+
+select is (
+  (select count(*) from public.programs),
+  0::bigint,
+  'client two reads nothing from that assignment'
 );
 
 

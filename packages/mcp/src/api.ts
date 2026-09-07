@@ -64,6 +64,8 @@ export interface ProgramSummary {
   description: string | null;
   durationWeeks: number;
   isTemplate: boolean;
+  /** Days of prescriptions, or a written programme the client reads through. */
+  kind: 'structured' | 'descriptive';
   dayCount: number;
   itemCount: number;
 }
@@ -95,6 +97,9 @@ export interface Program {
   description: string | null;
   durationWeeks: number;
   isTemplate: boolean;
+  kind: 'structured' | 'descriptive';
+  /** The text of a written programme; null for days of prescriptions. */
+  body: string | null;
   days: ProgramDay[];
 }
 
@@ -199,6 +204,21 @@ export class VelaApi {
       `/api/programs/${encodeURIComponent(id)}`,
     );
     return program;
+  }
+
+  /** A written programme: name, weeks, and the text the client reads. Returns its id and link. */
+  async createDescriptiveProgram(input: {
+    name: string;
+    weeks: number;
+    description?: string;
+    body: string;
+  }): Promise<{ id: string; url: string }> {
+    const { status, body } = await this.request('POST', '/api/programs', input);
+    if (status === 201) {
+      const b = body as { id: string; url: string };
+      return { id: b.id, url: b.url };
+    }
+    throw new VelaApiError(status, body, explain(status, body));
   }
 
   /** Delete a programme, or archive it if a client was ever assigned it. Says which. */

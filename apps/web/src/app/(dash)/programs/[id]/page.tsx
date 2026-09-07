@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { StatusPill } from '@/components/ui';
 import { loadAssignableClients, loadLibraryForPicker, loadProgram } from '../actions';
 import { Builder } from './Builder';
+import { DescriptiveProgram } from './DescriptiveProgram';
 import { DeleteProgramButton } from '../DeleteProgramButton';
 
 export default async function ProgramPage({ params }: { params: Promise<{ id: string }> }) {
@@ -27,7 +28,9 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
         <div>
           <h1 className="text-[30px] font-extrabold">{program.name}</h1>
           <p className="mt-0.5 text-sm ink-2">
-            {program.durationWeeks} weeks · {program.days.length} days · {totalItems} exercises
+            {program.kind === 'descriptive'
+              ? `${program.durationWeeks} weeks · written programme`
+              : `${program.durationWeeks} weeks · ${program.days.length} days · ${totalItems} exercises`}
             {program.description ? ` · ${program.description}` : ''}
           </p>
         </div>
@@ -37,7 +40,11 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
         </div>
       </header>
 
-      <Builder program={program} library={library} clients={clients} />
+      {program.kind === 'descriptive' ? (
+        <DescriptiveProgram program={program} clients={clients} />
+      ) : (
+        <Builder program={program} library={library} clients={clients} />
+      )}
     </div>
   );
 }

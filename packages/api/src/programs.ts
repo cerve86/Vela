@@ -39,12 +39,22 @@ export interface ProgramDay {
   items: ProgramItem[];
 }
 
+/**
+ * Structured: weeks of days of prescriptions, put on the calendar as sessions when
+ * assigned. Descriptive: a piece of text the client reads through; assigning it puts the
+ * text on her phone and nothing on the calendar.
+ */
+export type ProgramKind = 'structured' | 'descriptive';
+
 export interface Program {
   id: string;
   name: string;
   description: string | null;
   durationWeeks: number;
   isTemplate: boolean;
+  kind: ProgramKind;
+  /** The text of a descriptive programme; null for a structured one. */
+  body: string | null;
   days: ProgramDay[];
 }
 
@@ -54,6 +64,7 @@ export interface ProgramSummary {
   description: string | null;
   durationWeeks: number;
   isTemplate: boolean;
+  kind: ProgramKind;
   dayCount: number;
   itemCount: number;
 }
@@ -62,7 +73,7 @@ export async function listPrograms(supabase: VelaClient): Promise<ProgramSummary
   const { data } = await supabase
     .from('programs')
     .select(
-      'id, name, description, duration_weeks, is_template, program_days(id, program_items(id))',
+      'id, name, description, duration_weeks, is_template, kind, program_days(id, program_items(id))',
     )
     .is('archived_at', null)
     .order('created_at', { ascending: false });
@@ -75,6 +86,7 @@ export async function listPrograms(supabase: VelaClient): Promise<ProgramSummary
       description: p.description,
       durationWeeks: p.duration_weeks,
       isTemplate: p.is_template,
+      kind: p.kind as ProgramKind,
       dayCount: days.length,
       itemCount: days.reduce((n, d) => n + (d.program_items?.length ?? 0), 0),
     };
@@ -86,7 +98,7 @@ export async function getProgram(supabase: VelaClient, id: string): Promise<Prog
   const { data } = await supabase
     .from('programs')
     .select(
-      `id, name, description, duration_weeks, is_template,
+      `id, name, description, duration_weeks, is_template, kind, body,
        program_days (
          id, week_no, day_no, title, discipline, notes,
          program_items (
@@ -163,7 +175,95 @@ export async function getProgram(supabase: VelaClient, id: string): Promise<Prog
     description: data.description,
     durationWeeks: data.duration_weeks,
     isTemplate: data.is_template,
+    kind: data.kind as ProgramKind,
+    body: data.body,
     days,
+  };
+}
+
+/** A descriptive programme: a name, how long it runs, and the text itself. */
+export async function createDescriptiveProgram(
+  supabase: VelaClient,
+  coachId: string,
+  input: { name: string; description?: string; durationWeeks: number; body: string },
+): Promise<{ id: string | null; error: string | null }> {
+  const body = input.body.trim();
+  if (!body) return { id: null, error: 'Write what to do first.' };
+  const { data, error } = await supabase
+    .from('programs')
+    .insert({
+      coach_id: coachId,
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      duration_weeks: input.durationWeeks,
+      is_template: false,
+      kind: 'descriptive',
+      body,
+    })
+    .select('id')
+    .single();
+  return { id: data?.id ?? null, error: error?.message ?? null };
+}
+
+export async function updateProgramBody(
+  supabase: VelaClient,
+  id: string,
+  body: string,
+): Promise<{ error: string | null }> {
+  const text = body.trim();
+  if (!text) return { error: 'Write what to do first.' };
+  const { error } = await supabase
+    .from('programs')
+    .update({ body: text, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('kind', 'descriptive');
+  return { error: error?.message ?? null };
+}
+
+export interface AssignedProgram {
+  id: string;
+  name: string;
+  description: string | null;
+  kind: ProgramKind;
+  body: string | null;
+  durationWeeks: number;
+  startDate: string;
+}
+
+/**
+ * The programme a client is on right now, read as her: her active assignment and the
+ * programme it points at. Null between programmes. The phone uses this to show a
+ * descriptive programme's text; a structured one shows as sessions and needs nothing here.
+ */
+export async function getAssignedProgram(
+  supabase: VelaClient,
+  clientId: string,
+): Promise<AssignedProgram | null> {
+  const { data } = await supabase
+    .from('assignments')
+    .select('start_date, programs ( id, name, description, kind, body, duration_weeks )')
+    .eq('client_id', clientId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const p = (data?.programs ?? null) as {
+    id: string;
+    name: string;
+    description: string | null;
+    kind: string;
+    body: string | null;
+    duration_weeks: number;
+  } | null;
+  if (!data || !p) return null;
+  return {
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    kind: p.kind as ProgramKind,
+    body: p.body,
+    durationWeeks: p.duration_weeks,
+    startDate: data.start_date,
   };
 }
 
