@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Card, EmptyState, StatusPill } from '@/components/ui';
 import { loadPrograms } from './actions';
 import { NewProgramForm } from './NewProgramForm';
+import { DeleteProgramButton } from './DeleteProgramButton';
 
 export const metadata = { title: 'Programmes — Vela' };
 
@@ -13,8 +14,8 @@ export default async function ProgramsPage() {
       <header className="mb-6">
         <h1 className="text-[30px] font-extrabold">Programmes</h1>
         <p className="mt-0.5 text-sm ink-2">
-          Build a block once, assign it with a start date, and Vela puts the sessions on
-          the right days.
+          Build a block once, assign it with a start date, and Vela puts the sessions on the right
+          days.
         </p>
       </header>
 
@@ -41,6 +42,7 @@ export default async function ProgramsPage() {
                 <th className="pb-2 font-medium">Days</th>
                 <th className="pb-2 font-medium">Exercises</th>
                 <th className="pb-2 font-medium">Type</th>
+                <th className="pb-2" />
               </tr>
             </thead>
             <tbody>
@@ -61,6 +63,9 @@ export default async function ProgramsPage() {
                     ) : (
                       <StatusPill tone="good">Programme</StatusPill>
                     )}
+                  </td>
+                  <td className="py-2.5 text-right">
+                    <DeleteProgramButton id={p.id} name={p.name} afterDelete="refresh" />
                   </td>
                 </tr>
               ))}

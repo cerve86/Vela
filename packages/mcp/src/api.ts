@@ -129,7 +129,7 @@ export class VelaApi {
   }
 
   private async request(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'DELETE',
     path: string,
     body?: unknown,
   ): Promise<{ status: number; body: unknown }> {
@@ -199,6 +199,19 @@ export class VelaApi {
       `/api/programs/${encodeURIComponent(id)}`,
     );
     return program;
+  }
+
+  /** Delete a programme, or archive it if a client was ever assigned it. Says which. */
+  async deleteProgram(id: string): Promise<'deleted' | 'archived'> {
+    const { status, body } = await this.request(
+      'DELETE',
+      `/api/programs/${encodeURIComponent(id)}`,
+    );
+    if (status >= 200 && status < 300) {
+      const mode = (body as { mode?: string } | null)?.mode;
+      return mode === 'archived' ? 'archived' : 'deleted';
+    }
+    throw new VelaApiError(status, body, explain(status, body));
   }
 
   async importProgram(

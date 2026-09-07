@@ -8,6 +8,7 @@ import {
   createProgram,
   deleteDay,
   deleteItem,
+  deleteProgram,
   getProgram,
   listExercises,
   listPrograms,
@@ -134,6 +135,18 @@ export async function deleteItemAction(programId: string, id: string): Promise<R
   if (error) return { ok: false, error };
   revalidatePath(`/programs/${programId}`);
   return { ok: true };
+}
+
+/** Delete, or archive if a client was ever assigned it; the result says which. */
+export async function deleteProgramAction(
+  programId: string,
+): Promise<Result & { mode?: 'deleted' | 'archived' }> {
+  const { supabase } = await ctx();
+  const { mode, error } = await deleteProgram(supabase, programId);
+  if (error || !mode) return { ok: false, error: error ?? 'Could not delete the programme.' };
+  revalidatePath('/programs');
+  revalidatePath(`/programs/${programId}`);
+  return { ok: true, mode };
 }
 
 export async function assignProgramAction(
