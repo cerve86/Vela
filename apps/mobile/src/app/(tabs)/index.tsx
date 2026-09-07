@@ -209,9 +209,13 @@ export default function TodayScreen() {
                 paddingHorizontal: 8,
               }}
             >
-              {vitality.recovery.score === null
-                ? greeting(name, daily.current, done, Boolean(week.todaySession))
-                : vitality.recovery.note}
+              {/* The week's HRV through the training decision tree, crossed with her read,
+                  once there is a range to read it against; the recovery note until then. */}
+              {vitality.guidance
+                ? vitality.guidance.note
+                : vitality.recovery.score === null
+                  ? greeting(name, daily.current, done, Boolean(week.todaySession))
+                  : vitality.recovery.note}
             </Text>
             <Body size={11} color={t.textSecondary} style={{ textAlign: 'center', marginTop: 6 }}>
               {vitality.recovery.score === null
@@ -222,6 +226,11 @@ export default function TodayScreen() {
                 ? ' · from how you feel'
                 : ''}
             </Body>
+            {vitality.guidance ? (
+              <Body size={11} color={t.textSecondary} style={{ textAlign: 'center', marginTop: 2 }}>
+                {vitality.guidance.summary}
+              </Body>
+            ) : null}
 
             <View style={{ flexDirection: 'row', marginTop: 22, width: '100%' }}>
               <RingStat

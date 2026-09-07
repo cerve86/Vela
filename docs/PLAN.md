@@ -733,3 +733,27 @@ baby, fast, restaurant and brand-led foods never rise above the fourth. Within a
 delivered plainness boost decides, lifted half a point for sixty everyday staples keyed by
 USDA number in the generator, so whole milk comes before human milk and raw salmon before
 canned.
+
+## 0.3.1 — The gauge reads the week through the HRV decision tree (7 September 2026)
+
+**The sentence under the gauge** now comes from Flatt and Esco's HRV training decision tree
+(`packages/shared/src/hrvGuidance.ts`), crossed with how she said she feels. The week's
+mean of ln(HRV) is read against her own normal range — the three previous weeks' mean plus
+or minus half their standard deviation, the smallest worthwhile change — together with
+its day-to-day variability (HRV-CV against the baseline weeks' CVs, with a margin never
+under a fifth), whether resting heart rate is unusually low (the saturation check), the
+training phase (this week's load against the baseline weeks: a tenth more is an overload,
+a quarter less a taper) and whether the block is high-intensity or high-volume (session
+RPE, else discipline). Each of the tree's sixteen leaves keeps the framework's own words
+for the physiotherapist, and a stance — push, hold, ease, rest, check — which, crossed
+with her read (low, middle, high), gives the client's sentence. Her read can pull a push
+back to steady or make an ease firmer; it never turns a rest into a push, and the sentence
+never tells her to skip the plan — "very light, and let your physio know" is as far as it
+goes. Under it, the reading in a few words: "HRV in your range · variability steady ·
+overload week". Until there are ten mornings of HRV and four this week, the recovery note
+shows as before. The coach sees the same read in the framework's words as the first
+line of the Body group on the client page.
+
+Load is cardio load where the watch gives it and sets done otherwise; only the ratio of
+this week to the ones before is read, so the unit does not matter, but mixing the two
+would. Everything is relative to her: there is no population range for HRV worth having.
