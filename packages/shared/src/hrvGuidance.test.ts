@@ -107,7 +107,7 @@ test('within range, high variability: expected in an overload, otherwise ease of
     hrv: series(baseHrv, scattered),
     restingHr: [],
     sessions: [],
-    readiness: 2,
+    readiness: 2 as const,
   };
   const over = hrvGuidance({ ...base, load: overloadLoad })!;
   assert.equal(over.variability, 'high');
@@ -123,7 +123,7 @@ test('below range, low variability: the phase and the block decide', () => {
     today: TODAY,
     hrv: series(baseHrv, lowWeek),
     restingHr: series(restingSteady, restingSteady),
-    readiness: 2,
+    readiness: 2 as const,
   };
   const intense = [
     { day: day(-1), discipline: 'strength', rpe: 8 },
@@ -183,7 +183,7 @@ test('below range, high variability: full rest', () => {
 
 test('above range: expected for volume, insufficient load for intensity, otherwise fine', () => {
   const highWeek = alt(72, 0.033);
-  const base = { today: TODAY, hrv: series(baseHrv, highWeek), restingHr: [], readiness: 2 };
+  const base = { today: TODAY, hrv: series(baseHrv, highWeek), restingHr: [], readiness: 2 as const };
   const long = [
     { day: day(-2), discipline: 'run', rpe: null },
     { day: day(-4), discipline: 'mobility', rpe: null },
