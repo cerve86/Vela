@@ -11,8 +11,10 @@ import {
   deleteItem,
   deleteProgram,
   getProgram,
+  listAssignmentsFor,
   listExercises,
   listPrograms,
+  unassignProgram,
   updateItem,
   updateProgramBody,
   createBundledProgram,
@@ -53,6 +55,20 @@ export async function loadProgram(id: string) {
 export async function loadLibraryForPicker() {
   const { supabase, userId } = await ctx();
   return listExercises(supabase, userId);
+}
+
+export async function loadAssignmentsFor(programId: string) {
+  const { supabase } = await ctx();
+  return listAssignmentsFor(supabase, programId);
+}
+
+export async function unassignAction(programId: string, assignmentId: string): Promise<Result> {
+  const { supabase } = await ctx();
+  const { error } = await unassignProgram(supabase, assignmentId);
+  if (error) return { ok: false, error };
+  revalidatePath(`/programs/${programId}`);
+  revalidatePath('/clients');
+  return { ok: true };
 }
 
 export async function loadAssignableClients() {

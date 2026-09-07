@@ -5,22 +5,14 @@ import { ChevronLeft } from 'lucide-react-native';
 import { Body, Screen } from '@/components/kit';
 import { Prose } from '@/components/prose';
 import { useTheme } from '@/theme';
-import { useAssignedProgram } from '@/lib/data';
+import { useWeeklyPlan } from '@/lib/data';
 
-/**
- * A written programme, read through.
- *
- * The physiotherapist wrote what to do as prose and this shows it as she wrote it: blank
- * lines make paragraphs, a line starting with a number or a dash is a list item, a line
- * that ends in a colon or stands alone in capitals is a heading. Nothing is interpreted
- * beyond that — the text is the prescription and it is hers.
- */
-export default function ProgramScreen() {
+/** This week's plan from the physiotherapist, read through. */
+export default function WeeklyPlanScreen() {
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const assigned = useAssignedProgram();
-  const program = assigned.data;
+  const plan = useWeeklyPlan();
 
   return (
     <Screen>
@@ -54,41 +46,37 @@ export default function ProgramScreen() {
           >
             <ChevronLeft size={16} color={t.textPrimary} strokeWidth={2.5} />
           </Pressable>
-          {program ? (
+          {plan.data ? (
             <Body size={12.5} weight="medium" color={t.textSecondary}>
-              {program.durationWeeks} weeks · from {friendly(program.startDate)}
+              Week of {friendly(plan.data.weekStart)}
             </Body>
           ) : null}
         </View>
 
-        {program?.kind === 'descriptive' && program.body ? (
+        <Text
+          style={{
+            fontFamily: t.font.displaySemi,
+            fontSize: 30,
+            letterSpacing: -1,
+            lineHeight: 34,
+            color: t.textPrimary,
+            marginTop: 6,
+          }}
+        >
+          This week
+        </Text>
+
+        {plan.data ? (
           <>
-            <Text
-              style={{
-                fontFamily: t.font.displaySemi,
-                fontSize: 30,
-                letterSpacing: -1,
-                lineHeight: 34,
-                color: t.textPrimary,
-                marginTop: 6,
-              }}
-            >
-              {program.name}
-            </Text>
-            {program.description ? (
-              <Body size={13.5} color={t.textSecondary} style={{ marginTop: -6 }}>
-                {program.description}
-              </Body>
-            ) : null}
-            <Prose body={program.body} />
+            <Prose body={plan.data.body} />
             <Body size={12.5} color={t.textMuted} style={{ textAlign: 'center', marginTop: 8 }}>
-              Written by your physio. If anything is unclear, or feels heavy or dragging, tell her
-              in Messages.
+              From your physio. If anything is unclear, or feels heavy or dragging, tell her in
+              Messages.
             </Body>
           </>
         ) : (
-          <Body size={14} color={t.textSecondary} style={{ marginTop: 12 }}>
-            {assigned.loading ? 'Loading…' : 'No written programme at the moment.'}
+          <Body size={14} color={t.textSecondary}>
+            {plan.loading ? 'Loading…' : 'Nothing written for this week yet.'}
           </Body>
         )}
       </ScrollView>

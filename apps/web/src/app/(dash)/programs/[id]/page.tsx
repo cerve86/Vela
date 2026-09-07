@@ -1,17 +1,23 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { StatusPill } from '@/components/ui';
-import { loadAssignableClients, loadLibraryForPicker, loadProgram } from '../actions';
+import {
+  loadAssignableClients,
+  loadAssignmentsFor,
+  loadLibraryForPicker,
+  loadProgram,
+} from '../actions';
 import { Builder } from './Builder';
 import { DescriptiveProgram } from './DescriptiveProgram';
 import { DeleteProgramButton } from '../DeleteProgramButton';
 
 export default async function ProgramPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [program, library, clients] = await Promise.all([
+  const [program, library, clients, assignments] = await Promise.all([
     loadProgram(id),
     loadLibraryForPicker(),
     loadAssignableClients(),
+    loadAssignmentsFor(id),
   ]);
 
   if (!program) notFound();
@@ -41,9 +47,9 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
       </header>
 
       {program.kind === 'descriptive' ? (
-        <DescriptiveProgram program={program} clients={clients} />
+        <DescriptiveProgram program={program} clients={clients} assignments={assignments} />
       ) : (
-        <Builder program={program} library={library} clients={clients} />
+        <Builder program={program} library={library} clients={clients} assignments={assignments} />
       )}
     </div>
   );

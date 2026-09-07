@@ -8,6 +8,7 @@ import {
   type Discipline,
   type LibraryExercise,
   type Program,
+  type ProgramAssignment,
   type ProgramItem,
 } from '@vela/api';
 import { palette } from '@vela/shared/tokens';
@@ -18,6 +19,7 @@ import {
   assignProgramAction,
   deleteDayAction,
   deleteItemAction,
+  unassignAction,
   updateItemAction,
 } from '../actions';
 
@@ -35,10 +37,12 @@ export function Builder({
   program,
   library,
   clients,
+  assignments = [],
 }: {
   program: Program;
   library: LibraryExercise[];
   clients: { id: string; name: string }[];
+  assignments?: ProgramAssignment[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -113,7 +117,17 @@ export function Builder({
 
       <AssignCard
         clients={clients}
+        assignments={assignments}
         pending={pending}
+        onUnassign={(assignmentId, clientName) => {
+          if (
+            !window.confirm(
+              `Take this programme off ${clientName}? Her future sessions from it are removed; what she completed stays.`,
+            )
+          )
+            return;
+          run(() => unassignAction(program.id, assignmentId), `Taken off ${clientName}.`);
+        }}
         onAssign={(clientId, startDate) =>
           run(
             () => assignProgramAction(program.id, clientId, startDate),
@@ -514,18 +528,46 @@ function AddDayCard({
 
 export function AssignCard({
   clients,
+  assignments = [],
   pending,
   onAssign,
+  onUnassign,
 }: {
   clients: { id: string; name: string }[];
+  /** Who is on this programme now. */
+  assignments?: ProgramAssignment[];
   pending: boolean;
   onAssign: (clientId: string, startDate: string) => void;
+  onUnassign?: (assignmentId: string, clientName: string) => void;
 }) {
   const [clientId, setClientId] = useState('');
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
 
   return (
     <Card title="Assign to a client">
+      {assignments.length > 0 && (
+        <ul className="mb-3 divide-y">
+          {assignments.map((a) => (
+            <li key={a.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+              <span>
+                <span className="font-medium">{a.clientName}</span>
+                <span className="ink-3"> · since {a.startDate}</span>
+              </span>
+              {onUnassign && (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => onUnassign(a.id, a.clientName)}
+                  className="rounded-full px-3 py-1 text-xs font-semibold disabled:opacity-40"
+                  style={{ background: 'var(--ghost)', color: palette.status.critical }}
+                >
+                  Unassign
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       {clients.length === 0 ? (
         <p className="text-sm ink-2">
           No active clients yet. Invite one and she&apos;ll appear here.

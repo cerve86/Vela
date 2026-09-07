@@ -802,3 +802,20 @@ changes what she sees. App 0.3.2.
 carries both; its window is two weeks back and nine ahead, with a one-hour refresh hint.
 What hides a newly assigned programme is the calendar app's own cadence for subscribed
 calendars, so the connections card now says how to refresh by hand.
+
+## 0.3.3 — The weekly plan; a programme comes off a client (7 September 2026)
+
+**The weekly plan.** Assigning a written programme each week and taking it off again was
+the wrong shape for what a physiotherapist actually does, which is write a few lines per
+client per week. `client_plans` holds one text per client per week (keyed by its Monday),
+written in a card at the top of the client's page — this week by default, any week by
+moving the date, previous weeks underneath — or sent from her Claude with
+`send_weekly_plan` (after `list_clients`). Saving is the delivery: the phone reads it
+live, Today shows it as the first card ("This week from your physio") opening the same
+reading layout as a written programme, and a message in the thread says it is there, so
+the unread badge does the nudging. Nothing to assign, nothing to take off; last week's
+stays as history. A written programme remains the thing for a block that runs for weeks.
+
+**Unassign.** The Assign card on a programme page now lists who is on it and can take her
+off: `unassign_program` cancels the assignment and removes her future scheduled sessions
+from it; what she completed stays. App 0.3.3.

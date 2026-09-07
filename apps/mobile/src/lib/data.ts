@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  currentClientPlan,
   currentTarget,
   getAssignedProgram,
   getSession,
@@ -9,6 +10,7 @@ import {
   listSessions,
   nutritionDays,
   type AssignedProgram,
+  type ClientPlan,
   type FoodLogEntry,
   type Metric,
   type MetricType,
@@ -144,6 +146,17 @@ export function useAssignedProgram() {
     async () => (client ? getAssignedProgram(supabase, client.id) : null),
     null,
     [client?.id],
+  );
+}
+
+/** This week's plan from the physiotherapist, or the most recent one. Null until she writes one. */
+export function useWeeklyPlan() {
+  const { client } = useSession();
+  const todayIso = today();
+  return useAsync<ClientPlan | null>(
+    async () => (client ? currentClientPlan(supabase, client.id, todayIso) : null),
+    null,
+    [client?.id, todayIso],
   );
 }
 

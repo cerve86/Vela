@@ -134,7 +134,7 @@ export class VelaApi {
   }
 
   private async request(
-    method: 'GET' | 'POST' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
     path: string,
     body?: unknown,
   ): Promise<{ status: number; body: unknown }> {
@@ -204,6 +204,32 @@ export class VelaApi {
       `/api/programs/${encodeURIComponent(id)}`,
     );
     return program;
+  }
+
+  /** The coach's active clients, id and name. */
+  async clients(): Promise<{ id: string; name: string }[]> {
+    const { clients } = await this.read<{ clients: { id: string; name: string }[] }>(
+      '/api/clients',
+    );
+    return clients;
+  }
+
+  /** The week's plan for one client, saved to her phone with a message saying so. */
+  async sendWeeklyPlan(input: {
+    clientId: string;
+    body: string;
+    weekStart?: string;
+  }): Promise<{ weekStart: string }> {
+    const { status, body } = await this.request(
+      'PUT',
+      `/api/clients/${encodeURIComponent(input.clientId)}/plan`,
+      { body: input.body, weekStart: input.weekStart },
+    );
+    if (status >= 200 && status < 300) {
+      const plan = (body as { plan: { weekStart: string } }).plan;
+      return { weekStart: plan.weekStart };
+    }
+    throw new VelaApiError(status, body, explain(status, body));
   }
 
   /** A written programme: name, weeks, and the text the client reads. Returns its id and link. */
