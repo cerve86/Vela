@@ -487,10 +487,12 @@ export interface ScheduledSession {
   programDayId: string | null;
   /** Where the completion came from. Only prescribed sessions count towards adherence. */
   loggedVia: 'app' | 'strava' | 'calendar';
+  /** How hard she said it was, 1–10, when she said. */
+  sessionRpe: number | null;
 }
 
 const SESSION_COLUMNS =
-  'id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via';
+  'id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe';
 
 function toSession(row: {
   id: string;
@@ -505,6 +507,7 @@ function toSession(row: {
   duration_sec: number | null;
   program_day_id: string | null;
   logged_via: string;
+  session_rpe: number | string | null;
 }): ScheduledSession {
   return {
     id: row.id,
@@ -519,6 +522,7 @@ function toSession(row: {
     durationSec: row.duration_sec === null ? null : Number(row.duration_sec),
     programDayId: row.program_day_id,
     loggedVia: row.logged_via as ScheduledSession['loggedVia'],
+    sessionRpe: row.session_rpe === null ? null : Number(row.session_rpe),
   };
 }
 

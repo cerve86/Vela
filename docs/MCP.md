@@ -70,6 +70,9 @@ to `http://localhost:4310` against a local stack.
 | `create_descriptive_program` | A written programme: name, weeks and the text the client reads as it is. |
 | `list_clients`    | Her active clients, by name, with ids.                                        |
 | `send_weekly_plan` | This week's plan for one client, straight to her phone, with a message.      |
+| `get_client_report` | Everything about one client as a page: sessions, reads, vitals, HRV read, activities, meals, messages. |
+| `update_program_item` | Change sets, reps, load, RPE, tempo, rest or notes of one prescription.   |
+| `add_program_item` / `remove_program_item` | Add a movement to a day, or take one off.                |
 
 The programme shape is the one in [IMPORT.md](IMPORT.md): the server publishes the
 import schema, field by field, as the tool's input, so a draft that passes here is exactly
