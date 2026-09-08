@@ -819,3 +819,25 @@ stays as history. A written programme remains the thing for a block that runs fo
 **Unassign.** The Assign card on a programme page now lists who is on it and can take her
 off: `unassign_program` cancels the assignment and removes her future scheduled sessions
 from it; what she completed stays. App 0.3.3.
+
+## Portal — the assistant reads the whole client and writes back (7 September 2026)
+
+**The client report.** `GET /api/clients/{id}/report?days=28` is everything the portal
+knows about one client in one read, computed nothing differently from her page: profile,
+programme and weekly plans, every session with pain and RPE, adherence over seven and
+twenty-eight days, daily reads with symptom flags, vitals by day (HRV, resting and
+breathing rate, sleep and its stages, weight, steps, cardio load, active energy — always
+four weeks of them, so the HRV read has its baseline), the week through the HRV decision
+tree, recorded activities, meals by day, the last messages. `get_client_report` in the
+Claude Desktop extension renders it as a page the assistant reasons from. Read as the
+coach, so row security decides what is hers.
+
+**Writing back.** Two doors, both only after the coach has agreed: `send_weekly_plan` for
+the week's instructions in prose, and `update_program_item`, `add_program_item`,
+`remove_program_item` for a specific prescription — `POST /api/programs/{id}/items`,
+`PATCH` and `DELETE …/items/{itemId}`, with day and item ids now printed by
+`get_program`. Sessions already on a client's calendar read their prescriptions from the
+programme, so a changed set count reaches her next session without re-assigning. A new
+movement is matched to her library the way the import matches; one that is not there is
+refused by name rather than substituted. The extension's instructions now say: read the
+report before recommending, then act through one of those doors.

@@ -58,6 +58,84 @@ export interface Exercise {
   isMine: boolean;
 }
 
+/** A prescription's fields, all optional for a change, sets and reps required for a new one. */
+export interface ItemInput {
+  block?: string;
+  sets?: number;
+  reps?: string;
+  loadKg?: number | null;
+  rpe?: number | null;
+  tempo?: string | null;
+  restSec?: number;
+  notes?: string | null;
+}
+
+/** The client report as the portal returns it; formatted for reading in format.ts. */
+export interface ClientReport {
+  generatedAt: string;
+  window: { from: string; to: string; days: number };
+  client: {
+    id: string;
+    name: string;
+    email: string;
+    status: string;
+    weeksPostpartum: number | null;
+    deliveryType: string | null;
+    breastfeeding: boolean;
+    goal: string | null;
+    condition: string | null;
+    startedOn: string;
+  };
+  programme: {
+    id: string;
+    name: string;
+    kind: 'structured' | 'descriptive';
+    body: string | null;
+    durationWeeks: number;
+    startDate: string;
+  } | null;
+  weeklyPlans: { weekStart: string; body: string }[];
+  adherence: {
+    last7: { due: number; completed: number };
+    last28: { due: number; completed: number };
+  };
+  sessions: {
+    id: string;
+    title: string;
+    discipline: string;
+    scheduledDate: string;
+    status: string;
+    painBefore: number | null;
+    painAfter: number | null;
+    setsDone: number | null;
+    setsPlanned: number | null;
+    durationSec: number | null;
+    sessionRpe: number | null;
+    loggedVia: string;
+  }[];
+  reads: { readOn: string; window: string; readiness: number; symptom: string }[];
+  vitals: Record<string, { day: string; value: number }[]>;
+  hrv: { advice: string; summary: string; stance: string; note: string } | null;
+  activities: {
+    localDate: string;
+    sportType: string;
+    name: string;
+    movingSec: number;
+    distanceM: number | null;
+    avgHr: number | null;
+    avgCadence: number | null;
+    avgWatts: number | null;
+  }[];
+  nutrition: {
+    day: string;
+    kcal: number;
+    proteinG: number;
+    entries: number;
+    targetKcal: number | null;
+  }[];
+  messages: { sender: string; body: string; createdAt: string }[];
+}
+
 export interface ProgramSummary {
   id: string;
   name: string;
@@ -71,6 +149,7 @@ export interface ProgramSummary {
 }
 
 export interface ProgramItem {
+  id: string;
   exerciseName: string;
   block: string;
   sets: number;
@@ -83,6 +162,7 @@ export interface ProgramItem {
 }
 
 export interface ProgramDay {
+  id: string;
   weekNo: number;
   dayNo: number;
   title: string;
@@ -134,7 +214,7 @@ export class VelaApi {
   }
 
   private async request(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     path: string,
     body?: unknown,
   ): Promise<{ status: number; body: unknown }> {
@@ -204,6 +284,51 @@ export class VelaApi {
       `/api/programs/${encodeURIComponent(id)}`,
     );
     return program;
+  }
+
+  /** Everything the portal knows about one client, as data. */
+  async clientReport(id: string, days = 28): Promise<ClientReport> {
+    const { report } = await this.read<{ report: ClientReport }>(
+      `/api/clients/${encodeURIComponent(id)}/report?days=${days}`,
+    );
+    return report;
+  }
+
+  async addProgramItem(programId: string, input: ItemInput & { dayId: string; exercise: string }) {
+    const { status, body } = await this.request(
+      'POST',
+      `/api/programs/${encodeURIComponent(programId)}/items`,
+      input,
+    );
+    if (status === 201) return (body as { item: ProgramItem }).item;
+    if (status === 422) {
+      const b = body as { unmatched?: string[] };
+      throw new VelaApiError(
+        status,
+        body,
+        `Not in her library: ${(b.unmatched ?? []).join(', ')}. Use list_exercises and pick a name from it, or ask her to add the movement.`,
+      );
+    }
+    throw new VelaApiError(status, body, explain(status, body));
+  }
+
+  async updateProgramItem(programId: string, itemId: string, patch: ItemInput) {
+    const { status, body } = await this.request(
+      'PATCH',
+      `/api/programs/${encodeURIComponent(programId)}/items/${encodeURIComponent(itemId)}`,
+      patch,
+    );
+    if (status >= 200 && status < 300) return (body as { item: ProgramItem }).item;
+    throw new VelaApiError(status, body, explain(status, body));
+  }
+
+  async removeProgramItem(programId: string, itemId: string): Promise<string> {
+    const { status, body } = await this.request(
+      'DELETE',
+      `/api/programs/${encodeURIComponent(programId)}/items/${encodeURIComponent(itemId)}`,
+    );
+    if (status >= 200 && status < 300) return (body as { removed: string }).removed;
+    throw new VelaApiError(status, body, explain(status, body));
   }
 
   /** The coach's active clients, id and name. */

@@ -1,4 +1,4 @@
-import type { Exercise, ImportOutcome, Program, ProgramSummary } from './api.ts';
+import type { ClientReport, Exercise, ImportOutcome, Program, ProgramSummary } from './api.ts';
 
 /**
  * Text for the assistant to read — and, through it, for the coach.
@@ -66,10 +66,11 @@ export function formatProgram(p: Program, portalUrl: string): string {
         i.tempo ? `tempo ${i.tempo}` : '',
         `rest ${i.restSec}s`,
         i.notes ? `— ${i.notes}` : '',
+        `item id ${i.id}`,
       ].filter(Boolean);
       return `  ${parts.join(' · ')}`;
     });
-    return `Week ${d.weekNo}, day ${d.dayNo}: ${d.title} (${d.discipline})${d.notes ? `\n  ${d.notes}` : ''}\n${items.join('\n')}`;
+    return `Week ${d.weekNo}, day ${d.dayNo}: ${d.title} (${d.discipline}) · day id ${d.id}${d.notes ? `\n  ${d.notes}` : ''}\n${items.join('\n')}`;
   });
 
   return `${head}\n\n${days.join('\n\n')}`;
@@ -116,4 +117,145 @@ export function formatOutcome(
         text: `The portal could not create the programme: ${outcome.message}`,
       };
   }
+}
+
+const READINESS = ['depleted', 'low', 'steady', 'good', 'strong'];
+
+/** The report as a page the assistant can reason from: sections, one line per thing. */
+export function formatReport(r: ClientReport): string {
+  const c = r.client;
+  const out: string[] = [];
+  out.push(
+    `${c.name} — ${c.status}, ${c.weeksPostpartum ?? '?'} weeks postpartum${c.deliveryType ? `, ${c.deliveryType} delivery` : ''}${c.breastfeeding ? ', breastfeeding' : ''}.` +
+      (c.goal ? ` Goal: ${c.goal}.` : '') +
+      (c.condition ? ` Condition: ${c.condition}.` : '') +
+      ` Window ${r.window.from} → ${r.window.to}.`,
+  );
+
+  out.push(
+    `\nPROGRAMME: ` +
+      (r.programme
+        ? `${r.programme.name} (${r.programme.kind === 'descriptive' ? 'written' : 'days of exercises'}, ${r.programme.durationWeeks} wk from ${r.programme.startDate}, id ${r.programme.id})`
+        : 'none assigned'),
+  );
+  if (r.programme?.kind === 'descriptive' && r.programme.body) out.push(indent(r.programme.body));
+
+  out.push('\nWEEKLY PLANS:');
+  out.push(
+    r.weeklyPlans.length
+      ? r.weeklyPlans.map((p) => `- week of ${p.weekStart}:\n${indent(p.body)}`).join('\n')
+      : '  none yet',
+  );
+
+  out.push(
+    `\nADHERENCE: last 7 days ${r.adherence.last7.completed}/${r.adherence.last7.due} prescribed sessions done · last ${r.window.days} days ${r.adherence.last28.completed}/${r.adherence.last28.due}`,
+  );
+
+  out.push('\nSESSIONS (prescribed and recorded; pain 0–10 before → after; RPE 1–10):');
+  out.push(
+    r.sessions.length
+      ? r.sessions
+          .map(
+            (s) =>
+              `- ${s.scheduledDate} ${s.title} (${s.discipline}) — ${s.status}` +
+              (s.setsDone !== null || s.setsPlanned !== null
+                ? `, sets ${s.setsDone ?? '?'}/${s.setsPlanned ?? '?'}`
+                : '') +
+              (s.painBefore !== null || s.painAfter !== null
+                ? `, pain ${s.painBefore ?? '?'} → ${s.painAfter ?? '?'}`
+                : '') +
+              (s.sessionRpe !== null ? `, RPE ${s.sessionRpe}` : '') +
+              (s.durationSec ? `, ${Math.round(s.durationSec / 60)} min` : '') +
+              (s.loggedVia !== 'app' ? `, via ${s.loggedVia}` : '') +
+              ` · id ${s.id}`,
+          )
+          .join('\n')
+      : '  none in the window',
+  );
+
+  out.push('\nDAILY READS (readiness 0 depleted … 4 strong; symptom flags):');
+  out.push(
+    r.reads.length
+      ? r.reads
+          .map(
+            (d) =>
+              `- ${d.readOn} ${d.window}: ${READINESS[d.readiness] ?? d.readiness}${d.symptom && d.symptom !== 'Nothing' ? ` · ${d.symptom}` : ''}`,
+          )
+          .join('\n')
+      : '  none in the window',
+  );
+
+  out.push('\nHRV THROUGH THE DECISION TREE:');
+  out.push(
+    r.hrv
+      ? `  ${r.hrv.advice}\n  ${r.hrv.summary} · stance: ${r.hrv.stance}\n  Client sees: "${r.hrv.note}"`
+      : '  not enough HRV mornings to read the week against her range yet',
+  );
+
+  out.push('\nVITALS BY DAY (day: value):');
+  const labels: Record<string, string> = {
+    hrv_ms: 'HRV ms',
+    resting_hr: 'resting HR bpm',
+    respiratory_rate: 'breathing /min',
+    sleep_min: 'sleep min',
+    sleep_deep_min: 'deep min',
+    sleep_rem_min: 'REM min',
+    sleep_awake_min: 'awake min',
+    weight_kg: 'weight kg',
+    steps: 'steps',
+    cardio_load: 'cardio load',
+    active_energy_kcal: 'active kcal',
+  };
+  for (const [key, label] of Object.entries(labels)) {
+    const series = r.vitals[key] ?? [];
+    if (series.length === 0) continue;
+    out.push(`  ${label}: ` + series.map((v) => `${v.day.slice(5)}: ${round(v.value)}`).join(', '));
+  }
+
+  out.push('\nRECORDED ACTIVITIES:');
+  out.push(
+    r.activities.length
+      ? r.activities
+          .map(
+            (a) =>
+              `- ${a.localDate} ${a.name} (${a.sportType}) — ${Math.round(a.movingSec / 60)} min` +
+              (a.distanceM ? `, ${(a.distanceM / 1000).toFixed(1)} km` : '') +
+              (a.avgHr ? `, avg HR ${Math.round(a.avgHr)}` : '') +
+              (a.avgCadence ? `, cadence ${Math.round(a.avgCadence)}` : '') +
+              (a.avgWatts ? `, ${Math.round(a.avgWatts)} W` : ''),
+          )
+          .join('\n')
+      : '  none in the window',
+  );
+
+  out.push('\nMEALS BY DAY (kcal / protein g, entries, target):');
+  out.push(
+    r.nutrition.length
+      ? r.nutrition
+          .map(
+            (n) =>
+              `- ${n.day}: ${Math.round(n.kcal)} kcal / ${Math.round(n.proteinG)} g, ${n.entries} logged${n.targetKcal ? `, target ${Math.round(n.targetKcal)}` : ''}`,
+          )
+          .join('\n')
+      : '  nothing logged',
+  );
+
+  out.push('\nLAST MESSAGES:');
+  out.push(
+    r.messages.length
+      ? r.messages.map((m) => `- ${m.createdAt.slice(0, 10)} ${m.sender}: ${m.body}`).join('\n')
+      : '  none',
+  );
+  return out.join('\n');
+}
+
+function indent(text: string): string {
+  return text
+    .split('\n')
+    .map((l) => `    ${l}`)
+    .join('\n');
+}
+
+function round(v: number): string {
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
 }

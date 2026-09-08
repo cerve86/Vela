@@ -4,7 +4,13 @@ import { z } from 'zod';
 // and it resolves a .ts subpath but not the barrel's extensionless internal imports.
 import { importProgramShape } from '@vela/shared/programImport';
 import { VelaApi, VelaApiError } from './api.ts';
-import { formatExercises, formatOutcome, formatProgram, formatProgramList } from './format.ts';
+import {
+  formatExercises,
+  formatOutcome,
+  formatProgram,
+  formatProgramList,
+  formatReport,
+} from './format.ts';
 
 /**
  * What the assistant is told before it sees a single tool. This is the part of the
@@ -19,7 +25,8 @@ How to work:
 3. Call preview_program first and show the coach the result. Only call create_program once she has agreed to the draft.
 4. create_program makes a programme in her account and returns a link. It never assigns a programme to a client; she does that herself in the portal, with a start date.
 5. The week's plan for one client — what to do this week, in the coach's words — is send_weekly_plan: call list_clients for the client's id, then send the text as she wrote or approved it. It lands on her phone at once with a message saying it is there; nothing to assign. Use this for the weekly note; use a programme for a block that runs for weeks.
-6. Not every plan is days of sets and reps. When the coach wants to send instructions as prose — what to do this week, in her own words — use create_descriptive_program with the text as she wrote or approved it. The client reads it on her phone exactly as written; blank lines make paragraphs, lines starting with a number or a dash become a list. Do not turn prose into a structured programme, or the other way round, unless she asks.
+6. To reason about a client, call get_client_report: her profile, programme and weekly plans, every session with pain and RPE, adherence, her daily reads, vitals by day, the week's HRV read through the training decision tree, recorded activities, meals and the last messages. Read it before recommending anything. Then act on the coach's decision in one of two ways: send_weekly_plan for the week's instructions in prose, or update_program_item / add_program_item / remove_program_item to change a specific prescription in her programme (ids come from get_program; sessions already on her calendar read the programme live, so the change reaches her next session). Never change a prescription the coach has not agreed to.
+7. Not every plan is days of sets and reps. When the coach wants to send instructions as prose — what to do this week, in her own words — use create_descriptive_program with the text as she wrote or approved it. The client reads it on her phone exactly as written; blank lines make paragraphs, lines starting with a number or a dash become a list. Do not turn prose into a structured programme, or the other way round, unless she asks.
 
 Be exact with prescriptions: sets, reps, load and rest are clinical instructions, not suggestions to round.`;
 
@@ -144,6 +151,127 @@ export function buildServer(api: VelaApi): McpServer {
         const out = formatOutcome(await api.importProgram(program, { dryRun: false }), portal);
         return text(out.text, out.isError);
       }),
+  );
+
+  server.registerTool(
+    'get_client_report',
+    {
+      title: 'Read everything about a client',
+      description:
+        'Everything the portal knows about one client, as a page: profile, programme and weekly plans, sessions with pain and RPE, adherence, daily reads, vitals by day, the HRV read through the decision tree, recorded activities, meals, last messages. Read this before recommending anything. Ids for list_clients.',
+      inputSchema: {
+        client_id: z.string().uuid().describe('The client, from list_clients.'),
+        days: z
+          .number()
+          .int()
+          .min(7)
+          .max(90)
+          .default(28)
+          .describe('How far back to look, in days.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    ({ client_id, days }) =>
+      guarded(async () => text(formatReport(await api.clientReport(client_id, days)))),
+  );
+
+  const itemFields = {
+    block: z
+      .string()
+      .trim()
+      .max(2)
+      .optional()
+      .describe('Block letter; items sharing a letter are a superset.'),
+    sets: z.number().int().min(1).max(20).optional(),
+    reps: z
+      .string()
+      .trim()
+      .min(1)
+      .max(40)
+      .optional()
+      .describe('Free text: "8-10", "AMRAP", "30s each side".'),
+    loadKg: z.number().min(0).max(500).nullable().optional(),
+    rpe: z.number().min(1).max(10).nullable().optional(),
+    tempo: z.string().trim().max(20).nullable().optional(),
+    restSec: z.number().int().min(0).max(900).optional(),
+    notes: z.string().trim().max(240).nullable().optional(),
+  };
+
+  server.registerTool(
+    'add_program_item',
+    {
+      title: 'Add a prescription to a day',
+      description:
+        "Adds a movement to a day of a programme. day_id comes from get_program; the exercise is a library name (list_exercises). Sessions already on a client's calendar read the programme live, so this reaches her next session. Only after the coach agreed.",
+      inputSchema: {
+        program_id: z.string().uuid(),
+        day_id: z.string().uuid().describe('The day, from get_program.'),
+        exercise: z
+          .string()
+          .trim()
+          .min(1)
+          .describe('Library name, matched ignoring case, spacing and hyphens.'),
+        ...itemFields,
+        sets: z.number().int().min(1).max(20),
+        reps: z.string().trim().min(1).max(40),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    ({ program_id, day_id, exercise, ...fields }) =>
+      guarded(async () => {
+        const item = await api.addProgramItem(program_id, { dayId: day_id, exercise, ...fields });
+        return text(`Added ${item.exerciseName}: ${item.sets}×${item.reps} · item id ${item.id}`);
+      }),
+  );
+
+  server.registerTool(
+    'update_program_item',
+    {
+      title: 'Change a prescription',
+      description:
+        "Changes sets, reps, load, RPE, tempo, rest or notes of one prescription. item_id comes from get_program. Sessions already on a client's calendar read the programme live, so this reaches her next session. Only after the coach agreed.",
+      inputSchema: { program_id: z.string().uuid(), item_id: z.string().uuid(), ...itemFields },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    ({ program_id, item_id, ...fields }) =>
+      guarded(async () => {
+        const item = await api.updateProgramItem(program_id, item_id, fields);
+        return text(
+          `Now ${item.exerciseName}: ${item.sets}×${item.reps}` +
+            (item.targetLoadKg !== null ? ` · ${item.targetLoadKg} kg` : '') +
+            (item.targetRpe !== null ? ` · RPE ${item.targetRpe}` : '') +
+            ` · rest ${item.restSec}s` +
+            (item.notes ? ` — ${item.notes}` : ''),
+        );
+      }),
+  );
+
+  server.registerTool(
+    'remove_program_item',
+    {
+      title: 'Remove a prescription',
+      description:
+        'Removes one movement from a day of a programme. item_id comes from get_program. Only after the coach agreed.',
+      inputSchema: { program_id: z.string().uuid(), item_id: z.string().uuid() },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    ({ program_id, item_id }) =>
+      guarded(async () => text(`Removed ${await api.removeProgramItem(program_id, item_id)}.`)),
   );
 
   server.registerTool(
