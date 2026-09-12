@@ -12,9 +12,14 @@ async function ctx() {
   return { supabase, userId: user?.id ?? null };
 }
 
+/** The keys, with `expired` worked out here rather than in render, where a clock is impure. */
 export async function loadApiKeys() {
   const { supabase } = await ctx();
-  return listApiKeys(supabase);
+  const now = Date.now();
+  return (await listApiKeys(supabase)).map((k) => ({
+    ...k,
+    expired: k.expiresAt !== null && new Date(k.expiresAt).getTime() < now,
+  }));
 }
 
 export interface CreateKeyResult {

@@ -18,7 +18,7 @@ function when(iso: string | null): string {
   });
 }
 
-export function ApiKeys({ keys }: { keys: ApiKey[] }) {
+export function ApiKeys({ keys }: { keys: (ApiKey & { expired: boolean })[] }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [fresh, setFresh] = useState<{ name: string; key: string } | null>(null);
@@ -142,11 +142,7 @@ export function ApiKeys({ keys }: { keys: ApiKey[] }) {
                 <td className="py-2.5 ink-2">{when(k.createdAt)}</td>
                 <td className="py-2.5 ink-2">{when(k.lastUsedAt)}</td>
                 <td className="py-2.5 ink-2">
-                  {k.expiresAt
-                    ? new Date(k.expiresAt).getTime() < Date.now()
-                      ? 'Expired'
-                      : k.expiresAt.slice(0, 10)
-                    : '—'}
+                  {k.expiresAt ? (k.expired ? 'Expired' : k.expiresAt.slice(0, 10)) : '—'}
                 </td>
                 <td className="py-2.5 text-right">
                   {k.revokedAt ? (
