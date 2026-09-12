@@ -25,7 +25,7 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
   const totalItems = program.days.reduce((n, d) => n + d.items.length, 0);
 
   return (
-    <div className="mx-auto max-w-6xl p-8">
+    <div className="mx-auto max-w-6xl p-4 sm:p-6 md:p-8">
       <Link href="/programs" className="text-sm ink-2 hover:underline">
         ← All programmes
       </Link>

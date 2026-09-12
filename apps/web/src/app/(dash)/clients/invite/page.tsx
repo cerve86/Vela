@@ -23,7 +23,7 @@ export default async function InvitePage() {
   const invites = await listInvites(supabase);
 
   return (
-    <div className="mx-auto max-w-3xl p-8">
+    <div className="mx-auto max-w-3xl p-4 sm:p-6 md:p-8">
       <Link href="/clients" className="text-sm ink-2 hover:underline">
         ← All clients
       </Link>

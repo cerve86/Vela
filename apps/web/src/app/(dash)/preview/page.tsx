@@ -59,7 +59,7 @@ export default function ClientsPage() {
     rows.reduce((sum, r) => sum + r.rollup.adherence7d, 0) / Math.max(rows.length, 1);
 
   return (
-    <div className="mx-auto max-w-6xl p-8">
+    <div className="mx-auto max-w-6xl p-4 sm:p-6 md:p-8">
       <header className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-[30px] font-extrabold">Design preview</h1>

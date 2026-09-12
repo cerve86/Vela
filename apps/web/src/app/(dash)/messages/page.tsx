@@ -58,7 +58,7 @@ export default async function MessagesPage({
 
   if (roster.length === 0) {
     return (
-      <div className="mx-auto max-w-6xl p-8">
+      <div className="mx-auto max-w-6xl p-4 sm:p-6 md:p-8">
         <header className="mb-6">
           <h1 className="text-2xl font-semibold">Messages</h1>
         </header>

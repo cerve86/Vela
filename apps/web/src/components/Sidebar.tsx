@@ -28,31 +28,37 @@ const NAV: NavItem[] = [
   { href: '/settings', label: 'Settings', Icon: Settings },
 ];
 
+/**
+ * The portal's navigation: a sidebar where there is room, a top bar where there is not.
+ *
+ * A physiotherapist reads a client's page on her phone between appointments. A fixed
+ * 240px sidebar there left the content a third of the screen, one word per line. Below
+ * the `md` breakpoint the same items run in a scrollable row under the brand, and the
+ * page takes the width.
+ */
 export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <nav
-      className="flex w-60 shrink-0 flex-col justify-between border-r p-4"
-      style={{ background: 'var(--surface)' }}
-      aria-label="Main"
-    >
-      <div>
-        <div className="mb-6 flex items-center gap-2.5 px-2">
-          <VelaBadge size={30} radius={9} />
+    <>
+      <nav
+        className="md:hidden sticky top-0 z-20 border-b"
+        style={{ background: 'var(--surface)' }}
+        aria-label="Main"
+      >
+        <div className="flex items-center gap-2.5 px-4 pt-3 pb-2">
+          <VelaBadge size={26} radius={8} />
           <span className="display-face text-base font-extrabold tracking-tight">Vela</span>
         </div>
-
-        <ul className="space-y-0.5">
+        <ul className="flex gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none]">
           {NAV.map((item) => {
             const active = pathname.startsWith(item.href);
-            const stroke = active ? 2.4 : 2;
             return (
-              <li key={item.href}>
+              <li key={item.href} className="shrink-0">
                 <Link
                   href={item.href}
                   aria-current={active ? 'page' : undefined}
-                  className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors"
+                  className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm whitespace-nowrap"
                   style={{
                     background: active ? palette.brand[50] : 'transparent',
                     color: active ? palette.brand[800] : 'var(--ink-secondary)',
@@ -60,9 +66,9 @@ export function Sidebar() {
                   }}
                 >
                   {item.vela ? (
-                    <VelaIcon name={item.vela} size={17} strokeWidth={stroke} />
+                    <VelaIcon name={item.vela} size={15} strokeWidth={active ? 2.4 : 2} />
                   ) : item.Icon ? (
-                    <item.Icon size={17} strokeWidth={stroke} />
+                    <item.Icon size={15} strokeWidth={active ? 2.4 : 2} />
                   ) : null}
                   {item.label}
                 </Link>
@@ -70,11 +76,52 @@ export function Sidebar() {
             );
           })}
         </ul>
-      </div>
+      </nav>
 
-      <div className="border-t pt-3">
-        <SignedInAs />
-      </div>
-    </nav>
+      <nav
+        className="hidden w-60 shrink-0 flex-col justify-between border-r p-4 md:flex"
+        style={{ background: 'var(--surface)' }}
+        aria-label="Main"
+      >
+        <div>
+          <div className="mb-6 flex items-center gap-2.5 px-2">
+            <VelaBadge size={30} radius={9} />
+            <span className="display-face text-base font-extrabold tracking-tight">Vela</span>
+          </div>
+
+          <ul className="space-y-0.5">
+            {NAV.map((item) => {
+              const active = pathname.startsWith(item.href);
+              const stroke = active ? 2.4 : 2;
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    aria-current={active ? 'page' : undefined}
+                    className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors"
+                    style={{
+                      background: active ? palette.brand[50] : 'transparent',
+                      color: active ? palette.brand[800] : 'var(--ink-secondary)',
+                      fontWeight: active ? 600 : 400,
+                    }}
+                  >
+                    {item.vela ? (
+                      <VelaIcon name={item.vela} size={17} strokeWidth={stroke} />
+                    ) : item.Icon ? (
+                      <item.Icon size={17} strokeWidth={stroke} />
+                    ) : null}
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        <div className="border-t pt-3">
+          <SignedInAs />
+        </div>
+      </nav>
+    </>
   );
 }

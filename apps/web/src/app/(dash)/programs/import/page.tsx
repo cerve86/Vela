@@ -5,7 +5,7 @@ export const metadata = { title: 'Import a programme — Vela' };
 
 export default function ImportProgramPage() {
   return (
-    <div className="mx-auto max-w-4xl p-8">
+    <div className="mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
       <Link href="/programs" className="text-sm ink-2 hover:underline">
         ← Programmes
       </Link>
