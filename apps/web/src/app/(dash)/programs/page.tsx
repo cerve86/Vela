@@ -11,7 +11,7 @@ export default async function ProgramsPage() {
   const [programs, archived] = await Promise.all([loadPrograms(), loadArchivedPrograms()]);
 
   return (
-    <div className="mx-auto max-w-6xl p-8">
+    <div className="mx-auto max-w-6xl p-4 sm:p-6 md:p-8">
       <header className="mb-6">
         <h1 className="text-[30px] font-extrabold">Programmes</h1>
         <p className="mt-0.5 text-sm ink-2">
@@ -35,57 +35,57 @@ export default async function ProgramsPage() {
         />
       ) : (
         <Card title="All programmes">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs ink-3">
-                <th className="pb-2 font-medium">Programme</th>
-                <th className="pb-2 font-medium">Weeks</th>
-                <th className="pb-2 font-medium">Days</th>
-                <th className="pb-2 font-medium">Exercises</th>
-                <th className="pb-2 font-medium">Type</th>
-                <th className="pb-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {programs.map((p) => (
-                <tr key={p.id} className="border-b last:border-0">
-                  <td className="py-2.5">
-                    <Link href={`/programs/${p.id}`} className="font-medium hover:underline">
-                      {p.name}
-                    </Link>
-                    {p.description && <div className="text-xs ink-3">{p.description}</div>}
-                  </td>
-                  <td className="tnum py-2.5 ink-2">{p.durationWeeks}</td>
-                  <td className="tnum py-2.5 ink-2">
-                    {p.kind === 'descriptive' ? '—' : p.dayCount}
-                  </td>
-                  <td className="tnum py-2.5 ink-2">
-                    {p.kind === 'descriptive' ? '—' : p.itemCount}
-                  </td>
-                  <td className="py-2.5">
-                    {p.kind === 'descriptive' ? (
-                      <StatusPill tone="warning">Written</StatusPill>
-                    ) : p.isTemplate ? (
-                      <StatusPill tone="neutral">Template</StatusPill>
-                    ) : (
-                      <StatusPill tone="good">Programme</StatusPill>
-                    )}
-                  </td>
-                  <td className="py-2.5 text-right">
-                    <DeleteProgramButton id={p.id} name={p.name} afterDelete="refresh" />
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs ink-3">
+                  <th className="pb-2 font-medium">Programme</th>
+                  <th className="pb-2 font-medium">Weeks</th>
+                  <th className="pb-2 font-medium">Days</th>
+                  <th className="pb-2 font-medium">Exercises</th>
+                  <th className="pb-2 font-medium">Type</th>
+                  <th className="pb-2" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {programs.map((p) => (
+                  <tr key={p.id} className="border-b last:border-0">
+                    <td className="py-2.5">
+                      <Link href={`/programs/${p.id}`} className="font-medium hover:underline">
+                        {p.name}
+                      </Link>
+                      {p.description && <div className="text-xs ink-3">{p.description}</div>}
+                    </td>
+                    <td className="tnum py-2.5 ink-2">{p.durationWeeks}</td>
+                    <td className="tnum py-2.5 ink-2">
+                      {p.kind === 'descriptive' ? '—' : p.dayCount}
+                    </td>
+                    <td className="tnum py-2.5 ink-2">
+                      {p.kind === 'descriptive' ? '—' : p.itemCount}
+                    </td>
+                    <td className="py-2.5">
+                      {p.kind === 'descriptive' ? (
+                        <StatusPill tone="warning">Written</StatusPill>
+                      ) : p.isTemplate ? (
+                        <StatusPill tone="neutral">Template</StatusPill>
+                      ) : (
+                        <StatusPill tone="good">Programme</StatusPill>
+                      )}
+                    </td>
+                    <td className="py-2.5 text-right">
+                      <DeleteProgramButton id={p.id} name={p.name} afterDelete="refresh" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
       )}
 
       {archived.length > 0 && (
         <details className="mt-6">
-          <summary className="cursor-pointer text-sm ink-2">
-            Archived ({archived.length})
-          </summary>
+          <summary className="cursor-pointer text-sm ink-2">Archived ({archived.length})</summary>
           <ul className="mt-2 divide-y text-sm">
             {archived.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-3 py-2">

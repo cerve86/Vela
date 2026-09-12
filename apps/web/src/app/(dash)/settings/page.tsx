@@ -8,7 +8,7 @@ export default async function SettingsPage() {
   const keys = await loadApiKeys();
 
   return (
-    <div className="mx-auto max-w-4xl p-8">
+    <div className="mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
       <header className="mb-6">
         <h1 className="text-[30px] font-extrabold">Settings</h1>
         <p className="mt-0.5 text-sm ink-2">Tools that act as you, and the keys that let them.</p>

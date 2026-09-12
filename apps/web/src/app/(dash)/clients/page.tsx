@@ -118,7 +118,7 @@ export default async function ClientsPage() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl p-8">
+    <div className="mx-auto max-w-6xl p-4 sm:p-6 md:p-8">
       <header className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-[30px] font-extrabold">Clients</h1>

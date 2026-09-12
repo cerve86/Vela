@@ -12,14 +12,38 @@ async function ctx() {
   return { supabase, userId: user?.id ?? null };
 }
 
-/** The keys, with `expired` worked out here rather than in render, where a clock is impure. */
+/**
+ * The keys, with their dates already words and `expired` already decided.
+ *
+ * Both are worked out here and not in render: a clock in render is impure, and a date
+ * formatted in the browser's locale did not match the one the server rendered, which
+ * failed hydration on the whole page.
+ */
 export async function loadApiKeys() {
   const { supabase } = await ctx();
   const now = Date.now();
   return (await listApiKeys(supabase)).map((k) => ({
     ...k,
+    createdLabel: when(k.createdAt),
+    lastUsedLabel: when(k.lastUsedAt),
+    expiresLabel:
+      k.expiresAt === null
+        ? '—'
+        : new Date(k.expiresAt).getTime() < now
+          ? 'Expired'
+          : when(k.expiresAt),
     expired: k.expiresAt !== null && new Date(k.expiresAt).getTime() < now,
   }));
+}
+
+function when(iso: string | null): string {
+  if (!iso) return 'never';
+  return new Date(iso).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
 }
 
 export interface CreateKeyResult {

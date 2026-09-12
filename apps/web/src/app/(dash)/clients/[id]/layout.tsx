@@ -35,19 +35,20 @@ export default async function ClientLayout({
     `${client.first_name_hint ?? ''} ${client.last_name_hint ?? ''}`.trim() || client.email;
 
   return (
-    <div className="mx-auto max-w-6xl p-8">
+    <div className="mx-auto max-w-6xl p-4 sm:p-6 md:p-8">
       <Link href="/clients" className="text-sm ink-2 hover:underline">
         ← All clients
       </Link>
 
-      <header className="mt-3 mb-5 flex items-start gap-4">
+      <header className="mt-3 mb-5 flex flex-wrap items-start gap-4">
         <Avatar name={name} size={52} />
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <h1 className="text-[30px] font-extrabold">{name}</h1>
           {client.condition && <p className="mt-0.5 text-sm ink-2">{client.condition}</p>}
           {client.goal && <p className="mt-0.5 text-sm ink-3">Goal — {client.goal}</p>}
         </div>
-        <div className="flex flex-wrap justify-end gap-1.5">
+        {/* Beside the name where there is room; on a phone, a row of their own under it. */}
+        <div className="flex w-full flex-wrap gap-1.5 sm:w-auto sm:justify-end">
           {client.weeks_postpartum !== null && (
             <StatusPill tone="neutral">Week {client.weeks_postpartum} postpartum</StatusPill>
           )}

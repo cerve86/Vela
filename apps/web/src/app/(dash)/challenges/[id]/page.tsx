@@ -38,7 +38,7 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
   const peak = Math.max(weekTarget, ...weeks.map((w) => w.total), 1);
 
   return (
-    <div className="mx-auto max-w-6xl p-8">
+    <div className="mx-auto max-w-6xl p-4 sm:p-6 md:p-8">
       <Link href="/challenges" className="text-xs font-medium" style={{ color: palette.brand[600] }}>
         ← All challenges
       </Link>

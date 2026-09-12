@@ -12,7 +12,7 @@ export default async function ChallengesPage() {
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <div className="mx-auto max-w-6xl p-8">
+    <div className="mx-auto max-w-6xl p-4 sm:p-6 md:p-8">
       <header className="mb-6">
         <h1 className="text-[30px] font-extrabold">Challenges</h1>
         {/*

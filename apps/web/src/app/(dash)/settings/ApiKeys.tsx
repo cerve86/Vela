@@ -9,16 +9,16 @@ import { createApiKeyAction, revokeApiKeyAction } from './actions';
 const field = 'rounded-[14px] px-3.5 py-2.5 text-sm outline-none';
 const fieldStyle = { background: 'var(--ghost)', color: 'var(--ink-primary)' };
 
-function when(iso: string | null): string {
-  if (!iso) return 'never';
-  return new Date(iso).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
-export function ApiKeys({ keys }: { keys: (ApiKey & { expired: boolean })[] }) {
+export function ApiKeys({
+  keys,
+}: {
+  keys: (ApiKey & {
+    expired: boolean;
+    createdLabel: string;
+    lastUsedLabel: string;
+    expiresLabel: string;
+  })[];
+}) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [fresh, setFresh] = useState<{ name: string; key: string } | null>(null);
@@ -121,59 +121,59 @@ export function ApiKeys({ keys }: { keys: (ApiKey & { expired: boolean })[] }) {
       )}
 
       {keys.length > 0 && (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left text-xs ink-3">
-              <th className="pb-2 font-medium">Name</th>
-              <th className="pb-2 font-medium">Key</th>
-              <th className="pb-2 font-medium">Created</th>
-              <th className="pb-2 font-medium">Last used</th>
-              <th className="pb-2 font-medium">Expires</th>
-              <th className="pb-2 font-medium" />
-            </tr>
-          </thead>
-          <tbody>
-            {keys.map((k) => (
-              <tr key={k.id} className="border-b last:border-0">
-                <td className="py-2.5 font-medium">{k.name}</td>
-                <td className="py-2.5">
-                  <code className="text-xs ink-2">{k.prefix}…</code>
-                </td>
-                <td className="py-2.5 ink-2">{when(k.createdAt)}</td>
-                <td className="py-2.5 ink-2">{when(k.lastUsedAt)}</td>
-                <td className="py-2.5 ink-2">
-                  {k.expiresAt ? (k.expired ? 'Expired' : k.expiresAt.slice(0, 10)) : '—'}
-                </td>
-                <td className="py-2.5 text-right">
-                  {k.revokedAt ? (
-                    <StatusPill tone="neutral">Revoked</StatusPill>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => {
-                        if (
-                          !window.confirm(
-                            `Revoke “${k.name}”? Anything using it stops working immediately.`,
-                          )
-                        )
-                          return;
-                        setError(null);
-                        startTransition(async () => {
-                          const res = await revokeApiKeyAction(k.id);
-                          if (!res.ok) setError(res.error ?? 'Could not revoke the key.');
-                        });
-                      }}
-                      className="text-xs underline ink-2 disabled:opacity-40"
-                    >
-                      Revoke
-                    </button>
-                  )}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs ink-3">
+                <th className="pb-2 font-medium">Name</th>
+                <th className="pb-2 font-medium">Key</th>
+                <th className="pb-2 font-medium">Created</th>
+                <th className="pb-2 font-medium">Last used</th>
+                <th className="pb-2 font-medium">Expires</th>
+                <th className="pb-2 font-medium" />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {keys.map((k) => (
+                <tr key={k.id} className="border-b last:border-0">
+                  <td className="py-2.5 font-medium">{k.name}</td>
+                  <td className="py-2.5">
+                    <code className="text-xs ink-2">{k.prefix}…</code>
+                  </td>
+                  <td className="py-2.5 ink-2">{k.createdLabel}</td>
+                  <td className="py-2.5 ink-2">{k.lastUsedLabel}</td>
+                  <td className="py-2.5 ink-2">{k.expiresLabel}</td>
+                  <td className="py-2.5 text-right">
+                    {k.revokedAt ? (
+                      <StatusPill tone="neutral">Revoked</StatusPill>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              `Revoke “${k.name}”? Anything using it stops working immediately.`,
+                            )
+                          )
+                            return;
+                          setError(null);
+                          startTransition(async () => {
+                            const res = await revokeApiKeyAction(k.id);
+                            if (!res.ok) setError(res.error ?? 'Could not revoke the key.');
+                          });
+                        }}
+                        className="text-xs underline ink-2 disabled:opacity-40"
+                      >
+                        Revoke
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
