@@ -126,8 +126,11 @@ export default function TodayScreen() {
     weekly.reload,
   ]);
 
-  const firstName = client?.email.split('@')[0]?.split('.')[0] || 'there';
-  const name = firstName.charAt(0).toUpperCase() + firstName.slice(1);
+  // Her name as her physio wrote it on the invite; the email's first word only as a
+  // last resort, which is how "Marta.rossi" once greeted Marta.
+  const fallback = client?.email.split('@')[0]?.split('.')[0] || 'there';
+  const name = client?.firstName ?? fallback.charAt(0).toUpperCase() + fallback.slice(1);
+  const writtenPlan = Boolean(weekly.data) || assigned.data?.kind === 'descriptive';
   const todayIso = today();
 
   const active = activePlan(plan.data, daily.current, daily.read.symptom);
@@ -229,7 +232,7 @@ export default function TodayScreen() {
               {vitality.guidance
                 ? vitality.guidance.note
                 : vitality.recovery.score === null
-                  ? greeting(name, daily.current, done, Boolean(week.todaySession))
+                  ? greeting(name, daily.current, done, Boolean(week.todaySession), writtenPlan)
                   : vitality.recovery.note}
             </Text>
             <Body size={11} color={t.textSecondary} style={{ textAlign: 'center', marginTop: 6 }}>
@@ -313,7 +316,7 @@ export default function TodayScreen() {
           completed={weekSoFar.completed}
           due={weekSoFar.due}
           goal={client?.goal ?? null}
-          hasWrittenPlan={Boolean(weekly.data) || assigned.data?.kind === 'descriptive'}
+          hasWrittenPlan={writtenPlan}
           allLogged={daily.allLogged}
           readGiven={daily.current !== null}
         />
@@ -451,12 +454,17 @@ export default function TodayScreen() {
             </View>
           </Card>
         ) : (
-          <Card title="Rest day" style={{ borderRadius: 22 }}>
+          <Card
+            title={writtenPlan ? 'Nothing on the calendar' : 'Rest day'}
+            style={{ borderRadius: 22 }}
+          >
             <View style={{ alignItems: 'center', marginBottom: t.space.md }}>
               <Illustration name="rest" width={168} />
             </View>
             <Body size={14} color={t.textSecondary}>
-              Nothing scheduled today. Rest is part of the programme, not a gap in it.
+              {writtenPlan
+                ? 'Your week is in the plan above rather than on the calendar by the day. Log a walk or a run when you do one.'
+                : 'Nothing scheduled today. Rest is part of the programme, not a gap in it.'}
             </Body>
             {upcoming.data.length > 0 && (
               <View style={{ marginTop: t.space.lg, gap: 6 }}>
@@ -604,8 +612,12 @@ function greeting(
   readiness: number | null,
   done: boolean,
   hasSession: boolean,
+  writtenPlan: boolean,
 ): string {
   if (done) return `That's it logged, ${name}. Nothing else needed today.`;
+  // On a written plan nothing sits on the calendar by the day; the week is in the text.
+  if (!hasSession && writtenPlan)
+    return `Your week is written out below, ${name}. Read it when you're ready.`;
   if (!hasSession) return `No session today, ${name}. Rest counts as programme.`;
   if (readiness === null)
     return `Morning, ${name}. Tell me how today feels and I'll set the session.`;

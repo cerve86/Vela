@@ -32,7 +32,8 @@ export default function ProfileScreen() {
   const [confirmText, setConfirmText] = useState('');
 
   const email = session?.user.email ?? '';
-  const name = email.split('@')[0] ?? 'You';
+  const name =
+    [client?.firstName, client?.lastName].filter(Boolean).join(' ') || email.split('@')[0] || 'You';
 
   async function handleExport() {
     setExporting(true);

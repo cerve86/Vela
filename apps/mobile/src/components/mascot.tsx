@@ -170,8 +170,8 @@ export function Mascot({ mood, size = 168 }: { mood: MascotMood; size?: number }
  * a mark at the top. The fill runs to where the day sits; above the mark it is green and
  * the mascot is up for it, below it is orange and the mascot is asleep. Only the filled
  * part is drawn: the arc is how far the day has come, not a scale with an end. Nothing
- * read yet: a knob at the start and no arc. No words on it — the sentence underneath does
- * the explaining.
+ * read yet: nothing drawn at all — a lone knob read as a stray dot — and the sentence
+ * underneath says so. No words on it otherwise; the sentence does the explaining.
  */
 const GAUGE_START = 150;
 const GAUGE_SWEEP = 240;
@@ -244,16 +244,18 @@ export function TrendGauge({
               fill="none"
             />
           ))}
-        <Circle
-          cx={knob.x}
-          cy={knob.y}
-          r={stroke * 1.1}
-          // Filled below the mark, hollow above it: the state in a shape as well as a
-          // colour, for eyes that do not tell green from orange.
-          fill={value !== null && v < 0.5 ? tone : t.surface}
-          stroke={value === null ? t.textMuted : tone}
-          strokeWidth={stroke * 0.6}
-        />
+        {value !== null && (
+          <Circle
+            cx={knob.x}
+            cy={knob.y}
+            r={stroke * 1.1}
+            // Filled below the mark, hollow above it: the state in a shape as well as a
+            // colour, for eyes that do not tell green from orange.
+            fill={value !== null && v < 0.5 ? tone : t.surface}
+            stroke={value === null ? t.textMuted : tone}
+            strokeWidth={stroke * 0.6}
+          />
+        )}
       </Svg>
       {children}
     </View>
