@@ -881,3 +881,14 @@ on; every portal action uses it.
 
 **Keys expire** after six months (shown in Settings) and are rate-limited to 120 calls a
 minute per key per server; a bad key says why — unknown, revoked, expired, or too fast.
+
+## 0.3.5 — Polish on the phone (12 September 2026)
+
+A polish pass over the app with the simulator back. Her name is the one her physio wrote
+on the invite, not the first word of her email ("Marta.rossi" greeted Marta). A client on
+a written plan is no longer told "No session today, rest counts as programme" above the
+plan that says otherwise: the greeting points her to the text, and the rest-day card
+becomes "Nothing on the calendar" with the same explanation. The empty gauge draws
+nothing rather than a lone knob beside the mascot. The programme screen has an empty
+state with a title and a sentence instead of one bare line. The portal got the same pass
+the day before: a phone layout, and Settings that hydrates.

@@ -6,6 +6,9 @@ import { supabase } from './supabase';
 export interface ClientRecord {
   id: string;
   email: string;
+  /** What her physiotherapist calls her. Null until the invite carried a name. */
+  firstName: string | null;
+  lastName: string | null;
   condition: string | null;
   goal: string | null;
   status: string;
@@ -51,6 +54,8 @@ const Ctx = createContext<SessionState>({
 type ClientRow = {
   id: string;
   email: string;
+  first_name_hint: string | null;
+  last_name_hint: string | null;
   condition: string | null;
   goal: string | null;
   status: string;
@@ -67,7 +72,7 @@ async function fetchClientRow(): Promise<ClientRow | null> {
   const { data } = await supabase
     .from('clients')
     .select(
-      'id, email, condition, goal, status, weeks_postpartum, delivery_type, breastfeeding, onboarded_at',
+      'id, email, first_name_hint, last_name_hint, condition, goal, status, weeks_postpartum, delivery_type, breastfeeding, onboarded_at',
     )
     .maybeSingle();
   return data ?? null;
@@ -126,6 +131,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       ? {
           id: row.id,
           email: row.email,
+          firstName: row.first_name_hint?.trim() || null,
+          lastName: row.last_name_hint?.trim() || null,
           condition: row.condition,
           goal: row.goal,
           status: row.status,

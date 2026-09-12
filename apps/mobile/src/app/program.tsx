@@ -87,9 +87,25 @@ export default function ProgramScreen() {
             </Body>
           </>
         ) : (
-          <Body size={14} color={t.textSecondary} style={{ marginTop: 12 }}>
-            {assigned.loading ? 'Loading…' : 'No written programme at the moment.'}
-          </Body>
+          <>
+            <Text
+              style={{
+                fontFamily: t.font.displaySemi,
+                fontSize: 30,
+                letterSpacing: -1,
+                lineHeight: 34,
+                color: t.textPrimary,
+                marginTop: 6,
+              }}
+            >
+              Your programme
+            </Text>
+            <Body size={14} color={t.textSecondary} style={{ lineHeight: 20 }}>
+              {assigned.loading
+                ? 'Loading…'
+                : 'Nothing written for you at the moment. When your physio assigns one, it appears here and on Today.'}
+            </Body>
+          </>
         )}
       </ScrollView>
     </Screen>
