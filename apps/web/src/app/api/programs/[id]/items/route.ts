@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
-import { addItem, getProgram, resolveExerciseNames, updateItem } from '@vela/api';
+import {
+  addItem,
+  getProgram,
+  logAudit,
+  notifyProgramEdited,
+  resolveExerciseNames,
+  updateItem,
+} from '@vela/api';
 import { requireCoach } from '@/lib/apiRoute';
 
 /**
@@ -12,7 +19,7 @@ import { requireCoach } from '@/lib/apiRoute';
  * her next session. 201 with the item.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { supabase, userId, refused } = await requireCoach(req);
+  const { supabase, userId, via, refused } = await requireCoach(req);
   if (refused) return refused;
   const { id } = await params;
 
@@ -70,6 +77,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   };
   const { error } = await updateItem(supabase, created.id, patch);
   if (error) return NextResponse.json({ error }, { status: 500 });
+  await notifyProgramEdited(supabase, { programId: id, programName: program.name, via });
+  await logAudit(supabase, {
+    actorId: userId,
+    action: 'program.item_added',
+    entity: 'program',
+    entityId: id,
+    via,
+  });
 
   return NextResponse.json(
     { item: { ...created, ...patch, exerciseName: created.exerciseName } },

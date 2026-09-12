@@ -14,12 +14,15 @@ export function CheckInCard({
   completed,
   due,
   goal,
+  hasWrittenPlan = false,
   allLogged,
   readGiven,
 }: {
   completed: number;
   due: number;
   goal: string | null;
+  /** On a written programme or a weekly plan, "no sessions" is not "a quiet week". */
+  hasWrittenPlan?: boolean;
   allLogged: boolean;
   readGiven: boolean;
 }) {
@@ -28,7 +31,9 @@ export function CheckInCard({
 
   const week =
     due === 0
-      ? 'A quiet week on the plan so far.'
+      ? hasWrittenPlan
+        ? "This week's plan is written out for you."
+        : 'Nothing prescribed for this week.'
       : completed === due
         ? `${completed} of ${due} sessions done this week — every one of them.`
         : `${completed} of ${due} sessions done this week.`;

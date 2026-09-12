@@ -66,7 +66,7 @@ to `http://localhost:4310` against a local stack.
 | `get_program`     | One programme in full, as days of prescriptions.                              |
 | `preview_program` | Validates a draft and matches every exercise name. Creates nothing.           |
 | `create_program`  | Creates the programme and returns its link. Never assigns.                    |
-| `delete_program`  | Removes a programme; one a client was ever assigned is archived instead.      |
+| `delete_program`  | Archives a programme; the coach can restore it from the portal.               |
 | `create_descriptive_program` | A written programme: name, weeks and the text the client reads as it is. |
 | `list_clients`    | Her active clients, by name, with ids.                                        |
 | `send_weekly_plan` | This week's plan for one client, straight to her phone, with a message.      |

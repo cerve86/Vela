@@ -1,7 +1,17 @@
 import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useEffect } from 'react';
-import Svg, { Circle, Defs, G, Line, Path, RadialGradient, Rect, Stop, LinearGradient } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  G,
+  Line,
+  Path,
+  RadialGradient,
+  Rect,
+  Stop,
+  LinearGradient,
+} from 'react-native-svg';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -376,7 +386,15 @@ export function DualDial({
           style={{ position: 'absolute', top: 0, left: 0 }}
         >
           <G transform={`rotate(${(strainTarget / 100) * 360} 94 94)`}>
-            <Line x1={94} y1={30} x2={94} y2={48} stroke={t.textSecondary} strokeWidth={2.6} strokeLinecap="round" />
+            <Line
+              x1={94}
+              y1={30}
+              x2={94}
+              y2={48}
+              stroke={t.textSecondary}
+              strokeWidth={2.6}
+              strokeLinecap="round"
+            />
           </G>
         </Svg>
       )}
@@ -451,7 +469,11 @@ export function DialStat({
       >
         {label}
       </Body>
-      <Body size={11} color={t.textSecondary} style={{ marginTop: 2, letterSpacing: 0.6, textAlign: align }}>
+      <Body
+        size={11}
+        color={t.textSecondary}
+        style={{ marginTop: 2, letterSpacing: 0.6, textAlign: align }}
+      >
         {sub}
       </Body>
     </View>
@@ -698,10 +720,10 @@ export function TideBars({ values }: { values: (number | null)[] }) {
           key={i}
           style={{
             flex: 1,
-            height: v === null ? 4 : t.tide[v]?.barH ?? 8,
+            height: v === null ? 4 : (t.tide[v]?.barH ?? 8),
             borderTopLeftRadius: 3,
             borderTopRightRadius: 3,
-            backgroundColor: v === null ? t.grid : t.tide[v]?.tone ?? t.grid,
+            backgroundColor: v === null ? t.grid : (t.tide[v]?.tone ?? t.grid),
           }}
         />
       ))}

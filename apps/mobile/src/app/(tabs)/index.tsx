@@ -27,6 +27,7 @@ import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
 import {
   addDays,
+  localDay,
   today,
   useNutrition,
   useSessionPlan,
@@ -235,7 +236,7 @@ export default function TodayScreen() {
               {vitality.recovery.score === null
                 ? 'Recovery not read yet'
                 : `Recovery ${vitality.recovery.score}% · ${BAND_WORD[vitality.recovery.band].toLowerCase()}`}
-              {vitality.strain.score > 0 ? ` · strain ${vitality.strain.score}%` : ''}
+              {vitality.strain.score > 0 ? ` · effort today ${vitality.strain.score}%` : ''}
               {vitality.recovery.score !== null && vitality.recovery.estimated
                 ? ' · from how you feel'
                 : ''}
@@ -312,6 +313,7 @@ export default function TodayScreen() {
           completed={weekSoFar.completed}
           due={weekSoFar.due}
           goal={client?.goal ?? null}
+          hasWrittenPlan={Boolean(weekly.data) || assigned.data?.kind === 'descriptive'}
           allLogged={daily.allLogged}
           readGiven={daily.current !== null}
         />
@@ -326,7 +328,14 @@ export default function TodayScreen() {
                 <Body size={15} style={{ marginTop: 10, lineHeight: 21 }} numberOfLines={5}>
                   {weekly.data.body}
                 </Body>
-                <Body size={13} weight="medium" color={t.brand[600]} style={{ marginTop: 12 }}>
+                <Body size={12} color={t.textMuted} style={{ marginTop: 8 }}>
+                  {`Updated ${friendlyDate(localDay(weekly.data.updatedAt), todayIso)}${
+                    weekly.data.via === 'assistant'
+                      ? ' · drafted with her assistant, sent by her'
+                      : ''
+                  }`}
+                </Body>
+                <Body size={13} weight="medium" color={t.brand[600]} style={{ marginTop: 8 }}>
                   Read it through →
                 </Body>
               </Card>
@@ -335,8 +344,25 @@ export default function TodayScreen() {
         ) : null}
 
         {/* A written programme: the text is the plan, so it comes before the day's session
-            card, which for such a programme is a rest day with nothing on the calendar. */}
-        {assigned.data?.kind === 'descriptive' && assigned.data.body ? (
+            card, which for such a programme is a rest day with nothing on the calendar.
+            When a weekly plan is showing it is the thing to read, and the programme behind
+            it folds to a line. */}
+        {assigned.data?.kind === 'descriptive' && assigned.data.body && weekly.data ? (
+          <Link href="/program" asChild>
+            <Pressable accessibilityRole="button" accessibilityLabel="Read your programme">
+              <Card style={{ borderRadius: 18, paddingVertical: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Body size={13} color={t.textSecondary} style={{ flex: 1 }} numberOfLines={1}>
+                    Your programme · {assigned.data.name}
+                  </Body>
+                  <Body size={13} weight="medium" color={t.brand[600]}>
+                    Read →
+                  </Body>
+                </View>
+              </Card>
+            </Pressable>
+          </Link>
+        ) : assigned.data?.kind === 'descriptive' && assigned.data.body ? (
           <Link href="/program" asChild>
             <Pressable accessibilityRole="button" accessibilityLabel="Read your programme">
               <Card style={{ borderRadius: 22, paddingVertical: 20 }}>

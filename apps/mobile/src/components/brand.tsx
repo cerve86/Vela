@@ -14,13 +14,7 @@ import {
 } from '@vela/shared';
 
 /** The Vela mark, drawn from the shared geometry the portal and the app icon also use. */
-export function VelaMark({
-  size = 24,
-  mode = 'onLight',
-}: {
-  size?: number;
-  mode?: BrandFillMode;
-}) {
+export function VelaMark({ size = 24, mode = 'onLight' }: { size?: number; mode?: BrandFillMode }) {
   const fills = BRAND_FILLS[mode];
   return (
     <Svg width={size} height={size} viewBox={`0 0 ${BRAND_VIEWBOX} ${BRAND_VIEWBOX}`}>

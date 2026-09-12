@@ -128,6 +128,7 @@ export function ApiKeys({ keys }: { keys: ApiKey[] }) {
               <th className="pb-2 font-medium">Key</th>
               <th className="pb-2 font-medium">Created</th>
               <th className="pb-2 font-medium">Last used</th>
+              <th className="pb-2 font-medium">Expires</th>
               <th className="pb-2 font-medium" />
             </tr>
           </thead>
@@ -140,6 +141,13 @@ export function ApiKeys({ keys }: { keys: ApiKey[] }) {
                 </td>
                 <td className="py-2.5 ink-2">{when(k.createdAt)}</td>
                 <td className="py-2.5 ink-2">{when(k.lastUsedAt)}</td>
+                <td className="py-2.5 ink-2">
+                  {k.expiresAt
+                    ? new Date(k.expiresAt).getTime() < Date.now()
+                      ? 'Expired'
+                      : k.expiresAt.slice(0, 10)
+                    : '—'}
+                </td>
                 <td className="py-2.5 text-right">
                   {k.revokedAt ? (
                     <StatusPill tone="neutral">Revoked</StatusPill>

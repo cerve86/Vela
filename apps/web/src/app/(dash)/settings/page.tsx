@@ -19,7 +19,7 @@ export default async function SettingsPage() {
           A key lets a tool — Claude with the Vela extension, a script, a spreadsheet pipeline —
           read your library and create programmes in your account. It can do what you can do in
           Programmes and nothing else: a programme it creates is not assigned to anyone until you
-          assign it. Revoke a key the moment you stop using it.
+          assign it. Keys expire after six months; revoke one the moment you stop using it.
         </p>
         <ApiKeys keys={keys} />
       </Card>

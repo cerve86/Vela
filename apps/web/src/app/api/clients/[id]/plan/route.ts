@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listClientPlans, mondayOf, sendMessage, upsertClientPlan } from '@vela/api';
+import { listClientPlans, logAudit, mondayOf, sendMessage, upsertClientPlan } from '@vela/api';
 import { requireCoach } from '@/lib/apiRoute';
 
 /**
@@ -10,7 +10,7 @@ import { requireCoach } from '@/lib/apiRoute';
  * The client id comes from GET /api/clients. 200 with the plan.
  */
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { supabase, userId, refused } = await requireCoach(req);
+  const { supabase, userId, via, refused } = await requireCoach(req);
   if (refused) return refused;
   const { id } = await params;
 
@@ -34,6 +34,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     clientId: id,
     weekStart,
     body,
+    via,
   });
   // A client who is not hers: the row policy refuses the write, which reads as "no such
   // client" from where she stands — there is nothing to tell apart.
@@ -45,10 +46,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   await sendMessage(supabase, {
     clientId: id,
     sender: 'coach',
+    via,
     body: existed
       ? `I've updated your plan for the week of ${weekStart} — it's on Today.`
       : `Your plan for the week of ${weekStart} is ready — it's on Today.`,
   });
 
+  await logAudit(supabase, {
+    actorId: userId,
+    action: 'plan.sent',
+    entity: 'client',
+    entityId: id,
+    via,
+  });
   return NextResponse.json({ plan });
 }

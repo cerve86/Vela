@@ -275,13 +275,7 @@ export function LegendKey({ color, label }: { color: string; label: string }) {
  * are normalised to 0–1 and share one axis: two measures of different scale get two lines
  * on a common base, never a second y-axis.
  */
-export function TrendChart({
-  adherence,
-  soreness,
-}: {
-  adherence: number[];
-  soreness: number[];
-}) {
+export function TrendChart({ adherence, soreness }: { adherence: number[]; soreness: number[] }) {
   const t = useTheme();
   const n = Math.max(adherence.length, soreness.length);
 
@@ -387,8 +381,7 @@ export function monotonePath(pts: { x: number; y: number }[]): string {
   for (let i = 1; i < pts.length; i++) {
     const p0 = pts[i - 1]!;
     const p1 = pts[i]!;
-    const t1 =
-      i < pts.length - 1 ? slope3(p0, p1, pts[i + 1]!) : slope2(p0, p1, t0 as number);
+    const t1 = i < pts.length - 1 ? slope3(p0, p1, pts[i + 1]!) : slope2(p0, p1, t0 as number);
     if (t0 === undefined) t0 = slope2(p0, p1, t1);
     const dx = (p1.x - p0.x) / 3;
     d += ` C${f(p0.x + dx)} ${f(p0.y + dx * t0)} ${f(p1.x - dx)} ${f(p1.y - dx * t1)} ${f(p1.x)} ${f(p1.y)}`;
@@ -407,7 +400,9 @@ function slope3(p0: Pt, p1: Pt, p2: Pt): number {
   const s0 = (p1.y - p0.y) / h0;
   const s1 = (p2.y - p1.y) / h1;
   const p = (s0 * h1 + s1 * h0) / (h0 + h1);
-  return (Math.sign(s0) + Math.sign(s1)) * Math.min(Math.abs(s0), Math.abs(s1), 0.5 * Math.abs(p)) || 0;
+  return (
+    (Math.sign(s0) + Math.sign(s1)) * Math.min(Math.abs(s0), Math.abs(s1), 0.5 * Math.abs(p)) || 0
+  );
 }
 
 /** Tangent at an end point, given the tangent at its neighbour. */
@@ -415,4 +410,3 @@ function slope2(p0: Pt, p1: Pt, t: number): number {
   const h = p1.x - p0.x;
   return h > 0 ? (3 * (p1.y - p0.y)) / h - t : t;
 }
-

@@ -78,7 +78,10 @@ export function MilestoneBlob({
     if (state !== 'dormant') {
       entry.value = withDelay(
         delay,
-        withTiming(1, { duration: blobMotion.pop.duration, easing: Easing.bezier(0.2, 0.9, 0.3, 1) }),
+        withTiming(1, {
+          duration: blobMotion.pop.duration,
+          easing: Easing.bezier(0.2, 0.9, 0.3, 1),
+        }),
       );
     } else {
       entry.value = 1;
@@ -129,7 +132,11 @@ export function MilestoneBlob({
     }
 
     // bFloat, plus the pop's scale and rotation on the way in.
-    const popScale = interpolate(entry.value, [0, 0.6, 1], [blobMotion.pop.from, blobMotion.pop.overshoot, 1]);
+    const popScale = interpolate(
+      entry.value,
+      [0, 0.6, 1],
+      [blobMotion.pop.from, blobMotion.pop.overshoot, 1],
+    );
     const popTurn = interpolate(entry.value, [0, 0.6, 1], [blobMotion.pop.rotate, 4, 0]);
 
     return {
@@ -168,13 +175,21 @@ export function MilestoneBlob({
  */
 function Motes({ width }: { width: number }) {
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40 }}>
+    <View
+      pointerEvents="none"
+      style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40 }}
+    >
       {[
         { x: 0.22, fill: '#E8A200', i: 0 },
         { x: 0.54, fill: '#7C3AED', i: 1 },
         { x: 0.78, fill: '#E8A200', i: 2 },
       ].map((m) => (
-        <Mote key={m.i} left={m.x * width} fill={m.fill} delay={blobMotion.mote.stagger[m.i] ?? 0} />
+        <Mote
+          key={m.i}
+          left={m.x * width}
+          fill={m.fill}
+          delay={blobMotion.mote.stagger[m.i] ?? 0}
+        />
       ))}
     </View>
   );
@@ -186,7 +201,11 @@ function Mote({ left, fill, delay }: { left: number; fill: string; delay: number
   useEffect(() => {
     p.value = withDelay(
       delay,
-      withRepeat(withTiming(1, { duration: blobMotion.mote.duration, easing: Easing.out(Easing.ease) }), -1, false),
+      withRepeat(
+        withTiming(1, { duration: blobMotion.mote.duration, easing: Easing.out(Easing.ease) }),
+        -1,
+        false,
+      ),
     );
     return () => cancelAnimation(p);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -204,7 +223,15 @@ function Mote({ left, fill, delay }: { left: number; fill: string; delay: number
   return (
     <Animated.View
       style={[
-        { position: 'absolute', left, top: 22, width: 5.5, height: 5.5, borderRadius: 3, backgroundColor: fill },
+        {
+          position: 'absolute',
+          left,
+          top: 22,
+          width: 5.5,
+          height: 5.5,
+          borderRadius: 3,
+          backgroundColor: fill,
+        },
         style,
       ]}
     />
@@ -275,7 +302,13 @@ function Star({ id }: { id: string }) {
       <G>
         <Circle cx={39} cy={43} r={2.4} fill={INK} />
         <Circle cx={53} cy={43} r={2.4} fill={INK} />
-        <Path d="M41 50 q5 5 10 0" stroke={INK} strokeWidth={1.7} strokeLinecap="round" fill="none" />
+        <Path
+          d="M41 50 q5 5 10 0"
+          stroke={INK}
+          strokeWidth={1.7}
+          strokeLinecap="round"
+          fill="none"
+        />
       </G>
 
       <G stroke="#E8A200" strokeWidth={2} strokeLinecap="round" opacity={0.55}>
@@ -314,7 +347,13 @@ function Cloud({ id }: { id: string }) {
           strokeWidth={1.4}
           strokeLinejoin="round"
         />
-        <Path d="M66 42 q5 4 3 11" stroke="#8FAEFF" strokeWidth={1.3} fill="none" strokeLinecap="round" />
+        <Path
+          d="M66 42 q5 4 3 11"
+          stroke="#8FAEFF"
+          strokeWidth={1.3}
+          fill="none"
+          strokeLinecap="round"
+        />
       </G>
 
       <G stroke={INK} strokeWidth={1.7} strokeLinecap="round" fill="none">

@@ -137,6 +137,7 @@ export type Database = {
         Row: {
           coach_id: string
           created_at: string
+          expires_at: string | null
           id: string
           key_hash: string
           last_used_at: string | null
@@ -147,6 +148,7 @@ export type Database = {
         Insert: {
           coach_id: string
           created_at?: string
+          expires_at?: string | null
           id?: string
           key_hash: string
           last_used_at?: string | null
@@ -157,6 +159,7 @@ export type Database = {
         Update: {
           coach_id?: string
           created_at?: string
+          expires_at?: string | null
           id?: string
           key_hash?: string
           last_used_at?: string | null
@@ -234,6 +237,7 @@ export type Database = {
           entity_id: string | null
           id: number
           occurred_at: string
+          via: string
         }
         Insert: {
           action: string
@@ -242,6 +246,7 @@ export type Database = {
           entity_id?: string | null
           id?: number
           occurred_at?: string
+          via?: string
         }
         Update: {
           action?: string
@@ -250,6 +255,7 @@ export type Database = {
           entity_id?: string | null
           id?: number
           occurred_at?: string
+          via?: string
         }
         Relationships: []
       }
@@ -437,6 +443,7 @@ export type Database = {
           created_at: string
           id: string
           updated_at: string
+          via: string
           week_start: string
         }
         Insert: {
@@ -446,6 +453,7 @@ export type Database = {
           created_at?: string
           id?: string
           updated_at?: string
+          via?: string
           week_start: string
         }
         Update: {
@@ -455,6 +463,7 @@ export type Database = {
           created_at?: string
           id?: string
           updated_at?: string
+          via?: string
           week_start?: string
         }
         Relationships: [
@@ -882,6 +891,7 @@ export type Database = {
           read_at: string | null
           sender: Database["public"]["Enums"]["user_role"]
           session_id: string | null
+          via: string
         }
         Insert: {
           body: string
@@ -891,6 +901,7 @@ export type Database = {
           read_at?: string | null
           sender: Database["public"]["Enums"]["user_role"]
           session_id?: string | null
+          via?: string
         }
         Update: {
           body?: string
@@ -900,6 +911,7 @@ export type Database = {
           read_at?: string | null
           sender?: Database["public"]["Enums"]["user_role"]
           session_id?: string | null
+          via?: string
         }
         Relationships: [
           {

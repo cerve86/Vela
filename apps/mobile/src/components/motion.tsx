@@ -130,7 +130,10 @@ export function Pulse({ children, style }: { children: ReactNode; style?: ViewSt
   useEffect(() => {
     o.value = withRepeat(
       withSequence(
-        withTiming(0.45, { duration: motion.pulse.duration / 2, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.45, {
+          duration: motion.pulse.duration / 2,
+          easing: Easing.inOut(Easing.ease),
+        }),
         withTiming(1, { duration: motion.pulse.duration / 2, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,

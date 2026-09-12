@@ -377,9 +377,9 @@ export function buildServer(api: VelaApi): McpServer {
   server.registerTool(
     'delete_program',
     {
-      title: 'Delete a programme',
+      title: 'Archive a programme',
       description:
-        "Removes a programme from the coach's list. One a client was ever assigned is archived instead, so her sessions stay on her calendar; otherwise it is deleted with its days and exercises. Only call this after the coach has named the programme and agreed.",
+        "Archives a programme: it leaves the coach's list and the API, keeps its days and exercises, and she can restore it from the portal. A client on it stays on it. Only call this after the coach has named the programme and agreed.",
       inputSchema: { id: z.string().uuid().describe('Programme id from list_programs.') },
       annotations: {
         readOnlyHint: false,
@@ -390,11 +390,9 @@ export function buildServer(api: VelaApi): McpServer {
     },
     ({ id }) =>
       guarded(async () => {
-        const mode = await api.deleteProgram(id);
+        await api.deleteProgram(id);
         return text(
-          mode === 'archived'
-            ? 'Archived. A client was assigned this programme at some point, so it has left the list but her sessions stay on her calendar.'
-            : 'Deleted, with its days and exercises.',
+          'Archived. It has left the list; the coach can restore it from the bottom of the programmes page, and any client on it stays on it.',
         );
       }),
   );

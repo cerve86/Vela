@@ -23,7 +23,9 @@ export async function createRequestSupabase(req: Request) {
   const credential = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
   if (!credential) return createServerSupabase();
 
-  const token = isApiKey(credential) ? await sessionForApiKey(credential) : credential;
+  const token = isApiKey(credential)
+    ? await sessionForApiKey(credential).then((r) => (r.ok ? r.token : null))
+    : credential;
 
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -58,6 +60,18 @@ export async function createServerSupabase() {
           }
         },
       },
+    },
+  );
+}
+
+/** A client for one access token, cookie-free: what a route uses once a key resolved. */
+export function createSupabaseForToken(token: string) {
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: { getAll: () => [], setAll: () => {} },
+      global: { headers: { Authorization: `Bearer ${token}` } },
     },
   );
 }

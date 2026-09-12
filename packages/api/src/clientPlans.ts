@@ -12,9 +12,11 @@ export interface ClientPlan {
   weekStart: string;
   body: string;
   updatedAt: string;
+  /** Written in the portal, or sent by the coach's assistant with her key. */
+  via: 'portal' | 'assistant';
 }
 
-const COLUMNS = 'id, client_id, week_start, body, updated_at';
+const COLUMNS = 'id, client_id, week_start, body, updated_at, via';
 
 function toPlan(r: {
   id: string;
@@ -22,6 +24,7 @@ function toPlan(r: {
   week_start: string;
   body: string;
   updated_at: string;
+  via: string;
 }): ClientPlan {
   return {
     id: r.id,
@@ -29,6 +32,7 @@ function toPlan(r: {
     weekStart: r.week_start,
     body: r.body,
     updatedAt: r.updated_at,
+    via: r.via as ClientPlan['via'],
   };
 }
 
@@ -74,7 +78,13 @@ export async function currentClientPlan(
 /** Write or rewrite the plan for a week. */
 export async function upsertClientPlan(
   supabase: VelaClient,
-  input: { coachId: string; clientId: string; weekStart: string; body: string },
+  input: {
+    coachId: string;
+    clientId: string;
+    weekStart: string;
+    body: string;
+    via?: 'portal' | 'assistant';
+  },
 ): Promise<{ plan: ClientPlan | null; error: string | null }> {
   const body = input.body.trim();
   if (!body) return { plan: null, error: 'Write the plan first.' };
@@ -86,6 +96,7 @@ export async function upsertClientPlan(
         client_id: input.clientId,
         week_start: mondayOf(input.weekStart),
         body,
+        via: input.via ?? 'portal',
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'client_id,week_start' },

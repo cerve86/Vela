@@ -222,7 +222,16 @@ export function TrendGauge({
           ];
 
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View
+      style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
+      accessibilityLabel={
+        value === null
+          ? 'Trend not read yet'
+          : v >= 0.5
+            ? 'Trend above the mark'
+            : 'Trend below the mark'
+      }
+    >
       <Svg width={size} height={size} style={{ position: 'absolute' }}>
         {v > 0.005 &&
           segments(GAUGE_START, end).map(([f, to]) => (
@@ -239,7 +248,9 @@ export function TrendGauge({
           cx={knob.x}
           cy={knob.y}
           r={stroke * 1.1}
-          fill={t.surface}
+          // Filled below the mark, hollow above it: the state in a shape as well as a
+          // colour, for eyes that do not tell green from orange.
+          fill={value !== null && v < 0.5 ? tone : t.surface}
           stroke={value === null ? t.textMuted : tone}
           strokeWidth={stroke * 0.6}
         />

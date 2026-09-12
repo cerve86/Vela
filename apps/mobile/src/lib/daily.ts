@@ -2,6 +2,8 @@ import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
   currentRead,
+  AMEND_WINDOW_MS,
+  amendDailyRead,
   lockDailyRead,
   listDailyReads,
   loggedWindows,
@@ -115,6 +117,27 @@ export function useDailyRead() {
   );
 
   /**
+   * Change the open window's read, for fifteen minutes after it was locked — a mis-tap
+   * is a mis-tap. The database refuses after that, and so does this: `amendable` is
+   * false and the mood screen offers nothing.
+   */
+  const openRow = reads.find((r) => r.window === openWindow());
+  const amendable =
+    openRow !== undefined && Date.now() - new Date(openRow.createdAt).getTime() < AMEND_WINDOW_MS;
+  const amend = useCallback(
+    async (value: Tide) => {
+      if (!openRow || !amendable) return { ok: false as const };
+      const { error, changed } = await amendDailyRead(supabase, {
+        id: openRow.id,
+        readiness: value,
+      });
+      await load();
+      return { ok: !error && changed };
+    },
+    [openRow, amendable, load],
+  );
+
+  /**
    * The symptom in force.
    *
    * Written as part of a read rather than on its own, because a symptom without a moment
@@ -164,6 +187,8 @@ export function useDailyRead() {
      */
     currentWindow: (inForce?.window ?? null) as WindowKey | null,
     lock,
+    amend,
+    amendable,
     setSymptom,
     openWindow: openWindow(),
     allLogged: logged.length === WINDOWS.length,

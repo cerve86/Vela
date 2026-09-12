@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { deleteProgram, getProgram } from '@vela/api';
+import { deleteProgram, getProgram, logAudit } from '@vela/api';
 import { requireCoach } from '@/lib/apiRoute';
 
 /**
@@ -20,19 +20,26 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 /**
- * DELETE /api/programs/{id} — remove it from her list.
+ * DELETE /api/programs/{id} — archive it.
  *
- * Deleted outright when no client was ever assigned it; archived otherwise, so a plan
- * already on a phone carries on. The body says which: `{ "mode": "deleted" | "archived" }`.
+ * Never a hard delete: it leaves the list and the API, keeps its days and items, and can
+ * be restored from the portal. A client on it stays on it. `{ "mode": "archived" }`.
  */
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { supabase, refused } = await requireCoach(req);
+  const { supabase, userId, via, refused } = await requireCoach(req);
   if (refused) return refused;
 
   const { id } = await params;
   const { mode, error } = await deleteProgram(supabase, id);
   if (error === 'No such programme.') return NextResponse.json({ error }, { status: 404 });
   if (error || !mode)
-    return NextResponse.json({ error: error ?? 'Could not delete.' }, { status: 500 });
+    return NextResponse.json({ error: error ?? 'Could not archive.' }, { status: 500 });
+  await logAudit(supabase, {
+    actorId: userId,
+    action: 'program.archived',
+    entity: 'program',
+    entityId: id,
+    via,
+  });
   return NextResponse.json({ mode });
 }

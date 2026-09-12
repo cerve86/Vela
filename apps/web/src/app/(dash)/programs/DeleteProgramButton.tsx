@@ -6,10 +6,9 @@ import { palette } from '@vela/shared/tokens';
 import { deleteProgramAction } from './actions';
 
 /**
- * Delete a programme, with one confirmation and a plain account of what will happen.
- *
- * The action decides between deleting and archiving — a programme a client was ever
- * assigned is archived so her week carries on — and this tells the coach which it was.
+ * Archive a programme. No confirmation: nothing is lost — it leaves the list, keeps its
+ * days and items, and comes back with one click from the archived list at the bottom of
+ * the programmes page. A client on it stays on it.
  */
 export function DeleteProgramButton({
   id,
@@ -25,16 +24,12 @@ export function DeleteProgramButton({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function confirmAndDelete() {
-    const sure = window.confirm(
-      `Delete "${name}"?\n\nIf a client was ever assigned it, it is archived instead and her sessions stay on her calendar. Otherwise it is gone, days and exercises with it.`,
-    );
-    if (!sure) return;
+  function archive() {
     setError(null);
     startTransition(async () => {
       const res = await deleteProgramAction(id);
       if (!res.ok) {
-        setError(res.error ?? 'Could not delete the programme.');
+        setError(res.error ?? 'Could not archive the programme.');
         return;
       }
       if (afterDelete === 'list') router.push('/programs');
@@ -51,13 +46,13 @@ export function DeleteProgramButton({
       )}
       <button
         type="button"
-        onClick={confirmAndDelete}
+        onClick={archive}
         disabled={pending}
         className="rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
-        style={{ background: 'var(--ghost)', color: palette.status.critical }}
-        aria-label={`Delete ${name}`}
+        style={{ background: 'var(--ghost)', color: 'var(--ink-secondary)' }}
+        aria-label={`Archive ${name}`}
       >
-        {pending ? 'Deleting…' : 'Delete'}
+        {pending ? 'Archiving…' : 'Archive'}
       </button>
     </span>
   );

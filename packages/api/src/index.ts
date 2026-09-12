@@ -15,3 +15,6 @@ export * from './challenges';
 export * from './apiKeys';
 export * from './activities';
 export type { Database } from './database.types';
+export * from './notify';
+export * from './errors';
+export * from './audit';

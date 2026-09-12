@@ -61,10 +61,7 @@ export function Body({
   return (
     <Text
       numberOfLines={numberOfLines}
-      style={[
-        { fontFamily: t.font[weight], fontSize: size, color: color ?? t.textPrimary },
-        style,
-      ]}
+      style={[{ fontFamily: t.font[weight], fontSize: size, color: color ?? t.textPrimary }, style]}
     >
       {children}
     </Text>
@@ -353,9 +350,7 @@ export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
         justifyContent: 'center',
       }}
     >
-      <Text
-        style={{ fontFamily: t.font.displayBold, color: t.brand[800], fontSize: size * 0.36 }}
-      >
+      <Text style={{ fontFamily: t.font.displayBold, color: t.brand[800], fontSize: size * 0.36 }}>
         {initials}
       </Text>
     </View>

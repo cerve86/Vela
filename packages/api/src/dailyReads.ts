@@ -95,6 +95,26 @@ export async function lockDailyRead(
   return { error: error?.message ?? null, alreadyLogged: false };
 }
 
+/** How long after locking a read it can still be changed. Mirrors the row policy. */
+export const AMEND_WINDOW_MS = 15 * 60 * 1000;
+
+/**
+ * Change a read just locked. A mis-tap is a mis-tap; the database allows it for fifteen
+ * minutes after the row was written and refuses after, so the cap of three a day keeps
+ * its meaning. `changed` is false when the window has closed.
+ */
+export async function amendDailyRead(
+  supabase: VelaClient,
+  input: { id: string; readiness: Readiness; symptom?: string },
+): Promise<{ error: string | null; changed: boolean }> {
+  const { data, error } = await supabase
+    .from('daily_reads')
+    .update({ readiness: input.readiness, ...(input.symptom ? { symptom: input.symptom } : {}) })
+    .eq('id', input.id)
+    .select('id');
+  return { error: error?.message ?? null, changed: (data?.length ?? 0) > 0 };
+}
+
 /** The most recent read on a given date, which is the one in force. */
 export function currentRead(reads: DailyRead[], onDate: string): DailyRead | null {
   const sameDay = reads.filter((r) => r.readOn === onDate);

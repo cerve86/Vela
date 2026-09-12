@@ -9,23 +9,27 @@ import type { VelaClient } from './client';
  */
 
 export type MessageSender = 'client' | 'coach';
+/** Where a message came from: the phone app, the portal, or the coach's assistant with her key. */
+export type MessageVia = 'app' | 'portal' | 'assistant';
 
 export interface Message {
   id: string;
   sender: MessageSender;
   body: string;
+  via: MessageVia;
   /** The session this message is about, when it was sent from a summary. */
   sessionId: string | null;
   readAt: string | null;
   createdAt: string;
 }
 
-const COLUMNS = 'id, sender, body, session_id, read_at, created_at';
+const COLUMNS = 'id, sender, body, via, session_id, read_at, created_at';
 
 function toMessage(row: {
   id: string;
   sender: string;
   body: string;
+  via: string;
   session_id: string | null;
   read_at: string | null;
   created_at: string;
@@ -34,6 +38,7 @@ function toMessage(row: {
     id: row.id,
     sender: row.sender as MessageSender,
     body: row.body,
+    via: row.via as MessageVia,
     sessionId: row.session_id,
     readAt: row.read_at,
     createdAt: row.created_at,
@@ -68,7 +73,13 @@ export async function listMessages(
  */
 export async function sendMessage(
   supabase: VelaClient,
-  input: { clientId: string; sender: MessageSender; body: string; sessionId?: string | null },
+  input: {
+    clientId: string;
+    sender: MessageSender;
+    body: string;
+    sessionId?: string | null;
+    via?: MessageVia;
+  },
 ): Promise<{ error: string | null }> {
   const body = input.body.trim();
   if (!body) return { error: 'Nothing to send.' };
@@ -77,6 +88,7 @@ export async function sendMessage(
     client_id: input.clientId,
     sender: input.sender,
     body,
+    via: input.via ?? 'app',
     session_id: input.sessionId ?? null,
   });
   return { error: error?.message ?? null };

@@ -1,8 +1,9 @@
 import 'server-only';
 
 import { NextResponse } from 'next/server';
-import type { VelaClient } from '@vela/api';
-import { createRequestSupabase } from '@/lib/supabase/server';
+import { isApiKey, type Via, type VelaClient } from '@vela/api';
+import { sessionForApiKey } from '@/lib/apiKeys';
+import { createRequestSupabase, createSupabaseForToken } from '@/lib/supabase/server';
 
 /**
  * The one thing every route under /api needs first: who is calling.
@@ -40,13 +41,45 @@ export function notAClient(action: string): NextResponse {
   );
 }
 
-export async function requireUser(
-  req: Request,
-): Promise<
-  | { supabase: VelaClient; userId: string; refused: null }
-  | { supabase: null; userId: null; refused: NextResponse }
-> {
-  const supabase = await createRequestSupabase(req);
+/** Who is calling, and how: the coach herself with a session, or her assistant with a key. */
+export type Caller =
+  | { supabase: VelaClient; userId: string; via: Via; keyPrefix: string | null; refused: null }
+  | { supabase: null; userId: null; via: null; keyPrefix: null; refused: NextResponse };
+
+export async function requireUser(req: Request): Promise<Caller> {
+  const auth = req.headers.get('authorization') ?? '';
+  const credential = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+
+  let supabase: VelaClient;
+  let via: Via = 'portal';
+  let keyPrefix: string | null = null;
+
+  if (credential && isApiKey(credential)) {
+    const resolved = await sessionForApiKey(credential);
+    if (!resolved.ok) {
+      const messages: Record<typeof resolved.reason, [string, number]> = {
+        unknown: ['That API key is not recognised. Make one in Settings → API keys.', 401],
+        revoked: ['That API key was revoked. Make a new one in Settings → API keys.', 401],
+        expired: ['That API key has expired. Make a new one in Settings → API keys.', 401],
+        limited: ['Too many calls with this key in the last minute. Wait a moment.', 429],
+        unavailable: ['The portal cannot check keys right now. Try again shortly.', 503],
+      };
+      const [error, status] = messages[resolved.reason];
+      return {
+        supabase: null,
+        userId: null,
+        via: null,
+        keyPrefix: null,
+        refused: NextResponse.json({ error }, { status }),
+      };
+    }
+    supabase = createSupabaseForToken(resolved.token);
+    via = 'assistant';
+    keyPrefix = resolved.prefix;
+  } else {
+    supabase = await createRequestSupabase(req);
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -55,6 +88,8 @@ export async function requireUser(
     return {
       supabase: null,
       userId: null,
+      via: null,
+      keyPrefix: null,
       refused: NextResponse.json(
         {
           error:
@@ -64,5 +99,5 @@ export async function requireUser(
       ),
     };
   }
-  return { supabase, userId: user.id, refused: null };
+  return { supabase, userId: user.id, via, keyPrefix, refused: null };
 }

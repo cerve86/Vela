@@ -334,9 +334,7 @@ export function SlotSection({
                 paddingHorizontal: 13,
               }}
             >
-              <View
-                style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: spec.color }}
-              />
+              <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: spec.color }} />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Body size={13.5} weight="medium" numberOfLines={1}>
                   {e.description}
