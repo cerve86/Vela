@@ -10,7 +10,14 @@ import {
   deleteDay,
   deleteItem,
   deleteProgram,
+  friendlyError,
   getProgram,
+  listArchivedPrograms,
+  logAudit,
+  notifyProgramAssigned,
+  notifyProgramEdited,
+  notifyProgramUnassigned,
+  restoreProgram,
   listAssignmentsFor,
   listExercises,
   listPrograms,
@@ -42,6 +49,23 @@ async function ctx() {
   return { supabase, userId: user?.id ?? null };
 }
 
+/** The name, for a message to the client; null when the programme is not hers. */
+async function programName(supabase: Awaited<ReturnType<typeof ctx>>['supabase'], id: string) {
+  const { data } = await supabase.from('programs').select('name').eq('id', id).maybeSingle();
+  return data?.name ?? null;
+}
+
+/** After any edit to a programme: tell the clients on it, once an hour at most. */
+async function edited(supabase: Awaited<ReturnType<typeof ctx>>['supabase'], programId: string) {
+  const name = await programName(supabase, programId);
+  if (name) await notifyProgramEdited(supabase, { programId, programName: name, via: 'portal' });
+}
+
+export async function loadArchivedPrograms() {
+  const { supabase } = await ctx();
+  return listArchivedPrograms(supabase);
+}
+
 export async function loadPrograms() {
   const { supabase } = await ctx();
   return listPrograms(supabase);
@@ -63,9 +87,15 @@ export async function loadAssignmentsFor(programId: string) {
 }
 
 export async function unassignAction(programId: string, assignmentId: string): Promise<Result> {
-  const { supabase } = await ctx();
+  const { supabase, userId } = await ctx();
+  const target = (await listAssignmentsFor(supabase, programId)).find((a) => a.id === assignmentId);
   const { error } = await unassignProgram(supabase, assignmentId);
-  if (error) return { ok: false, error };
+  if (error) return { ok: false, error: friendlyError(error) };
+  const name = await programName(supabase, programId);
+  if (target && name)
+    await notifyProgramUnassigned(supabase, { clientId: target.clientId, programName: name, via: 'portal' });
+  if (userId)
+    await logAudit(supabase, { actorId: userId, action: 'program.unassigned', entity: 'client', entityId: target?.clientId ?? null, via: 'portal' });
   revalidatePath(`/programs/${programId}`);
   revalidatePath('/clients');
   return { ok: true };
@@ -99,7 +129,7 @@ export async function createProgramAction(formData: FormData): Promise<Result> {
       durationWeeks: Number(formData.get('durationWeeks') ?? 4) || 4,
       body: String(formData.get('body') ?? ''),
     });
-    if (error || !id) return { ok: false, error: error ?? 'Could not create the programme.' };
+    if (error || !id) return { ok: false, error: friendlyError(error ?? 'Could not create the programme.') };
     revalidatePath('/programs');
     return { ok: true, id };
   }
@@ -111,7 +141,7 @@ export async function createProgramAction(formData: FormData): Promise<Result> {
     isTemplate: formData.get('isTemplate') === 'on',
   });
 
-  if (error || !id) return { ok: false, error: error ?? 'Could not create the programme.' };
+  if (error || !id) return { ok: false, error: friendlyError(error ?? 'Could not create the programme.') };
   revalidatePath('/programs');
   return { ok: true, id };
 }
@@ -122,7 +152,8 @@ export async function addDayAction(
 ): Promise<Result> {
   const { supabase } = await ctx();
   const { error } = await addDay(supabase, programId, input);
-  if (error) return { ok: false, error };
+  if (error) return { ok: false, error: friendlyError(error) };
+  await edited(supabase, programId);
   revalidatePath(`/programs/${programId}`);
   return { ok: true };
 }
@@ -130,7 +161,8 @@ export async function addDayAction(
 export async function deleteDayAction(programId: string, dayId: string): Promise<Result> {
   const { supabase } = await ctx();
   const { error } = await deleteDay(supabase, dayId);
-  if (error) return { ok: false, error };
+  if (error) return { ok: false, error: friendlyError(error) };
+  await edited(supabase, programId);
   revalidatePath(`/programs/${programId}`);
   return { ok: true };
 }
@@ -143,7 +175,8 @@ export async function addItemAction(
 ): Promise<Result> {
   const { supabase } = await ctx();
   const { error } = await addItem(supabase, dayId, exerciseId, orderIndex);
-  if (error) return { ok: false, error };
+  if (error) return { ok: false, error: friendlyError(error) };
+  await edited(supabase, programId);
   revalidatePath(`/programs/${programId}`);
   return { ok: true };
 }
@@ -155,7 +188,8 @@ export async function updateItemAction(
 ): Promise<Result> {
   const { supabase } = await ctx();
   const { error } = await updateItem(supabase, id, patch);
-  if (error) return { ok: false, error };
+  if (error) return { ok: false, error: friendlyError(error) };
+  await edited(supabase, programId);
   revalidatePath(`/programs/${programId}`);
   return { ok: true };
 }
@@ -163,7 +197,8 @@ export async function updateItemAction(
 export async function deleteItemAction(programId: string, id: string): Promise<Result> {
   const { supabase } = await ctx();
   const { error } = await deleteItem(supabase, id);
-  if (error) return { ok: false, error };
+  if (error) return { ok: false, error: friendlyError(error) };
+  await edited(supabase, programId);
   revalidatePath(`/programs/${programId}`);
   return { ok: true };
 }
@@ -171,21 +206,31 @@ export async function deleteItemAction(programId: string, id: string): Promise<R
 export async function saveProgramBodyAction(programId: string, body: string): Promise<Result> {
   const { supabase } = await ctx();
   const { error } = await updateProgramBody(supabase, programId, body);
-  if (error) return { ok: false, error };
+  if (error) return { ok: false, error: friendlyError(error) };
+  await edited(supabase, programId);
   revalidatePath(`/programs/${programId}`);
   return { ok: true };
 }
 
-/** Delete, or archive if a client was ever assigned it; the result says which. */
+/** Archive: it leaves the list and can be restored from the bottom of it. */
 export async function deleteProgramAction(
   programId: string,
-): Promise<Result & { mode?: 'deleted' | 'archived' }> {
+): Promise<Result & { mode?: 'archived' }> {
   const { supabase } = await ctx();
   const { mode, error } = await deleteProgram(supabase, programId);
-  if (error || !mode) return { ok: false, error: error ?? 'Could not delete the programme.' };
+  if (error || !mode) return { ok: false, error: friendlyError(error ?? 'Could not archive.') };
   revalidatePath('/programs');
   revalidatePath(`/programs/${programId}`);
   return { ok: true, mode };
+}
+
+export async function restoreProgramAction(programId: string): Promise<Result> {
+  const { supabase } = await ctx();
+  const { error } = await restoreProgram(supabase, programId);
+  if (error) return { ok: false, error: friendlyError(error) };
+  revalidatePath('/programs');
+  revalidatePath(`/programs/${programId}`);
+  return { ok: true };
 }
 
 export async function assignProgramAction(
@@ -195,7 +240,10 @@ export async function assignProgramAction(
 ): Promise<Result> {
   const { supabase } = await ctx();
   const { assignmentId, error } = await assignProgram(supabase, programId, clientId, startDate);
-  if (error || !assignmentId) return { ok: false, error: error ?? 'Could not assign.' };
+  if (error || !assignmentId)
+    return { ok: false, error: friendlyError(error ?? 'Could not assign.') };
+  const name = await programName(supabase, programId);
+  if (name) await notifyProgramAssigned(supabase, { clientId, programName: name, startDate, via: 'portal' });
   revalidatePath(`/programs/${programId}`);
   revalidatePath('/clients');
   return { ok: true, id: assignmentId };
@@ -252,7 +300,7 @@ export async function createBundleAction(formData: FormData): Promise<Result> {
     })),
   });
 
-  if (error || !id) return { ok: false, error: error ?? 'Could not create the block.' };
+  if (error || !id) return { ok: false, error: friendlyError(error ?? 'Could not create the block.') };
 
   // Assigning is what puts it on her phone. Optional, because a coach may be building a
   // template today and deciding who gets it next week.

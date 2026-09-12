@@ -1,7 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { listClientPlans, mondayOf, sendMessage, upsertClientPlan } from '@vela/api';
+import {
+  friendlyError,
+  listClientPlans,
+  logAudit,
+  mondayOf,
+  sendMessage,
+  upsertClientPlan,
+} from '@vela/api';
 import { createServerSupabase } from '@/lib/supabase/server';
 
 export interface Result {
@@ -41,17 +48,26 @@ export async function saveWeeklyPlanAction(
     clientId,
     weekStart: week,
     body,
+    via: 'portal',
   });
-  if (error) return { ok: false, error };
+  if (error) return { ok: false, error: friendlyError(error) };
 
   await sendMessage(supabase, {
     clientId,
     sender: 'coach',
+    via: 'portal',
     body: existed
       ? `I've updated your plan for the week of ${pretty(week)} — it's on Today.`
       : `Your plan for the week of ${pretty(week)} is ready — it's on Today.`,
   });
 
+  await logAudit(supabase, {
+    actorId: user.id,
+    action: 'plan.sent',
+    entity: 'client',
+    entityId: clientId,
+    via: 'portal',
+  });
   revalidatePath(`/clients/${clientId}`);
   return { ok: true };
 }

@@ -81,7 +81,7 @@ test('within range, low variability, no overload: OK', () => {
   assert.equal(g.phase, 'steady');
   assert.equal(g.outcome, 'ok');
   assert.equal(g.stance, 'hold');
-  assert.equal(g.summary, 'HRV in your range · variability steady · steady week');
+  assert.equal(g.summary, 'HRV in your range · steady day to day · a usual week');
   assert.match(g.note, /Train to plan/);
 });
 
@@ -164,7 +164,7 @@ test('below range with a low resting heart rate: possible saturation, whatever e
   assert.equal(g.restingLow, true);
   assert.equal(g.outcome, 'saturation');
   assert.equal(g.stance, 'check');
-  assert.match(g.summary, /resting HR low/);
+  assert.match(g.summary, /resting heart rate low/);
 });
 
 test('below range, high variability: full rest', () => {

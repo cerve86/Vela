@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import { Card, EmptyState, StatusPill } from '@/components/ui';
-import { loadPrograms } from './actions';
+import { loadArchivedPrograms, loadPrograms } from './actions';
 import { NewProgramForm } from './NewProgramForm';
 import { DeleteProgramButton } from './DeleteProgramButton';
+import { RestoreProgramButton } from './RestoreProgramButton';
 
 export const metadata = { title: 'Programmes — Vela' };
 
 export default async function ProgramsPage() {
-  const programs = await loadPrograms();
+  const [programs, archived] = await Promise.all([loadPrograms(), loadArchivedPrograms()]);
 
   return (
     <div className="mx-auto max-w-6xl p-8">
@@ -78,6 +79,29 @@ export default async function ProgramsPage() {
             </tbody>
           </table>
         </Card>
+      )}
+
+      {archived.length > 0 && (
+        <details className="mt-6">
+          <summary className="cursor-pointer text-sm ink-2">
+            Archived ({archived.length})
+          </summary>
+          <ul className="mt-2 divide-y text-sm">
+            {archived.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-3 py-2">
+                <span>
+                  <span className="font-medium">{p.name}</span>
+                  <span className="ink-3">
+                    {' '}
+                    · {p.kind === 'descriptive' ? 'written' : 'programme'} · archived{' '}
+                    {p.archivedAt.slice(0, 10)}
+                  </span>
+                </span>
+                <RestoreProgramButton id={p.id} name={p.name} />
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </div>
   );

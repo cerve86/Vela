@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createDescriptiveProgram, listPrograms } from '@vela/api';
+import { createDescriptiveProgram, listPrograms, logAudit } from '@vela/api';
 import { requireCoach } from '@/lib/apiRoute';
 
 /** GET /api/programs — the coach's programmes and templates, newest first. */
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
  * 201 with the id and its link.
  */
 export async function POST(req: Request) {
-  const { supabase, userId, refused } = await requireCoach(req);
+  const { supabase, userId, via, refused } = await requireCoach(req);
   if (refused) return refused;
 
   let payload: { name?: unknown; weeks?: unknown; description?: unknown; body?: unknown };
@@ -52,6 +52,13 @@ export async function POST(req: Request) {
   });
   if (error || !id)
     return NextResponse.json({ error: error ?? 'Could not create.' }, { status: 500 });
+  await logAudit(supabase, {
+    actorId: userId,
+    action: 'program.created',
+    entity: 'program',
+    entityId: id,
+    via,
+  });
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.vela-coaching.com';
   return NextResponse.json({ id, url: `${site}/programs/${id}` }, { status: 201 });
 }

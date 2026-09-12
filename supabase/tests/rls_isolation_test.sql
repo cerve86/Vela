@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (115);
+  plan (117);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -271,6 +271,22 @@ select is (
   0::bigint,
   'client two reads nothing from that assignment'
 );
+
+-- A read can be changed for fifteen minutes, by its own client only -------------------
+reset role;
+insert into public.daily_reads (id, client_id, read_on, read_window, readiness)
+values ('00000000-0000-4000-8000-0000000000d1', '00000000-0000-4000-8000-0000000000f1', current_date, 'morning', 2);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+update public.daily_reads set readiness = 3 where id = '00000000-0000-4000-8000-0000000000d1';
+select is ((select readiness from public.daily_reads where id = '00000000-0000-4000-8000-0000000000d1'), 3::smallint, 'client one changes her own fresh read');
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c2';
+update public.daily_reads set readiness = 0 where id = '00000000-0000-4000-8000-0000000000d1';
+reset role;
+select is ((select readiness from public.daily_reads where id = '00000000-0000-4000-8000-0000000000d1'), 3::smallint, 'client two cannot touch it');
+delete from public.daily_reads where id = '00000000-0000-4000-8000-0000000000d1';
 
 -- Weekly plans: a coach writes for her own clients, a client reads her own ------------
 reset role;
@@ -950,16 +966,21 @@ select lives_ok (
   'but a different window the same day is fine'
 );
 
--- Denied by privilege, not merely filtered to nothing. Default privileges in this schema
--- hand `authenticated` UPDATE on every new table, so without the explicit revoke this
--- statement succeeds against zero rows — an immutability guarantee that holds only while
--- nobody adds a policy, and fails silently when somebody does.
-select throws_ok (
-  $$update public.daily_reads set readiness = 0
-    where client_id = '00000000-0000-4000-8000-0000000000f1'$$,
-  '42501',
-  null,
-  'a locked read cannot be revised, even by the person who wrote it'
+-- A read can be changed for fifteen minutes after it was locked (tested further down)
+-- and not after: the amend policy's USING clause stops matching, so the statement runs
+-- against no rows. Age these rows first, as postgres, then try as their owner.
+reset role;
+update public.daily_reads set created_at = now() - interval '20 minutes'
+  where client_id = '00000000-0000-4000-8000-0000000000f1';
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+update public.daily_reads set readiness = 0
+  where client_id = '00000000-0000-4000-8000-0000000000f1';
+select is (
+  (select count(*) from public.daily_reads
+    where client_id = '00000000-0000-4000-8000-0000000000f1' and readiness = 0),
+  0::bigint,
+  'a read locked more than fifteen minutes ago cannot be revised, even by the person who wrote it'
 );
 
 select throws_ok (

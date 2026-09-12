@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { deleteItem, getProgram, updateItem } from '@vela/api';
+import { deleteItem, getProgram, logAudit, notifyProgramEdited, updateItem } from '@vela/api';
 import { requireCoach } from '@/lib/apiRoute';
 
 type Ctx = { params: Promise<{ id: string; itemId: string }> };
@@ -21,7 +21,7 @@ async function find(supabase: Parameters<typeof getProgram>[0], programId: strin
  * prescriptions from the programme, so the change reaches her next session.
  */
 export async function PATCH(req: Request, { params }: Ctx) {
-  const { supabase, refused } = await requireCoach(req);
+  const { supabase, userId, via, refused } = await requireCoach(req);
   if (refused) return refused;
   const { id, itemId } = await params;
 
@@ -31,8 +31,8 @@ export async function PATCH(req: Request, { params }: Ctx) {
   } catch {
     return NextResponse.json({ error: 'Send JSON.' }, { status: 400 });
   }
-  const { item } = await find(supabase, id, itemId);
-  if (!item)
+  const { item, program } = await find(supabase, id, itemId);
+  if (!item || !program)
     return NextResponse.json({ error: 'No such item in this programme.' }, { status: 404 });
 
   const patch: Parameters<typeof updateItem>[2] = {};
@@ -61,19 +61,35 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
   const { error } = await updateItem(supabase, itemId, patch);
   if (error) return NextResponse.json({ error }, { status: 500 });
+  await notifyProgramEdited(supabase, { programId: id, programName: program.name, via });
+  await logAudit(supabase, {
+    actorId: userId,
+    action: 'program.item_changed',
+    entity: 'program',
+    entityId: id,
+    via,
+  });
   const { item: after } = await find(supabase, id, itemId);
   return NextResponse.json({ item: after });
 }
 
 /** DELETE /api/programs/{id}/items/{itemId} — remove a prescription from its day. */
 export async function DELETE(req: Request, { params }: Ctx) {
-  const { supabase, refused } = await requireCoach(req);
+  const { supabase, userId, via, refused } = await requireCoach(req);
   if (refused) return refused;
   const { id, itemId } = await params;
-  const { item } = await find(supabase, id, itemId);
-  if (!item)
+  const { item, program } = await find(supabase, id, itemId);
+  if (!item || !program)
     return NextResponse.json({ error: 'No such item in this programme.' }, { status: 404 });
   const { error } = await deleteItem(supabase, itemId);
   if (error) return NextResponse.json({ error }, { status: 500 });
+  await notifyProgramEdited(supabase, { programId: id, programName: program.name, via });
+  await logAudit(supabase, {
+    actorId: userId,
+    action: 'program.item_removed',
+    entity: 'program',
+    entityId: id,
+    via,
+  });
   return NextResponse.json({ removed: item.exerciseName });
 }

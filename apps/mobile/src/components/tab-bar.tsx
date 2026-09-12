@@ -33,11 +33,9 @@ interface TabBarProps {
     routes: { key: string; name: string }[];
   };
   navigation: {
-    emit(event: {
-      type: 'tabPress';
-      target: string;
-      canPreventDefault: true;
-    }): { defaultPrevented: boolean };
+    emit(event: { type: 'tabPress'; target: string; canPreventDefault: true }): {
+      defaultPrevented: boolean;
+    };
     navigate(name: string): void;
   };
 }

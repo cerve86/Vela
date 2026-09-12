@@ -70,8 +70,9 @@ export default function WeeklyPlanScreen() {
           <>
             <Prose body={plan.data.body} />
             <Body size={12.5} color={t.textMuted} style={{ textAlign: 'center', marginTop: 8 }}>
-              From your physio. If anything is unclear, or feels heavy or dragging, tell her in
-              Messages.
+              {plan.data.via === 'assistant'
+                ? 'From your physio — drafted with her assistant and sent by her. If anything is unclear, or feels heavy or dragging, tell her in Messages.'
+                : 'From your physio. If anything is unclear, or feels heavy or dragging, tell her in Messages.'}
             </Body>
           </>
         ) : (

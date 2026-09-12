@@ -77,14 +77,16 @@ function Block({ block }: { block: TextBlock }) {
   const t = useTheme();
   if (block.kind === 'heading') {
     return (
-      <Body
-        size={12}
-        weight="bold"
-        color={t.textMuted}
-        style={{ letterSpacing: 0.6, marginTop: 6 }}
-      >
-        {block.text.toUpperCase()}
-      </Body>
+      <View accessibilityRole="header">
+        <Body
+          size={12}
+          weight="bold"
+          color={t.textMuted}
+          style={{ letterSpacing: 0.6, marginTop: 6 }}
+        >
+          {block.text.toUpperCase()}
+        </Body>
+      </View>
     );
   }
   if (block.kind === 'list') {

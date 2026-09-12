@@ -841,3 +841,43 @@ programme, so a changed set count reaches her next session without re-assigning.
 movement is matched to her library the way the import matches; one that is not there is
 refused by name rather than substituted. The extension's instructions now say: read the
 report before recommending, then act through one of those doors.
+
+## 0.3.4 — What the evaluation found (12 September 2026)
+
+An Intent evaluation of the week's work scored it 76 and named ten things; all are done.
+
+**She is told when her programme changes.** Assigning sends a line in the thread with the
+start date; taking a programme off says so and that what she did stays; any edit to a
+programme she is on — a set count in the builder, a movement added by the assistant —
+sends "I've updated your programme" once an hour at most (`packages/api/src/notify.ts`).
+Sessions on her calendar already read the programme live; the message is what makes her
+look.
+
+**Who did it is recorded.** `messages.via`, `client_plans.via` and `audit_log.via` say
+whether the phone app, the portal or the coach's assistant with her key wrote the row;
+every API route now audits what it did with `via`. A weekly plan sent through the key
+shows on the phone as "drafted with her assistant, sent by her", with the date it was
+last updated.
+
+**Her words under the gauge.** "variability steady · overload week" became "steady day to
+day · a bigger week than usual"; "strain" became "effort today".
+
+**Today's order.** When a weekly plan is showing, the written programme behind it folds to
+one line. The check-in card no longer calls a week without prescribed sessions "quiet"
+for a client on a written or weekly plan.
+
+**Nothing is deleted.** Archiving replaces deleting: no confirmation, an Archived list at
+the bottom of the programmes page with Restore, the API and the extension archive too.
+
+**A mis-tap can be fixed.** A read can be changed for fifteen minutes after it was locked
+(a row policy, tested) and not after, so three a day keeps its meaning.
+
+**Reading with a screen reader.** Prose headings carry the header role; the gauge's knob
+fills below the mark and hollows above it, and the gauge has a spoken label, so colour is
+not the only cue.
+
+**Errors in sentences.** `friendlyError` turns the driver's words into what a coach can act
+on; every portal action uses it.
+
+**Keys expire** after six months (shown in Settings) and are rate-limited to 120 calls a
+minute per key per server; a bad key says why — unknown, revoked, expired, or too fast.

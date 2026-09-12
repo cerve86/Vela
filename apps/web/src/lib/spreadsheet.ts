@@ -20,7 +20,9 @@ export const MAX_ROWS = 5000;
  * what lets the parser tell a coach that Excel turned her "8-10" into a date. CSV cells
  * are strings and the parser reads numbers out of them itself.
  */
-export async function readSpreadsheet(file: File): Promise<{ headers: SpreadsheetCell[]; rows: SpreadsheetCell[][] }> {
+export async function readSpreadsheet(
+  file: File,
+): Promise<{ headers: SpreadsheetCell[]; rows: SpreadsheetCell[][] }> {
   if (file.size === 0) throw new Error('The file is empty.');
   if (file.size > MAX_UPLOAD_BYTES) throw new Error('The file is larger than 5 MB.');
 
@@ -45,7 +47,8 @@ export async function readSpreadsheet(file: File): Promise<{ headers: Spreadshee
     throw new Error('Upload a .xlsx or .csv file.');
   }
 
-  if (table.length > MAX_ROWS + 1) throw new Error(`More than ${MAX_ROWS} rows — split the programme.`);
+  if (table.length > MAX_ROWS + 1)
+    throw new Error(`More than ${MAX_ROWS} rows — split the programme.`);
   const [headers = [], ...rows] = table;
   return { headers, rows };
 }

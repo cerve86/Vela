@@ -130,7 +130,12 @@ export function SetTickRow({
         {done ? <Check size={14} color="#FFFFFF" strokeWidth={3} /> : null}
       </Animated.View>
 
-      <Body size={15} weight="medium" color={done ? t.textPrimary : t.textSecondary} style={{ flex: 1 }}>
+      <Body
+        size={15}
+        weight="medium"
+        color={done ? t.textPrimary : t.textSecondary}
+        style={{ flex: 1 }}
+      >
         Set {n}
       </Body>
 

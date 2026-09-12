@@ -365,40 +365,58 @@ export async function deleteItem(supabase: VelaClient, id: string) {
 }
 
 /**
- * Remove a programme from the coach's list.
+ * Take a programme off the coach's list.
  *
- * A programme nobody was ever assigned is deleted outright, days and items with it. One
- * that has been assigned is archived instead: the assignment and the sessions already
- * on a client's calendar keep pointing at its days, so deleting it would either fail
- * (the assignment forbids it) or take a live plan off a phone. Archived, it leaves the
- * list and the API but the client's week carries on. The result says which happened.
+ * Always an archive, never a delete: the row keeps its days and items and comes back with
+ * `restoreProgram`, so the button needs no confirmation and a slip costs nothing. A
+ * programme a client is on stays assigned — her sessions point at its days and carry on;
+ * it simply leaves the list and the API. `mode` is kept for callers that ask.
  */
 export async function deleteProgram(
   supabase: VelaClient,
   id: string,
-): Promise<{ mode: 'deleted' | 'archived' | null; error: string | null }> {
-  const { count, error: countError } = await supabase
-    .from('assignments')
-    .select('id', { count: 'exact', head: true })
-    .eq('program_id', id);
-  if (countError) return { mode: null, error: countError.message };
-
-  if ((count ?? 0) > 0) {
-    const { error, data } = await supabase
-      .from('programs')
-      .update({ archived_at: new Date().toISOString() })
-      .eq('id', id)
-      .is('archived_at', null)
-      .select('id');
-    if (error) return { mode: null, error: error.message };
-    if (!data || data.length === 0) return { mode: null, error: 'No such programme.' };
-    return { mode: 'archived', error: null };
-  }
-
-  const { error, data } = await supabase.from('programs').delete().eq('id', id).select('id');
+): Promise<{ mode: 'archived' | null; error: string | null }> {
+  const { error, data } = await supabase
+    .from('programs')
+    .update({ archived_at: new Date().toISOString() })
+    .eq('id', id)
+    .is('archived_at', null)
+    .select('id');
   if (error) return { mode: null, error: error.message };
   if (!data || data.length === 0) return { mode: null, error: 'No such programme.' };
-  return { mode: 'deleted', error: null };
+  return { mode: 'archived', error: null };
+}
+
+export async function restoreProgram(
+  supabase: VelaClient,
+  id: string,
+): Promise<{ error: string | null }> {
+  const { error, data } = await supabase
+    .from('programs')
+    .update({ archived_at: null })
+    .eq('id', id)
+    .not('archived_at', 'is', null)
+    .select('id');
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: 'No such programme.' };
+  return { error: null };
+}
+
+/** The archived ones, newest archived first, for the restore list. */
+export async function listArchivedPrograms(
+  supabase: VelaClient,
+): Promise<{ id: string; name: string; kind: ProgramKind; archivedAt: string }[]> {
+  const { data } = await supabase
+    .from('programs')
+    .select('id, name, kind, archived_at')
+    .not('archived_at', 'is', null)
+    .order('archived_at', { ascending: false });
+  return (data ?? []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    kind: p.kind as ProgramKind,
+    archivedAt: p.archived_at as string,
+  }));
 }
 
 export interface ProgramAssignment {

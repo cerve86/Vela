@@ -28,10 +28,22 @@ export default function MoodScreen() {
   const [refusal, setRefusal] = useState<string | null>(null);
 
   const already = daily.read.reads[daily.openWindow] !== undefined;
-  const shut = daily.allLogged || already;
+  // Locked, but within the fifteen minutes in which a mis-tap can still be changed.
+  const changing = already && daily.amendable;
+  const shut = (daily.allLogged || already) && !changing;
   const win = WINDOWS.find((w) => w.key === daily.openWindow)!;
 
   async function lock() {
+    if (changing) {
+      if (picked === null) return;
+      const res = await daily.amend(picked);
+      if (!res.ok) {
+        setRefusal('Too late to change this one — it was locked more than fifteen minutes ago.');
+        return;
+      }
+      router.back();
+      return;
+    }
     if (shut) {
       setRefusal(
         daily.allLogged ? 'Three reads a day is plenty.' : 'This window is already logged.',
@@ -179,8 +191,12 @@ export default function MoodScreen() {
             {shut
               ? 'Nothing more to log today'
               : picked === null
-                ? 'Pick one'
-                : `Lock ${win.label.toLowerCase()} read`}
+                ? changing
+                  ? 'Pick a different one to change it'
+                  : 'Pick one'
+                : changing
+                  ? `Change ${win.label.toLowerCase()} read`
+                  : `Lock ${win.label.toLowerCase()} read`}
           </Text>
         </Pressable>
 

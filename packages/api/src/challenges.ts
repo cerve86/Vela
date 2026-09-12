@@ -14,12 +14,14 @@ export const CHALLENGE_METRICS: { value: ChallengeMetric; label: string; blurb: 
   {
     value: 'sessions_completed',
     label: 'Sessions logged',
-    blurb: 'Counts a session once it is finished and sent. The default, and the one most challenges want.',
+    blurb:
+      'Counts a session once it is finished and sent. The default, and the one most challenges want.',
   },
   {
     value: 'fuel_days',
     label: 'Days eaten well',
-    blurb: 'Counts a day when three of the four meal slots hold something. Energy availability, not calories.',
+    blurb:
+      'Counts a day when three of the four meal slots hold something. Energy availability, not calories.',
   },
 ];
 
@@ -125,7 +127,8 @@ export async function createChallenge(
     .select('id')
     .single();
 
-  if (error || !data) return { id: null, error: error?.message ?? 'Could not create the challenge.' };
+  if (error || !data)
+    return { id: null, error: error?.message ?? 'Could not create the challenge.' };
 
   if (input.clientIds.length > 0) {
     const { error: joinError } = await supabase.from('challenge_participants').insert(
@@ -150,7 +153,13 @@ export async function addParticipants(
   if (clientIds.length === 0) return { error: null };
   const { error } = await supabase
     .from('challenge_participants')
-    .insert(clientIds.map((clientId) => ({ challenge_id: challengeId, coach_id: coachId, client_id: clientId })));
+    .insert(
+      clientIds.map((clientId) => ({
+        challenge_id: challengeId,
+        coach_id: coachId,
+        client_id: clientId,
+      })),
+    );
   return { error: error?.message ?? null };
 }
 
@@ -173,7 +182,11 @@ export async function challengeWeeks(
   challengeId: string,
 ): Promise<ChallengeWeek[]> {
   const { data } = await supabase.rpc('challenge_weeks', { p_challenge: challengeId });
-  return (data ?? []).map((r) => ({ weekNo: r.week_no, total: Number(r.total), target: Number(r.target) }));
+  return (data ?? []).map((r) => ({
+    weekNo: r.week_no,
+    total: Number(r.total),
+    target: Number(r.target),
+  }));
 }
 
 /** Participation, ordered by participation. Coach-facing for the same reason. */

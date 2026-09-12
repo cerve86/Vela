@@ -54,13 +54,7 @@ export async function lookupBarcode(
   }
 
   const doFetch = opts.fetchImpl ?? fetch;
-  const fields = [
-    'code',
-    'product_name',
-    'brands',
-    'serving_size',
-    'nutriments',
-  ].join(',');
+  const fields = ['code', 'product_name', 'brands', 'serving_size', 'nutriments'].join(',');
 
   let payload: unknown;
   try {

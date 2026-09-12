@@ -1,11 +1,6 @@
 import type { VelaClient } from './client';
 
-export type ExerciseCategory =
-  | 'pelvic_floor'
-  | 'strength'
-  | 'plyometric'
-  | 'running'
-  | 'mobility';
+export type ExerciseCategory = 'pelvic_floor' | 'strength' | 'plyometric' | 'running' | 'mobility';
 
 export const EXERCISE_CATEGORIES: { value: ExerciseCategory; label: string }[] = [
   { value: 'pelvic_floor', label: 'Pelvic floor & core' },

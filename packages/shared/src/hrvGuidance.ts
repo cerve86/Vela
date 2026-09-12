@@ -79,7 +79,7 @@ export interface HrvGuidance {
   advice: string;
   /** The sentence under the gauge, in the client's voice. */
   note: string;
-  /** The reading in a few words — "HRV below your range · variability high · overload week". */
+  /** The reading in a few words — "HRV below your range · swinging day to day · a bigger week than usual". */
   summary: string;
   figures: {
     /** This week's mean of ln(HRV), and the normal range it is read against. */
@@ -322,16 +322,23 @@ function summaryFor(
   phase: TrainingPhase,
   restingLow: boolean,
 ): string {
+  // Her words, not the framework's: "overload" reads as a warning to someone who did
+  // not choose the term, and "variability" is a statistic. What it means is a bigger
+  // week than usual, and readings that swing day to day.
   const level =
     hrv === 'within'
       ? 'HRV in your range'
       : hrv === 'below'
         ? 'HRV below your range'
         : 'HRV above your range';
-  const cv = variability === 'high' ? 'variability high' : 'variability steady';
+  const cv = variability === 'high' ? 'swinging day to day' : 'steady day to day';
   const week =
-    phase === 'overload' ? 'overload week' : phase === 'taper' ? 'lighter week' : 'steady week';
-  return [level, cv, week, ...(restingLow ? ['resting HR low'] : [])].join(' · ');
+    phase === 'overload'
+      ? 'a bigger week than usual'
+      : phase === 'taper'
+        ? 'a lighter week than usual'
+        : 'a usual week';
+  return [level, cv, week, ...(restingLow ? ['resting heart rate low'] : [])].join(' · ');
 }
 
 /**

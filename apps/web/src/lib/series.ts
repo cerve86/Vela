@@ -53,7 +53,10 @@ function byDate<T>(items: T[], dateOf: (t: T) => string): Map<string, T[]> {
  * and volume load (kg) have no common scale, and overlaying them would invent
  * crossings that mean nothing.
  */
-export function painLoadPanels(clientId: string, days = 28): { xLabels: string[]; panels: Panel[] } {
+export function painLoadPanels(
+  clientId: string,
+  days = 28,
+): { xLabels: string[]; panels: Panel[] } {
   const xLabels = mockDateWindow(days);
   const sessions = sessionsByClient.get(clientId) ?? [];
   const logs = setLogsByClient.get(clientId) ?? [];
@@ -98,7 +101,13 @@ export function painLoadPanels(clientId: string, days = 28): { xLabels: string[]
         height: 150,
         format: { style: 'compactK' },
         series: [
-          { id: 'load', label: 'Volume load', color: 'var(--series-1)', kind: 'bar', points: loadPoints },
+          {
+            id: 'load',
+            label: 'Volume load',
+            color: 'var(--series-1)',
+            kind: 'bar',
+            points: loadPoints,
+          },
         ],
       },
     ],
@@ -141,7 +150,10 @@ export function metricPanel(
 }
 
 /** Daily calories logged against the standing target — same unit, so one panel is honest. */
-export function nutritionPanels(clientId: string, days = 28): { xLabels: string[]; panels: Panel[] } {
+export function nutritionPanels(
+  clientId: string,
+  days = 28,
+): { xLabels: string[]; panels: Panel[] } {
   const xLabels = mockDateWindow(days);
   const logs = nutritionByClient.get(clientId) ?? [];
   const target = nutritionTargetByClient.get(clientId)!;
@@ -181,7 +193,13 @@ export function nutritionPanels(clientId: string, days = 28): { xLabels: string[
         height: 140,
         format: { style: 'fixed', decimals: 0 },
         series: [
-          { id: 'protein', label: 'Protein', color: 'var(--series-3)', kind: 'bar', points: protein },
+          {
+            id: 'protein',
+            label: 'Protein',
+            color: 'var(--series-3)',
+            kind: 'bar',
+            points: protein,
+          },
           {
             id: 'ptarget',
             label: 'Target',

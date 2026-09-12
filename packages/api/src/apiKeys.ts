@@ -24,7 +24,12 @@ export interface ApiKey {
   createdAt: string;
   lastUsedAt: string | null;
   revokedAt: string | null;
+  /** Keys expire; six months from creation by default. */
+  expiresAt: string | null;
 }
+
+/** How long a new key lives. Long enough to forget about, short enough to matter. */
+export const API_KEY_LIFETIME_DAYS = 180;
 
 export function isApiKey(token: string): boolean {
   return token.startsWith(API_KEY_PREFIX);
@@ -56,7 +61,7 @@ export async function hashApiKey(key: string): Promise<string> {
 export async function listApiKeys(supabase: VelaClient): Promise<ApiKey[]> {
   const { data } = await supabase
     .from('api_keys')
-    .select('id, name, prefix, created_at, last_used_at, revoked_at')
+    .select('id, name, prefix, created_at, last_used_at, revoked_at, expires_at')
     .order('created_at', { ascending: false });
 
   return (data ?? []).map((r) => ({
@@ -66,6 +71,7 @@ export async function listApiKeys(supabase: VelaClient): Promise<ApiKey[]> {
     createdAt: r.created_at,
     lastUsedAt: r.last_used_at,
     revokedAt: r.revoked_at,
+    expiresAt: r.expires_at,
   }));
 }
 
@@ -90,6 +96,7 @@ export async function createApiKey(
       name: trimmed,
       key_hash: await hashApiKey(key),
       prefix: key.slice(0, SHOWN_PREFIX_LENGTH),
+      expires_at: new Date(Date.now() + API_KEY_LIFETIME_DAYS * 86_400_000).toISOString(),
     })
     .select('id')
     .single();
