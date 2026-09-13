@@ -14,8 +14,8 @@ import {
 describe('disciplineForSport', () => {
   it('files cardio under run, lifting under strength, yoga under mobility, and never rehab', () => {
     assert.equal(disciplineForSport('Run'), 'run');
-    assert.equal(disciplineForSport('Ride'), 'run');
-    assert.equal(disciplineForSport('Swim'), 'run');
+    assert.equal(disciplineForSport('Ride'), 'cross');
+    assert.equal(disciplineForSport('Swim'), 'cross');
     assert.equal(disciplineForSport('WeightTraining'), 'strength');
     assert.equal(disciplineForSport('Yoga'), 'mobility');
     assert.equal(disciplineForSport('SomethingNew'), 'run');
@@ -58,6 +58,17 @@ describe('matchPlannedSession', () => {
   ];
   it('finds the open run on the same local day, skipping the completed one', () => {
     assert.equal(matchPlannedSession({ sportType: 'Run', localDate: '2026-09-05' }, sessions), 'c');
+  });
+  it('a ride takes a cross-training day first, then a run day written before cross existed', () => {
+    const planned = [
+      { id: 'run', scheduledDate: '2026-09-08', discipline: 'run', status: 'scheduled' },
+      { id: 'x', scheduledDate: '2026-09-08', discipline: 'cross', status: 'scheduled' },
+    ];
+    assert.equal(matchPlannedSession({ sportType: 'Ride', localDate: '2026-09-08' }, planned), 'x');
+    assert.equal(
+      matchPlannedSession({ sportType: 'Swim', localDate: '2026-09-08' }, planned.slice(0, 1)),
+      'run',
+    );
   });
   it('does not fulfil a strength day with a ride, or another day with today', () => {
     assert.equal(

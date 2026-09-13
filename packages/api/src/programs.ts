@@ -1,13 +1,14 @@
 import type { VelaClient } from './client';
-import { listExercises } from './exercises';
+import { listExercises, type ExerciseCategory } from './exercises';
 
-export type Discipline = 'strength' | 'run' | 'mobility' | 'rehab';
+export type Discipline = 'strength' | 'run' | 'mobility' | 'rehab' | 'cross';
 
 export const DISCIPLINES: { value: Discipline; label: string }[] = [
   { value: 'strength', label: 'Strength' },
   { value: 'run', label: 'Run' },
   { value: 'rehab', label: 'Rehab' },
   { value: 'mobility', label: 'Mobility' },
+  { value: 'cross', label: 'Cross-training' },
 ];
 
 export const DISCIPLINE_LABEL: Record<Discipline, string> = Object.fromEntries(
@@ -467,6 +468,25 @@ export async function unassignProgram(
 }
 
 /** Returns the new assignment id. Generates the scheduled sessions server-side. */
+/** The coach's client with this email, whatever her status; null when there is none. */
+export async function findClientByEmail(
+  supabase: VelaClient,
+  email: string,
+): Promise<{ id: string; name: string; email: string; status: string } | null> {
+  const { data } = await supabase
+    .from('clients')
+    .select('id, email, first_name_hint, last_name_hint, status')
+    .ilike('email', email.trim())
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    id: data.id,
+    name: `${data.first_name_hint ?? ''} ${data.last_name_hint ?? ''}`.trim() || data.email,
+    email: data.email,
+    status: data.status,
+  };
+}
+
 export async function assignProgram(
   supabase: VelaClient,
   programId: string,
@@ -503,6 +523,11 @@ export interface ScheduledSession {
   durationSec: number | null;
   /** Null for a session that was never prescribed — one filed for a recorded activity. */
   programDayId: string | null;
+  /**
+   * What the coach wrote for the day, when she wrote it as a sentence: the run's shape, a
+   * set she described rather than listed. Null when the day has none, or no day at all.
+   */
+  dayNotes: string | null;
   /** Where the completion came from. Only prescribed sessions count towards adherence. */
   loggedVia: 'app' | 'strava' | 'calendar';
   /** How hard she said it was, 1–10, when she said. */
@@ -510,7 +535,7 @@ export interface ScheduledSession {
 }
 
 const SESSION_COLUMNS =
-  'id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe';
+  'id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe, program_days(notes)';
 
 function toSession(row: {
   id: string;
@@ -526,6 +551,7 @@ function toSession(row: {
   program_day_id: string | null;
   logged_via: string;
   session_rpe: number | string | null;
+  program_days?: { notes: string | null } | null;
 }): ScheduledSession {
   return {
     id: row.id,
@@ -539,6 +565,7 @@ function toSession(row: {
     setsPlanned: row.sets_planned === null ? null : Number(row.sets_planned),
     durationSec: row.duration_sec === null ? null : Number(row.duration_sec),
     programDayId: row.program_day_id,
+    dayNotes: row.program_days?.notes ?? null,
     loggedVia: row.logged_via as ScheduledSession['loggedVia'],
     sessionRpe: row.session_rpe === null ? null : Number(row.session_rpe),
   };
@@ -710,6 +737,65 @@ export async function resolveExerciseNames(
   return { byName, unmatched };
 }
 
+/**
+ * Makes library entries for names the library does not have, as the coach's own.
+ *
+ * Deliberate, never silent: the import's preview lists the names and the coach ticks a
+ * box. Each is created bare — the name, a category guessed from the day it sits in — and
+ * can be filled in from the library afterwards. Returns the ids keyed like
+ * `resolveExerciseNames` does, so the caller can merge the two maps.
+ */
+export async function createExercisesNamed(
+  supabase: VelaClient,
+  coachId: string,
+  entries: { name: string; category: ExerciseCategory }[],
+): Promise<{ byName: Map<string, string>; error: string | null }> {
+  const byName = new Map<string, string>();
+  const seen = new Set<string>();
+  const rows = entries.filter((e) => {
+    const key = normaliseExerciseName(e.name);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (rows.length === 0) return { byName, error: null };
+  const { data, error } = await supabase
+    .from('exercises')
+    .insert(
+      rows.map((e) => ({
+        coach_id: coachId,
+        name: e.name.trim(),
+        category: e.category,
+        cues: [],
+        muscle_groups: [],
+        equipment: 'Bodyweight',
+      })),
+    )
+    .select('id, name');
+  if (error) return { byName, error: error.message };
+  for (const r of data ?? []) byName.set(normaliseExerciseName(r.name), r.id);
+  return { byName, error: null };
+}
+
+/** The category a movement most likely belongs to, from the day it was prescribed on. */
+export function categoryForDiscipline(discipline: Discipline): ExerciseCategory {
+  if (discipline === 'run') return 'running';
+  if (discipline === 'mobility' || discipline === 'rehab') return 'mobility';
+  return 'strength';
+}
+
+export async function updateDayNotes(
+  supabase: VelaClient,
+  dayId: string,
+  notes: string | null,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('program_days')
+    .update({ notes: notes?.trim() || null })
+    .eq('id', dayId);
+  return { error: error?.message ?? null };
+}
+
 export interface ImportedProgramInput {
   name: string;
   description?: string;
@@ -719,6 +805,7 @@ export interface ImportedProgramInput {
     dayNo: number;
     title: string;
     discipline: Discipline;
+    notes?: string | null;
     items: {
       exerciseId: string;
       block: string;
@@ -776,6 +863,7 @@ export async function importProgram(
         day_no: d.dayNo,
         title: d.title,
         discipline: d.discipline,
+        notes: d.notes ?? null,
       })),
     )
     .select('id, week_no, day_no');

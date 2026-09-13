@@ -903,3 +903,20 @@ the next one in the app in a sentence that says whose problem it is; an athlete 
 connected can still reconnect. Settings shows the slots used and where the limit is
 raised. The cap itself is raised by the owner on Strava: to ten in the application's API
 settings, beyond that by review.
+
+## 0.3.7 — Plan sheets (13 September 2026)
+
+The physiotherapist plans in another assistant, which exports one row per dated session
+per athlete: date, title, type, planned minutes and km, and what to do in words. Uploading
+that to the import page failed on "missing a day column, an exercise column…" — the movement
+shape. The import now reads both. A plan sheet becomes a programme whose weeks and
+weekdays come from the dates, whose notes are kept whole as each day's prescription, and
+whose movements with a dose ("Dead bug hip thrust 3 x 12 per side") are lifted out as
+tickable items. The preview says who the sheet is for and offers, unticked by default for
+nothing, to add the unmatched movements to her library and to put the programme on that
+client's calendar from the sheet's first Monday. Cross-training is a discipline of its own
+(spin, swim, Pilates), and a ride or a swim recorded on Strava fulfils a cross day first.
+
+On the phone, a day written as a sentence shows the sentence on Today and before she
+starts, and "Done — mark it off" completes it without sets to tick. The builder shows and
+edits each day's notes. The calendar feed carries them too.

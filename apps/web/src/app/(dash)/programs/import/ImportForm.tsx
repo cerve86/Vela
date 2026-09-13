@@ -17,14 +17,24 @@ const fieldStyle = { background: 'var(--ghost)', color: 'var(--ink-primary)' };
  * as the parser understood them, names any exercise the library does not know, and shows
  * row-numbered errors the way Excel numbers them — so the fix happens in the spreadsheet,
  * where the coach is comfortable, rather than in a half-built programme.
+ *
+ * A plan sheet — one row per dated session, for one athlete — also says who it is for
+ * and when it starts. Two things the preview offers, and does only when ticked: make the
+ * exercises it names that the library lacks, and put the programme on that client's
+ * calendar from the sheet's first Monday.
  */
 export function ImportForm() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [commitError, setCommitError] = useState<string | null>(null);
+  const [addMissing, setAddMissing] = useState(false);
+  const [assign, setAssign] = useState(true);
 
-  const blocked = preview?.ok === true && preview.unmatched.length > 0;
+  const hasUnmatched = preview?.ok === true && preview.unmatched.length > 0;
+  const blocked = hasUnmatched && !addMissing;
+  const client = preview?.ok ? preview.plan?.client : null;
+  const willAssign = Boolean(client && assign);
 
   return (
     <div className="space-y-4">
@@ -34,6 +44,8 @@ export function ImportForm() {
             e.preventDefault();
             const fd = new FormData(e.currentTarget);
             setCommitError(null);
+            setAddMissing(false);
+            setAssign(true);
             startTransition(async () => {
               setPreview(await previewImportAction(fd));
             });
@@ -41,13 +53,18 @@ export function ImportForm() {
           className="space-y-3"
         >
           <p className="text-sm ink-2">
-            One row per movement: week, day, exercise, sets, reps, and optionally title,
-            discipline, block, load, RPE, tempo, rest and notes. Leave week and day blank to
-            repeat the row above.{' '}
+            Two shapes are read. <strong>One row per movement</strong> — week, day, exercise, sets,
+            reps, and optionally title, discipline, block, load, RPE, tempo, rest and notes (
             <a href="/programme-template.csv" download className="underline">
-              Download the template
+              template
             </a>
-            . Exercise names must match your{' '}
+            ). Or a <strong>plan sheet</strong> — one row per dated session for one athlete: date,
+            title, type, planned minutes and km, and what to do in words, the way a planning
+            assistant exports it (
+            <a href="/plan-template.csv" download className="underline">
+              template
+            </a>
+            ). Movements named with a dose in the notes are picked out and matched to your{' '}
             <Link href="/library" className="underline">
               library
             </Link>
@@ -71,9 +88,16 @@ export function ImportForm() {
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="name" className="mb-1.5 block text-xs font-medium ink-2">
-                Programme name <span className="ink-3">(defaults to the file name)</span>
+                Programme name{' '}
+                <span className="ink-3">(defaults to the file name, or the athlete and phase)</span>
               </label>
-              <input id="name" name="name" placeholder="Return to running — weeks 12-18" className={`${field} w-full`} style={fieldStyle} />
+              <input
+                id="name"
+                name="name"
+                placeholder="Return to running — weeks 12-18"
+                className={`${field} w-full`}
+                style={fieldStyle}
+              />
             </div>
             <div className="flex items-end">
               <label className="flex items-center gap-2 text-sm ink-2">
@@ -84,7 +108,13 @@ export function ImportForm() {
               <label htmlFor="description" className="mb-1.5 block text-xs font-medium ink-2">
                 Description
               </label>
-              <input id="description" name="description" placeholder="Graded walk-run with posterior chain strength" className={`${field} w-full`} style={fieldStyle} />
+              <input
+                id="description"
+                name="description"
+                placeholder="Graded walk-run with posterior chain strength"
+                className={`${field} w-full`}
+                style={fieldStyle}
+              />
             </div>
           </div>
 
@@ -115,28 +145,89 @@ export function ImportForm() {
       {preview?.ok && (
         <Card title={`Preview — ${preview.program.name}`}>
           <p className="text-sm ink-2">
-            {preview.summary.weeks} week{preview.summary.weeks === 1 ? '' : 's'} · {preview.summary.days} day
-            {preview.summary.days === 1 ? '' : 's'} · {preview.summary.items} movement
-            {preview.summary.items === 1 ? '' : 's'} · {preview.summary.exercises} distinct exercise
+            {preview.summary.weeks} week{preview.summary.weeks === 1 ? '' : 's'} ·{' '}
+            {preview.summary.days} day{preview.summary.days === 1 ? '' : 's'} ·{' '}
+            {preview.summary.items} movement{preview.summary.items === 1 ? '' : 's'} ·{' '}
+            {preview.summary.exercises} distinct exercise
             {preview.summary.exercises === 1 ? '' : 's'}
             {preview.program.isTemplate ? ' · template' : ''}
           </p>
 
-          {blocked && (
-            <div className="mt-3 rounded-[14px] p-3 text-sm" style={{ background: 'var(--tint-cream)' }}>
-              <div className="font-medium">Not in your library — nothing has been created</div>
+          {preview.plan && (
+            <div className="mt-3 rounded-[14px] p-3 text-sm" style={{ background: 'var(--ghost)' }}>
+              <div className="font-medium">
+                {preview.plan.client
+                  ? `For ${preview.plan.client.name}`
+                  : preview.plan.athleteEmail
+                    ? `For ${preview.plan.athleteEmail} — not one of your clients`
+                    : 'The sheet does not say who it is for'}
+              </div>
+              <p className="mt-1 ink-2">
+                Starts Monday {longDate(preview.plan.startDate)}, so every session lands on the date
+                the sheet gives it.
+                {preview.plan.restDays > 0 &&
+                  ` ${preview.plan.restDays} rest ${preview.plan.restDays === 1 ? 'day is' : 'days are'} left off the calendar.`}
+                {!preview.plan.client &&
+                  preview.plan.athleteEmail &&
+                  ' Invite her with this email, or assign the programme from the builder afterwards.'}
+              </p>
+              {preview.plan.client && (
+                <label className="mt-2 flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={assign}
+                    onChange={(e) => setAssign(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    Put it on {preview.plan.client.name}&rsquo;s calendar from that Monday.
+                    <span className="ink-3">
+                      {' '}
+                      Her current programme ends there, and she gets a message.
+                    </span>
+                  </span>
+                </label>
+              )}
+            </div>
+          )}
+
+          {hasUnmatched && (
+            <div
+              className="mt-3 rounded-[14px] p-3 text-sm"
+              style={{ background: 'var(--tint-cream)' }}
+            >
+              <div className="font-medium">Not in your library</div>
               <ul className="mt-1 list-disc pl-5 ink-2">
                 {preview.unmatched.map((n) => (
                   <li key={n}>{n}</li>
                 ))}
               </ul>
-              <p className="mt-2 ink-2">
-                Rename them in the file to match, or{' '}
-                <Link href="/library" className="underline">
-                  add them to the library
-                </Link>{' '}
-                first, then preview again. Spelling has to match; case, spaces and hyphens do not.
-              </p>
+              <label className="mt-2 flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={addMissing}
+                  onChange={(e) => setAddMissing(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Add {preview.unmatched.length === 1 ? 'it' : `these ${preview.unmatched.length}`}{' '}
+                  to my library as my own exercises.
+                  <span className="ink-3">
+                    {' '}
+                    Bare entries — name and a guessed category; cues and equipment can be filled in
+                    from the library later.
+                  </span>
+                </span>
+              </label>
+              {!addMissing && (
+                <p className="mt-2 ink-2">
+                  Or rename them in the file to match, or{' '}
+                  <Link href="/library" className="underline">
+                    add them to the library
+                  </Link>{' '}
+                  first, then preview again. Spelling has to match; case, spaces and hyphens do not.
+                </p>
+              )}
             </div>
           )}
 
@@ -146,32 +237,52 @@ export function ImportForm() {
                 <div className="flex items-center gap-2 text-sm">
                   <span className="tnum ink-3">
                     W{d.weekNo} · D{d.dayNo}
+                    {preview.plan ? ` · ${weekdayName(d.dayNo)}` : ''}
                   </span>
                   <span className="font-medium">{d.title}</span>
                   <StatusPill tone="neutral">{d.discipline}</StatusPill>
                 </div>
-                <table className="mt-1.5 w-full text-xs">
-                  <tbody>
-                    {d.items.map((it, i) => {
-                      const missing = preview.unmatched.some((u) => u.toLowerCase() === it.exercise.toLowerCase());
-                      return (
-                        <tr key={i} className="border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
-                          <td className="tnum w-8 py-1.5 ink-3">{it.block}</td>
-                          <td className="py-1.5 font-medium" style={missing ? { color: palette.status.critical } : undefined}>
-                            {it.exercise}
-                          </td>
-                          <td className="tnum py-1.5 ink-2">
-                            {it.sets} × {it.reps}
-                            {it.loadKg !== null ? ` · ${it.loadKg} kg` : ''}
-                            {it.rpe !== null ? ` · RPE ${it.rpe}` : ''}
-                            {it.tempo ? ` · ${it.tempo}` : ''} · rest {it.restSec}s
-                          </td>
-                          <td className="py-1.5 ink-3">{it.notes}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                {d.notes && <p className="mt-1 whitespace-pre-line text-xs ink-2">{d.notes}</p>}
+                {d.items.length > 0 && (
+                  <table className="mt-1.5 w-full text-xs">
+                    <tbody>
+                      {d.items.map((it, i) => {
+                        const missing = preview.unmatched.some(
+                          (u) => u.toLowerCase() === it.exercise.toLowerCase(),
+                        );
+                        return (
+                          <tr
+                            key={i}
+                            className="border-b last:border-0"
+                            style={{ borderColor: 'var(--border)' }}
+                          >
+                            <td className="tnum w-8 py-1.5 ink-3">{it.block}</td>
+                            <td
+                              className="py-1.5 font-medium"
+                              style={
+                                missing && !addMissing
+                                  ? { color: palette.status.critical }
+                                  : undefined
+                              }
+                            >
+                              {it.exercise}
+                              {missing && addMissing && (
+                                <span className="ml-1.5 text-[11px] font-normal ink-3">new</span>
+                              )}
+                            </td>
+                            <td className="tnum py-1.5 ink-2">
+                              {it.sets} × {it.reps}
+                              {it.loadKg !== null ? ` · ${it.loadKg} kg` : ''}
+                              {it.rpe !== null ? ` · RPE ${it.rpe}` : ''}
+                              {it.tempo ? ` · ${it.tempo}` : ''} · rest {it.restSec}s
+                            </td>
+                            <td className="py-1.5 ink-3">{it.notes}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
               </div>
             ))}
           </div>
@@ -189,20 +300,60 @@ export function ImportForm() {
               onClick={() => {
                 setCommitError(null);
                 startTransition(async () => {
-                  const res = await commitImportAction(preview.program);
-                  if (!res.ok) setCommitError(res.error ?? 'Could not create the programme.');
-                  else router.push(`/programs/${res.id}`);
+                  const res = await commitImportAction(preview.program, {
+                    addMissing,
+                    assign:
+                      willAssign && preview.plan?.client
+                        ? { clientId: preview.plan.client.id, startDate: preview.plan.startDate }
+                        : null,
+                  });
+                  if (!res.ok || !res.id) {
+                    setCommitError(res.error ?? 'Could not create the programme.');
+                  } else if (res.error) {
+                    // Created but not assigned: say so, then open it where assigning lives.
+                    setCommitError(res.error);
+                    router.push(`/programs/${res.id}`);
+                  } else if (res.assigned && preview.plan?.client) {
+                    router.push(`/clients/${preview.plan.client.id}`);
+                  } else {
+                    router.push(`/programs/${res.id}`);
+                  }
                 });
               }}
               className="display-face rounded-full px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
               style={{ background: palette.brand[600] }}
             >
-              {pending ? 'Creating…' : 'Create programme'}
+              {pending
+                ? willAssign
+                  ? 'Creating and assigning…'
+                  : 'Creating…'
+                : willAssign
+                  ? 'Create and assign'
+                  : 'Create programme'}
             </button>
-            <span className="text-xs ink-3">Opens in the builder, where every day can still be edited.</span>
+            <span className="text-xs ink-3">
+              {willAssign
+                ? 'Opens her page. Every day can still be edited in the builder.'
+                : 'Opens in the builder, where every day can still be edited.'}
+            </span>
           </div>
         </Card>
       )}
     </div>
   );
+}
+
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function weekdayName(dayNo: number): string {
+  return WEEKDAYS[dayNo - 1] ?? `D${dayNo}`;
+}
+
+function longDate(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
 }

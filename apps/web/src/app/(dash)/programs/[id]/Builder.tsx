@@ -21,6 +21,7 @@ import {
   deleteItemAction,
   unassignAction,
   updateItemAction,
+  updateDayNotesAction,
 } from '../actions';
 
 const input = 'rounded-[10px] px-2.5 py-1.5 text-sm outline-none';
@@ -31,6 +32,7 @@ const DISCIPLINE_TONE: Record<Discipline, 'good' | 'serious' | 'warning' | 'neut
   run: 'serious',
   rehab: 'good',
   mobility: 'warning',
+  cross: 'neutral',
 };
 
 export function Builder({
@@ -205,8 +207,19 @@ export function Builder({
               </span>
             }
           >
+            <DayNotes
+              notes={day.notes}
+              pending={pending}
+              onSave={(notes) =>
+                run(() => updateDayNotesAction(program.id, day.id, notes), 'Saved.')
+              }
+            />
             {day.items.length === 0 ? (
-              <p className="mb-3 text-sm ink-3">No exercises yet.</p>
+              <p className="mb-3 text-sm ink-3">
+                {day.notes
+                  ? 'No listed movements — the notes are the session.'
+                  : 'No exercises yet.'}
+              </p>
             ) : (
               <table className="mb-3 w-full text-sm">
                 <thead>
@@ -442,6 +455,78 @@ function ExercisePicker({
       >
         Add
       </button>
+    </div>
+  );
+}
+
+/**
+ * What the day says in words, above its movements.
+ *
+ * For a run or a swim this is the whole prescription — "60 min · 4 blocks of ~15 min,
+ * run 5 / walk 1" — and the client reads it on Today and before she starts. Edited in
+ * place; saved on blur or the button, like an item's cells.
+ */
+function DayNotes({
+  notes,
+  pending,
+  onSave,
+}: {
+  notes: string | null;
+  pending: boolean;
+  onSave: (notes: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(notes ?? '');
+
+  if (!editing) {
+    return (
+      <div className="mb-3 flex items-start gap-3">
+        {notes ? (
+          <p className="whitespace-pre-line text-sm ink-2">{notes}</p>
+        ) : (
+          <p className="text-sm ink-3">No notes for this day.</p>
+        )}
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => {
+            setDraft(notes ?? '');
+            setEditing(true);
+          }}
+          className="ml-auto shrink-0 text-xs underline ink-2 disabled:opacity-40"
+        >
+          {notes ? 'Edit notes' : 'Add notes'}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="mb-3 space-y-2">
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        rows={4}
+        maxLength={4000}
+        placeholder="What to do that day, in words. Shown to the client above the movements."
+        className={`${input} w-full`}
+        style={inputStyle}
+      />
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => {
+            onSave(draft);
+            setEditing(false);
+          }}
+          className="text-xs font-medium underline disabled:opacity-40"
+        >
+          Save notes
+        </button>
+        <button type="button" onClick={() => setEditing(false)} className="text-xs underline ink-3">
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }

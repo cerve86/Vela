@@ -22,6 +22,7 @@ import { HeroBand } from '@/components/hero';
 import { Mascot, TrendGauge, type MascotMood } from '@/components/mascot';
 import { RingStat } from '@/components/rings';
 import { CheckInCard } from '@/components/checkin';
+import { Prose } from '@/components/prose';
 import { Illustration } from '@/components/Illustration';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
@@ -173,7 +174,11 @@ export default function TodayScreen() {
         ? { value: 0.5, label: 'In progress' }
         : recorded
           ? { value: 1, label: 'Recorded' }
-          : { value: 0, label: `${active.items.length || 1} session · ${mins} min` };
+          : {
+              value: 0,
+              // A day written as a sentence has no sets to time; its minutes are in the notes.
+              label: active.items.length ? `1 session · ${mins} min` : '1 session',
+            };
 
   /**
    * How the day is trending, as one figure: recovery when it has been read, otherwise
@@ -404,11 +409,17 @@ export default function TodayScreen() {
               {active.note}
             </Body>
 
+            {week.todaySession.dayNotes && !recorded && (
+              <View style={{ marginTop: 14 }}>
+                <Prose body={week.todaySession.dayNotes} />
+              </View>
+            )}
+
             {recorded ? (
               <Body size={13} color={t.textSecondary} style={{ marginTop: 14 }}>
                 Recorded on Strava — the details are in the activity card below.
               </Body>
-            ) : (
+            ) : active.items.length === 0 ? null : (
               <>
                 <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
                   <StatTile label="TIME" value={String(mins)} unit="min" dark flex={1.3} />

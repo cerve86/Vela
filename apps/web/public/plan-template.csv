@@ -1,0 +1,8 @@
+athlete_email,date,phase,week_number,title,type,planned_min,planned_km,vert_m,fuel_carbs_g_per_h,notes
+client@example.com,2026-09-14,base1,1,Gym Day 1,strength,50,,,,Cards as issued. Suitcase carry 3 x 45 s stays in.
+client@example.com,2026-09-15,base1,1,Run&Bun,intervals,60,4.5,,,Full session.
+client@example.com,2026-09-16,base1,1,Pre-swim set + pool,recovery,60,1.4,,,Dead bug hip thrust 3 x 12 per side · Loaded hip airplanes 3 x 8 per side 8-10 kg. Pool 400 m.
+client@example.com,2026-09-18,base1,1,Long run — 60 min,long,60,8.1,,,60 min · 4 blocks of ~15 min · run 5 / walk 1 · talk test.
+client@example.com,2026-09-19,base1,1,Spin — 30 min Z2,cross,30,,,,Conversational. Cadence 85–95.
+client@example.com,2026-09-20,base1,1,Rest,rest,0,,,,
+client@example.com,2026-09-20,base1,1,Daily — ankle,recovery,5,,,,Knee-to-wall 2 x 10.

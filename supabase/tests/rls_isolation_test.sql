@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (117);
+  plan (119);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -610,6 +610,30 @@ select lives_ok (
     values ('00000000-0000-4000-8000-0000000000f1', now(), 'weight_kg', 66.2, 'manual'),
            ('00000000-0000-4000-8000-0000000000f1', now(), 'weight_kg', 66.9, 'manual')$$,
   'two manual readings on the same day are both kept'
+);
+
+-- The day behind her session is readable — its notes are the prescription on a day
+-- written as a sentence — but only through a session of hers.
+reset role;
+update public.sessions
+set program_day_id = '00000000-0000-4000-8000-00000000dd01'
+where id = '00000000-0000-4000-8000-0000000000e1';
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select count(*) from public.program_days where id = '00000000-0000-4000-8000-00000000dd01'),
+  1::bigint,
+  'client one reads the programme day her session points at'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c2';
+
+select is (
+  (select count(*) from public.program_days where id = '00000000-0000-4000-8000-00000000dd01'),
+  0::bigint,
+  'client two cannot see that day at all'
 );
 
 -- A client must not be able to read another client's session plan.
