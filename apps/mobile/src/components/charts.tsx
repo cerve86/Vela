@@ -1,5 +1,14 @@
 import { Text, View } from 'react-native';
-import Svg, { Circle, Defs, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  Line,
+  LinearGradient,
+  Path,
+  Rect,
+  Stop,
+  Text as SvgText,
+} from 'react-native-svg';
 import { Body } from '@/components/kit';
 import { useTheme } from '@/theme';
 
@@ -206,7 +215,20 @@ export type CellState = 'full' | 'partial' | 'missed' | 'rest' | 'today';
  * 2.13:1, which the palette checker flags as needing relief. The legend is that relief,
  * and it also covers the reader who cannot separate the green from the amber at all.
  */
-export function Heatmap({ weeks }: { weeks: CellState[][] }) {
+/**
+ * `labels` is one short string per column, drawn beneath it — "3/5" for a programme week,
+ * null for a column with nothing planned. `mark` brackets the columns a programme spans
+ * with a bar under the grid, so its weeks read as a block against the rest.
+ */
+export function Heatmap({
+  weeks,
+  labels,
+  mark,
+}: {
+  weeks: CellState[][];
+  labels?: (string | null)[];
+  mark?: { from: number; to: number } | null;
+}) {
   const t = useTheme();
 
   const fill = (s: CellState) => {
@@ -219,11 +241,46 @@ export function Heatmap({ weeks }: { weeks: CellState[][] }) {
   const CELL = 9;
   const GAP = 3;
   const width = weeks.length * (CELL + GAP) - GAP;
-  const height = 7 * (CELL + GAP) - GAP;
+  const grid = 7 * (CELL + GAP) - GAP;
+  const hasLabels = Boolean(labels?.some((l) => l));
+  const hasMark = Boolean(mark && mark.to >= mark.from);
+  // Room under the grid: a bar for the programme, a line of figures under that.
+  const height = grid + (hasMark ? 5 : 0) + (hasLabels ? 9 : 0);
+  const barY = grid + 3;
+  const labelY = grid + (hasMark ? 5 : 0) + 8;
 
   return (
     <View>
       <Svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: height * 1.6 }}>
+        {hasMark && mark && (
+          <Rect
+            x={Math.max(0, mark.from) * (CELL + GAP)}
+            y={barY}
+            width={
+              (Math.min(weeks.length - 1, mark.to) - Math.max(0, mark.from) + 1) * (CELL + GAP) -
+              GAP
+            }
+            height={1.5}
+            rx={0.75}
+            fill={t.brand[600]}
+          />
+        )}
+        {hasLabels &&
+          labels!.map((label, wi) =>
+            label ? (
+              <SvgText
+                key={`l${wi}`}
+                x={wi * (CELL + GAP) + CELL / 2}
+                y={labelY}
+                fontSize={5}
+                fontWeight="600"
+                fill={t.textSecondary}
+                textAnchor="middle"
+              >
+                {label}
+              </SvgText>
+            ) : null,
+          )}
         {weeks.map((week, wi) =>
           week.map((state, di) => (
             <Rect

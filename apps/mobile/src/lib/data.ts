@@ -215,6 +215,25 @@ export function useCoach() {
 }
 
 /** Everything scheduled from today onwards — used for "what's next" when today is a rest day. */
+/**
+ * Every session the assigned programme put on her calendar, past and future.
+ *
+ * The attendance grid looks back; this looks across the whole block, so Progress can say
+ * what each coming week holds and how the weeks so far compared with the plan. Empty
+ * until a programme is assigned.
+ */
+export function useProgrammeSessions(program: { startDate: string; durationWeeks: number } | null) {
+  const { client } = useSession();
+  const from = program?.startDate ?? null;
+  const to = program ? addDays(program.startDate, program.durationWeeks * 7 - 1) : null;
+  return useAsync<ScheduledSession[]>(
+    async () =>
+      client && from && to ? listSessions(supabase, { clientId: client.id, from, to }) : [],
+    [],
+    [client?.id, from, to],
+  );
+}
+
 export function useUpcoming(limit = 5) {
   const { client } = useSession();
   return useAsync<ScheduledSession[]>(
