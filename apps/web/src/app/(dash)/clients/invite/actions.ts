@@ -1,7 +1,8 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@supabase/supabase-js';
-import { createInvite } from '@vela/api';
+import { createInvite, friendlyError, logAudit, type VelaClient } from '@vela/api';
 import type { Database } from '@vela/api/types';
 import { createServerSupabase } from '@/lib/supabase/server';
 
@@ -67,6 +68,32 @@ export async function inviteClient(formData: FormData): Promise<InviteResult> {
     return { ok: false, error: error ?? 'Could not create the invite.' };
   }
 
+  return emailInvitation(supabase, {
+    email,
+    firstName,
+    lastName,
+    coachName: `${coach?.first_name ?? ''} ${coach?.last_name ?? ''}`.trim() || 'Your coach',
+    practiceName: coachRow?.practice_name ?? 'your practice',
+  });
+}
+
+/**
+ * Sends the invitation email for an invite that already exists.
+ *
+ * Shared by the first invitation and a reminder: the two differ only in whether the
+ * invite row is new, and the email is the same either way.
+ */
+async function emailInvitation(
+  supabase: VelaClient,
+  input: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    coachName: string;
+    practiceName: string;
+  },
+): Promise<InviteResult> {
+  const { email, firstName, lastName } = input;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) {
     return {
@@ -80,13 +107,11 @@ export async function inviteClient(formData: FormData): Promise<InviteResult> {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const coachName = `${coach?.first_name ?? ''} ${coach?.last_name ?? ''}`.trim() || 'Your coach';
-
   // No invite token here any more: the email carries a six-digit OTP and acceptance is
   // keyed on the verified email address, so there is nothing secret to thread through.
   const metadata = {
-    coach_name: coachName,
-    practice_name: coachRow?.practice_name ?? 'your practice',
+    coach_name: input.coachName,
+    practice_name: input.practiceName,
     first_name: firstName,
     last_name: lastName,
   };
@@ -167,6 +192,100 @@ export async function inviteClient(formData: FormData): Promise<InviteResult> {
   }
 
   return { ok: true, email };
+}
+
+/** The coach's name and practice, as the invitation email signs them. */
+async function coachWords(supabase: VelaClient, userId: string) {
+  const [{ data: coach }, { data: coachRow }] = await Promise.all([
+    supabase.from('profiles').select('first_name, last_name').eq('id', userId).maybeSingle(),
+    supabase.from('coaches').select('practice_name').eq('id', userId).maybeSingle(),
+  ]);
+  return {
+    coachName: `${coach?.first_name ?? ''} ${coach?.last_name ?? ''}`.trim() || 'Your coach',
+    practiceName: coachRow?.practice_name ?? 'your practice',
+  };
+}
+
+/**
+ * Sends the invitation again to a client who has not yet accepted.
+ *
+ * A fresh invite is minted first — the old one is superseded and the fourteen days start
+ * again — and then the same email goes out. Nothing else about her changes: the row,
+ * the name her physio wrote, and any programme already assigned to her all stay.
+ */
+export async function remindClientAction(clientId: string): Promise<InviteResult> {
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not signed in.' };
+
+  const { data: client } = await supabase
+    .from('clients')
+    .select('email, first_name_hint, last_name_hint, condition, goal, status')
+    .eq('id', clientId)
+    .maybeSingle();
+  if (!client) return { ok: false, error: 'That client is no longer here.' };
+  if (client.status !== 'invited')
+    return { ok: false, error: 'They have already accepted — nothing to remind them of.' };
+
+  const { error } = await createInvite(supabase, {
+    email: client.email,
+    firstName: client.first_name_hint ?? '',
+    lastName: client.last_name_hint ?? '',
+    condition: client.condition ?? undefined,
+    goal: client.goal ?? undefined,
+  });
+  if (error) return { ok: false, error: friendlyError(error) };
+
+  const words = await coachWords(supabase, user.id);
+  const sent = await emailInvitation(supabase, {
+    email: client.email,
+    firstName: client.first_name_hint ?? '',
+    lastName: client.last_name_hint ?? '',
+    ...words,
+  });
+  if (sent.ok) revalidatePath('/clients');
+  return sent;
+}
+
+/**
+ * Removes a client who never accepted: the row and, by cascade, her invitation and
+ * anything assigned to her in advance. Refused for anyone who has signed in — a client
+ * with history is archived by other means, not deleted from a list.
+ */
+export async function deleteInvitedClientAction(
+  clientId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not signed in.' };
+
+  const { data: client } = await supabase
+    .from('clients')
+    .select('id, status, profile_id')
+    .eq('id', clientId)
+    .maybeSingle();
+  if (!client) return { ok: true };
+  if (client.status !== 'invited' || client.profile_id)
+    return {
+      ok: false,
+      error: 'They have already accepted; only an unaccepted invitation can be deleted.',
+    };
+
+  const { error } = await supabase.from('clients').delete().eq('id', clientId);
+  if (error) return { ok: false, error: friendlyError(error.message) };
+  await logAudit(supabase, {
+    actorId: user.id,
+    action: 'client.invite_deleted',
+    entity: 'client',
+    entityId: clientId,
+    via: 'portal',
+  });
+  revalidatePath('/clients');
+  return { ok: true };
 }
 
 export async function revokeInviteAction(
