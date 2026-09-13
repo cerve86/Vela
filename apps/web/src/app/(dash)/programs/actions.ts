@@ -22,6 +22,7 @@ import {
   listExercises,
   listPrograms,
   unassignProgram,
+  updateDayNotes,
   updateItem,
   updateProgramBody,
   createBundledProgram,
@@ -93,9 +94,19 @@ export async function unassignAction(programId: string, assignmentId: string): P
   if (error) return { ok: false, error: friendlyError(error) };
   const name = await programName(supabase, programId);
   if (target && name)
-    await notifyProgramUnassigned(supabase, { clientId: target.clientId, programName: name, via: 'portal' });
+    await notifyProgramUnassigned(supabase, {
+      clientId: target.clientId,
+      programName: name,
+      via: 'portal',
+    });
   if (userId)
-    await logAudit(supabase, { actorId: userId, action: 'program.unassigned', entity: 'client', entityId: target?.clientId ?? null, via: 'portal' });
+    await logAudit(supabase, {
+      actorId: userId,
+      action: 'program.unassigned',
+      entity: 'client',
+      entityId: target?.clientId ?? null,
+      via: 'portal',
+    });
   revalidatePath(`/programs/${programId}`);
   revalidatePath('/clients');
   return { ok: true };
@@ -129,7 +140,8 @@ export async function createProgramAction(formData: FormData): Promise<Result> {
       durationWeeks: Number(formData.get('durationWeeks') ?? 4) || 4,
       body: String(formData.get('body') ?? ''),
     });
-    if (error || !id) return { ok: false, error: friendlyError(error ?? 'Could not create the programme.') };
+    if (error || !id)
+      return { ok: false, error: friendlyError(error ?? 'Could not create the programme.') };
     revalidatePath('/programs');
     return { ok: true, id };
   }
@@ -141,7 +153,8 @@ export async function createProgramAction(formData: FormData): Promise<Result> {
     isTemplate: formData.get('isTemplate') === 'on',
   });
 
-  if (error || !id) return { ok: false, error: friendlyError(error ?? 'Could not create the programme.') };
+  if (error || !id)
+    return { ok: false, error: friendlyError(error ?? 'Could not create the programme.') };
   revalidatePath('/programs');
   return { ok: true, id };
 }
@@ -152,6 +165,19 @@ export async function addDayAction(
 ): Promise<Result> {
   const { supabase } = await ctx();
   const { error } = await addDay(supabase, programId, input);
+  if (error) return { ok: false, error: friendlyError(error) };
+  await edited(supabase, programId);
+  revalidatePath(`/programs/${programId}`);
+  return { ok: true };
+}
+
+export async function updateDayNotesAction(
+  programId: string,
+  dayId: string,
+  notes: string,
+): Promise<Result> {
+  const { supabase } = await ctx();
+  const { error } = await updateDayNotes(supabase, dayId, notes);
   if (error) return { ok: false, error: friendlyError(error) };
   await edited(supabase, programId);
   revalidatePath(`/programs/${programId}`);
@@ -243,7 +269,13 @@ export async function assignProgramAction(
   if (error || !assignmentId)
     return { ok: false, error: friendlyError(error ?? 'Could not assign.') };
   const name = await programName(supabase, programId);
-  if (name) await notifyProgramAssigned(supabase, { clientId, programName: name, startDate, via: 'portal' });
+  if (name)
+    await notifyProgramAssigned(supabase, {
+      clientId,
+      programName: name,
+      startDate,
+      via: 'portal',
+    });
   revalidatePath(`/programs/${programId}`);
   revalidatePath('/clients');
   return { ok: true, id: assignmentId };
@@ -300,7 +332,8 @@ export async function createBundleAction(formData: FormData): Promise<Result> {
     })),
   });
 
-  if (error || !id) return { ok: false, error: friendlyError(error ?? 'Could not create the block.') };
+  if (error || !id)
+    return { ok: false, error: friendlyError(error ?? 'Could not create the block.') };
 
   // Assigning is what puts it on her phone. Optional, because a coach may be building a
   // template today and deciding who gets it next week.

@@ -17,7 +17,7 @@ import { z } from 'zod';
  * in; this file never sees an id.
  */
 
-export const IMPORT_DISCIPLINES = ['strength', 'run', 'mobility', 'rehab'] as const;
+export const IMPORT_DISCIPLINES = ['strength', 'run', 'mobility', 'rehab', 'cross'] as const;
 export type ImportDiscipline = (typeof IMPORT_DISCIPLINES)[number];
 
 /* ─────────────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ export const importItemSchema = z.object({
     .describe('Coaching cue for this item, or null.'),
 });
 
-export const importDaySchema = z.object({
+export const importDayShape = {
   weekNo: z.number().int().min(1).max(52).describe('Week of the programme, from 1.'),
   dayNo: z
     .number()
@@ -91,8 +91,29 @@ export const importDaySchema = z.object({
   discipline: z
     .enum(IMPORT_DISCIPLINES)
     .default('strength')
-    .describe('strength | run | mobility | rehab. Default strength.'),
-  items: z.array(importItemSchema).min(1, 'A day needs at least one movement'),
+    .describe('strength | run | mobility | rehab | cross. Default strength.'),
+  notes: z
+    .string()
+    .trim()
+    .max(4000)
+    .nullable()
+    .default(null)
+    .describe(
+      'What to do that day, in words — the prescription for a run or a session with no listed movements. Shown to the client above the movements.',
+    ),
+  items: z
+    .array(importItemSchema)
+    .describe('The movements. May be empty when notes say what the day is.'),
+};
+
+export const importDaySchema = z.object(importDayShape).superRefine((d, ctx) => {
+  if (d.items.length === 0 && !d.notes) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['items'],
+      message: 'A day needs at least one movement, or a note saying what to do',
+    });
+  }
 });
 
 /**
@@ -193,7 +214,7 @@ const HEADER_ALIASES: Record<ImportColumn, string[]> = {
 const REQUIRED_COLUMNS: ImportColumn[] = ['week', 'day', 'exercise', 'sets', 'reps'];
 
 /** Lower-case, one space between words, nothing but letters, digits and brackets. */
-function normaliseHeader(h: SpreadsheetCell): string {
+export function normaliseHeader(h: SpreadsheetCell): string {
   return String(h ?? '')
     .toLowerCase()
     .replace(/[^a-z0-9()]+/g, ' ')
@@ -293,6 +314,12 @@ const DISCIPLINE_ALIASES: Record<string, ImportDiscipline> = {
   stretching: 'mobility',
   flexibility: 'mobility',
   yoga: 'mobility',
+  cross: 'cross',
+  'cross training': 'cross',
+  bike: 'cross',
+  cycling: 'cross',
+  spin: 'cross',
+  swim: 'cross',
   rehab: 'rehab',
   physio: 'rehab',
   rehabilitation: 'rehab',
@@ -448,7 +475,14 @@ export function parseProgramRows(
     const key = `${weekNo}:${dayNo}`;
     let day = days.get(key);
     if (!day) {
-      day = { weekNo, dayNo, title: `Day ${dayNo}`, discipline: 'strength', items: [] };
+      day = {
+        weekNo,
+        dayNo,
+        title: `Day ${dayNo}`,
+        discipline: 'strength',
+        notes: null,
+        items: [],
+      };
       days.set(key, day);
     }
     const title = text(cell(r, 'title'));
@@ -573,4 +607,528 @@ export function summariseImport(days: ImportDay[]): {
     items: days.reduce((n, d) => n + d.items.length, 0),
     exercises: names.size,
   };
+}
+
+/* ═════════════════════════════════════════════════════════════
+ * Plan sheets — one row per dated session
+ * ═════════════════════════════════════════════════════════════ */
+
+/**
+ * Importing a plan sheet: one row per session, dated, for one athlete.
+ *
+ * The other spreadsheet shape (`programImport.ts`) is one row per movement, which is how
+ * a strength block is written. A physiotherapist's weekly plan is not written that way.
+ * It is a calendar: this date, this session, this long, and a sentence on what to do —
+ *
+ *   athlete_email | date | phase | week_number | title | type | planned_min | planned_km |
+ *   vert_m | fuel_carbs_g_per_h | notes
+ *
+ * — the export a planning assistant produces. Every row becomes a day of a programme:
+ * the date fixes the week and weekday, the title and type name the session, and the
+ * notes are kept whole as the day's prescription. Where the notes name a movement with a
+ * dose ("Dead bug hip thrust 3 x 12 per side") it is also lifted out as an item, so a
+ * rehab set is tickable in the app; the sentence stays as written either way.
+ *
+ * Several rows may share a date. The longest session is the day; the rest are folded
+ * into its notes under their own titles. A rest row on its own makes no day at all.
+ */
+
+export type PlanColumn =
+  | 'athleteEmail'
+  | 'date'
+  | 'phase'
+  | 'week'
+  | 'title'
+  | 'type'
+  | 'plannedMin'
+  | 'plannedKm'
+  | 'vertM'
+  | 'fuelCarbs'
+  | 'notes';
+
+const PLAN_ALIASES: Record<PlanColumn, string[]> = {
+  athleteEmail: ['athlete email', 'athlete', 'email', 'client email', 'client'],
+  date: ['date', 'day date', 'session date', 'scheduled', 'when'],
+  phase: ['phase', 'block', 'mesocycle'],
+  week: ['week number', 'week', 'wk', 'week no'],
+  title: ['title', 'session', 'session title', 'session name', 'name', 'workout'],
+  type: ['type', 'session type', 'discipline', 'kind', 'category'],
+  plannedMin: [
+    'planned min',
+    'planned minutes',
+    'minutes',
+    'min',
+    'duration',
+    'duration min',
+    'time',
+  ],
+  plannedKm: ['planned km', 'km', 'distance', 'distance km'],
+  vertM: ['vert m', 'vert', 'climb', 'elevation', 'elevation m', 'ascent'],
+  fuelCarbs: ['fuel carbs g per h', 'carbs g per h', 'fuel', 'fuelling', 'carbs per hour'],
+  notes: ['notes', 'note', 'description', 'details', 'comments', 'comment'],
+};
+
+const REQUIRED: PlanColumn[] = ['date', 'title'];
+
+export type PlanHeaderMap = Partial<Record<PlanColumn, number>>;
+
+/**
+ * Which of the two spreadsheet shapes this is.
+ *
+ * A plan sheet has a date column and no sets column; a movement sheet has sets. A file
+ * with neither is handed to the movement parser, whose "missing column" messages name
+ * what a movement sheet needs — the shape the template describes.
+ */
+export function detectImportFormat(headers: SpreadsheetCell[]): 'movements' | 'plan' {
+  const norm = headers.map(normaliseHeader);
+  const has = (aliases: string[]) => norm.some((h) => aliases.includes(h));
+  if (has(PLAN_ALIASES.date) && !has(['sets', 'set'])) return 'plan';
+  return 'movements';
+}
+
+export function mapPlanHeaders(
+  headers: SpreadsheetCell[],
+): { ok: true; map: PlanHeaderMap } | { ok: false; errors: string[] } {
+  const norm = headers.map(normaliseHeader);
+  const map: PlanHeaderMap = {};
+  for (const column of Object.keys(PLAN_ALIASES) as PlanColumn[]) {
+    const idx = norm.findIndex((h) => PLAN_ALIASES[column].includes(h));
+    if (idx >= 0) map[column] = idx;
+  }
+  const missing = REQUIRED.filter((c) => map[c] === undefined);
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      errors: missing.map(
+        (c) =>
+          `Missing a "${PLAN_ALIASES[c][0]}" column (also accepted: ${PLAN_ALIASES[c].slice(1).join(', ')})`,
+      ),
+    };
+  }
+  return { ok: true, map };
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Cells
+ * ───────────────────────────────────────────────────────────── */
+
+const DAY_MS = 86_400_000;
+
+/** An ISO date out of a typed cell, a serial number, or the ways people write dates. */
+export function parseDateCell(v: SpreadsheetCell): string | null {
+  if (v instanceof Date) {
+    if (Number.isNaN(v.getTime())) return null;
+    // A reader that builds dates in UTC lands on midnight UTC; one that builds them in
+    // local time does not, and its calendar date is the local one.
+    const utcMidnight = v.getUTCHours() === 0 && v.getUTCMinutes() === 0;
+    return utcMidnight
+      ? v.toISOString().slice(0, 10)
+      : `${v.getFullYear()}-${pad(v.getMonth() + 1)}-${pad(v.getDate())}`;
+  }
+  if (typeof v === 'number') {
+    // An Excel serial: days since 30 December 1899.
+    if (!Number.isFinite(v) || v < 20_000 || v > 80_000) return null;
+    return new Date(Date.UTC(1899, 11, 30) + Math.round(v) * DAY_MS).toISOString().slice(0, 10);
+  }
+  const s = text(v);
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) return valid(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+  const euro = s.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/);
+  if (euro) return valid(Number(euro[3]), Number(euro[2]), Number(euro[1]));
+  return null;
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+function valid(y: number, m: number, d: number): string | null {
+  const date = new Date(Date.UTC(y, m - 1, d));
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d)
+    return null;
+  return date.toISOString().slice(0, 10);
+}
+
+/** Monday = 1 … Sunday = 7. */
+export function isoWeekday(iso: string): number {
+  const d = new Date(`${iso}T00:00:00Z`).getUTCDay();
+  return d === 0 ? 7 : d;
+}
+
+export function mondayOf(iso: string): string {
+  return addDays(iso, 1 - isoWeekday(iso));
+}
+
+export function addDays(iso: string, days: number): string {
+  return new Date(new Date(`${iso}T00:00:00Z`).getTime() + days * DAY_MS)
+    .toISOString()
+    .slice(0, 10);
+}
+
+function daysBetween(from: string, to: string): number {
+  return Math.round(
+    (new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime()) / DAY_MS,
+  );
+}
+
+type SessionType = ImportDiscipline | 'rest';
+
+/**
+ * The words a planner uses for a session, to the disciplines the programme knows.
+ *
+ * "Recovery" is rehab here: in a physiotherapist's plan it names the pre-swim set, the
+ * daily ankle work, the fuelling note — prescribed, never recorded. "Cross" is its own
+ * discipline, because a spin or a swim is neither a run nor mobility work.
+ */
+const TYPE_ALIASES: Record<string, SessionType> = {
+  strength: 'strength',
+  gym: 'strength',
+  lifting: 'strength',
+  weights: 'strength',
+  resistance: 'strength',
+  run: 'run',
+  running: 'run',
+  intervals: 'run',
+  interval: 'run',
+  long: 'run',
+  'long run': 'run',
+  easy: 'run',
+  tempo: 'run',
+  hills: 'run',
+  fartlek: 'run',
+  track: 'run',
+  race: 'run',
+  jog: 'run',
+  speed: 'run',
+  cross: 'cross',
+  'cross training': 'cross',
+  xt: 'cross',
+  bike: 'cross',
+  spin: 'cross',
+  cycling: 'cross',
+  cycle: 'cross',
+  ride: 'cross',
+  swim: 'cross',
+  pool: 'cross',
+  row: 'cross',
+  rowing: 'cross',
+  elliptical: 'cross',
+  walk: 'cross',
+  hike: 'cross',
+  yoga: 'mobility',
+  pilates: 'mobility',
+  mobility: 'mobility',
+  stretch: 'mobility',
+  stretching: 'mobility',
+  flexibility: 'mobility',
+  recovery: 'rehab',
+  rehab: 'rehab',
+  physio: 'rehab',
+  prehab: 'rehab',
+  activation: 'rehab',
+  daily: 'rehab',
+  rest: 'rest',
+  off: 'rest',
+  'day off': 'rest',
+};
+
+function parseType(v: SpreadsheetCell): SessionType | null | 'invalid' {
+  const s = normaliseHeader(v);
+  if (s === '') return null;
+  return TYPE_ALIASES[s] ?? 'invalid';
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Movements named in a sentence
+ * ───────────────────────────────────────────────────────────── */
+
+/**
+ * Where one prescription ends and the next begins: a middle dot, a new line, or a full
+ * stop followed by a space and a capital letter — "12.5-15 kg" has no space after its dot.
+ */
+const SEGMENTS = /\s+[·•]\s+|\n+|\.\s+(?=[A-Z+])/;
+
+/**
+ * "Name N x M …", with the optional things around it: a leading "+" or dash, a label
+ * ("Pre-swim:", "Gait:"), a range ("6–8"), a unit ("45 s", "12 steps"), and a tail.
+ */
+const MOVEMENT =
+  /^(?:[+\-–•]\s*)?(?:[A-Za-z][A-Za-z\- ]{0,24}:\s*)?([A-Za-z][A-Za-z0-9 ,'’()/\-–]*?)\s+(\d{1,3})\s*[x×]\s*(\d{1,3})(?:\s*[–-]\s*(\d{1,3}))?(?:\s*(s|sec|secs|min|mins|steps?|m|reps?))?\b(.*)$/;
+
+const PER_SIDE = /\s*(?:[/,]?\s*(?:per|each)\s+(?:side|leg|arm|way)|\/side|\/leg|\/arm|\/way)\b/i;
+const LOAD = /,?\s*(\d+(?:[.,]\d+)?)(?:\s*[–-]\s*(\d+(?:[.,]\d+)?))?\s*kg\b/i;
+
+/**
+ * The movements a sentence names, each with its dose, in the order written.
+ *
+ * Only a movement with a dose is lifted: "Suitcase carry 3 × 45 s" is an item, "hinges
+ * lead over squats and lunges" is coaching and stays in the notes. Reps-first counts are
+ * turned round ("15 x 2, twice daily" is two sets of fifteen); a range, a unit, and a
+ * per-side marker travel with the reps; a load in kilograms becomes the target load, the
+ * lower end of a range being the one to start at; anything else in the tail is the
+ * item's note.
+ */
+export function extractMovements(sentence: string | null | undefined): ImportItem[] {
+  if (!sentence) return [];
+  const items: ImportItem[] = [];
+  for (const raw of sentence.split(SEGMENTS)) {
+    const seg = raw.trim().replace(/[.;]+$/, '');
+    const m = MOVEMENT.exec(seg);
+    if (!m) continue;
+    // 1 name · 2 sets · 3 reps · 4 top of a range · 5 unit · 6 the rest of the sentence
+    const [, name, a, b, b2, unit, tail] = m as unknown as (string | undefined)[];
+    let sets = Number(a);
+    let reps = b!;
+    if (!b2 && !unit && sets > 6 && Number(reps) <= 6) [sets, reps] = [Number(reps), String(sets)];
+    if (sets < 1 || sets > 20) continue;
+
+    let repsText = b2 ? `${reps}–${b2}` : reps;
+    if (unit) repsText += ` ${unit}`;
+
+    let rest = tail ?? '';
+    if (PER_SIDE.test(rest)) {
+      repsText += ' per side';
+      rest = rest.replace(PER_SIDE, '');
+    }
+    let loadKg: number | null = null;
+    const load = LOAD.exec(rest);
+    if (load) {
+      loadKg = Number(load[1]!.replace(',', '.'));
+      rest = rest.replace(LOAD, '');
+    }
+    const notes = rest.replace(/^[\s,;:\-–]+|[\s,;:\-–]+$/g, '').trim() || null;
+
+    const cleanName = name!.trim().replace(/[,\s]+$/, '');
+    items.push({
+      exercise: cleanName.charAt(0).toUpperCase() + cleanName.slice(1),
+      block: 'A',
+      sets,
+      reps: repsText,
+      loadKg,
+      rpe: null,
+      tempo: null,
+      restSec: 60,
+      notes,
+    });
+  }
+  return items;
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Rows → days
+ * ───────────────────────────────────────────────────────────── */
+
+interface PlanRow {
+  rowNo: number;
+  date: string;
+  title: string;
+  type: SessionType;
+  plannedMin: number | null;
+  plannedKm: number | null;
+  vertM: number | null;
+  fuelCarbs: number | null;
+  notes: string;
+}
+
+export type ParsedPlan =
+  | {
+      ok: true;
+      days: ImportDay[];
+      rowsRead: number;
+      /** Who the sheet is for, as written in it; null when it does not say. */
+      athleteEmail: string | null;
+      /** The Monday of the first week — the start date that puts every day on its date. */
+      startDate: string;
+      phase: string | null;
+      /** Dates that held only a rest row and made no day. */
+      restDays: number;
+    }
+  | { ok: false; errors: ImportRowError[] };
+
+/** "60 min · 8.1 km · 300 m climb · 60 g carbs/h", or an empty string. */
+export function planLine(r: {
+  plannedMin: number | null;
+  plannedKm: number | null;
+  vertM: number | null;
+  fuelCarbs: number | null;
+}): string {
+  const parts: string[] = [];
+  if (r.plannedMin) parts.push(`${r.plannedMin} min`);
+  if (r.plannedKm) parts.push(`${r.plannedKm} km`);
+  if (r.vertM) parts.push(`${r.vertM} m climb`);
+  if (r.fuelCarbs) parts.push(`${r.fuelCarbs} g carbs/h`);
+  return parts.join(' · ');
+}
+
+export function parsePlanRows(headers: SpreadsheetCell[], rows: SpreadsheetCell[][]): ParsedPlan {
+  const mapped = mapPlanHeaders(headers);
+  if (!mapped.ok)
+    return { ok: false, errors: mapped.errors.map((message) => ({ row: 1, message })) };
+  const col = mapped.map;
+  const cell = (r: SpreadsheetCell[], c: PlanColumn): SpreadsheetCell =>
+    col[c] === undefined ? undefined : r[col[c]!];
+
+  const errors: ImportRowError[] = [];
+  const parsed: PlanRow[] = [];
+  const emails = new Set<string>();
+  let phase: string | null = null;
+  let rowsRead = 0;
+
+  rows.forEach((r, i) => {
+    const rowNo = i + 2;
+    if (!r || r.every(isBlank)) return;
+    rowsRead++;
+    const fail = (message: string) => errors.push({ row: rowNo, message });
+
+    const date = parseDateCell(cell(r, 'date'));
+    if (!date) fail(`Date must be a date, like 2026-09-14, not "${text(cell(r, 'date'))}"`);
+
+    const type = parseType(cell(r, 'type'));
+    if (type === 'invalid')
+      fail(
+        `Type "${text(cell(r, 'type'))}" is not one of ${[...IMPORT_DISCIPLINES, 'rest'].join(', ')} (or a word for one: intervals, long, spin, swim, recovery…)`,
+      );
+
+    let title = text(cell(r, 'title'));
+    if (!title) {
+      if (type === 'rest') title = 'Rest';
+      else fail('Title is blank');
+    }
+    if (title.length > 80) title = `${title.slice(0, 77)}…`;
+
+    const numbers = {
+      plannedMin: parseNumber(cell(r, 'plannedMin')),
+      plannedKm: parseNumber(cell(r, 'plannedKm')),
+      vertM: parseNumber(cell(r, 'vertM')),
+      fuelCarbs: parseNumber(cell(r, 'fuelCarbs')),
+      week: parseNumber(cell(r, 'week')),
+    };
+    for (const [k, v] of Object.entries(numbers)) {
+      if (v === 'invalid') fail(`${k.replace(/([A-Z])/g, ' $1').toLowerCase()} must be a number`);
+    }
+
+    const email = text(cell(r, 'athleteEmail')).toLowerCase();
+    if (email) emails.add(email);
+    if (!phase) phase = text(cell(r, 'phase')) || null;
+
+    if (errors.some((e) => e.row === rowNo) || !date) return;
+    parsed.push({
+      rowNo,
+      date,
+      title,
+      type: type === 'invalid' || type === null ? 'strength' : type,
+      plannedMin: numbers.plannedMin === 'invalid' ? null : numbers.plannedMin,
+      plannedKm: numbers.plannedKm === 'invalid' ? null : numbers.plannedKm,
+      vertM: numbers.vertM === 'invalid' ? null : numbers.vertM,
+      fuelCarbs: numbers.fuelCarbs === 'invalid' ? null : numbers.fuelCarbs,
+      notes: text(cell(r, 'notes')),
+    });
+  });
+
+  if (emails.size > 1) {
+    errors.push({
+      row: 0,
+      message: `The sheet names more than one athlete (${[...emails].join(', ')}); one file per athlete.`,
+    });
+  }
+  if (errors.length > 0) return { ok: false, errors };
+  if (parsed.length === 0)
+    return {
+      ok: false,
+      errors: [{ row: 2, message: 'No rows with data were found under the header' }],
+    };
+
+  // The calendar decides the week: the Monday of the earliest date is day one of week
+  // one, whatever the sheet's own numbering starts at or which weekday its weeks begin
+  // on. The week column is not held against it — a coach whose weeks run Wednesday to
+  // Tuesday is not wrong, and the preview shows every day's weekday for her to read.
+  const startDate = mondayOf(parsed.map((p) => p.date).sort()[0]!);
+  const weekOf = (iso: string) => Math.floor(daysBetween(startDate, iso) / 7) + 1;
+  if (
+    weekOf(
+      parsed
+        .map((p) => p.date)
+        .sort()
+        .at(-1)!,
+    ) > 52
+  )
+    return { ok: false, errors: [{ row: 0, message: 'The plan spans more than 52 weeks' }] };
+
+  // One day per date. The longest non-rest session is the day; the others are folded
+  // into its notes under their own titles; a date with nothing but rest makes no day.
+  const byDate = new Map<string, PlanRow[]>();
+  for (const p of parsed) byDate.set(p.date, [...(byDate.get(p.date) ?? []), p]);
+
+  const days: ImportDay[] = [];
+  let restDays = 0;
+  for (const [date, group] of [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const active = group.filter((g) => g.type !== 'rest');
+    if (active.length === 0) {
+      restDays++;
+      continue;
+    }
+    const primary = active.reduce((best, g) =>
+      (g.plannedMin ?? 0) > (best.plannedMin ?? 0) ? g : best,
+    );
+    const others = group.filter((g) => g !== primary);
+
+    const sections: string[] = [];
+    const head = [planLine(primary), primary.notes].filter(Boolean).join('\n');
+    if (head) sections.push(head);
+    for (const o of others) {
+      const line = planLine(o);
+      const body = [o.notes, line ? `(${line})` : ''].filter(Boolean).join(' ');
+      if (o.type === 'rest' && !o.notes) continue;
+      sections.push(body ? `${o.title}: ${body}` : o.title);
+    }
+    const notes = sections.join('\n\n').trim() || null;
+
+    const items = [primary, ...others].flatMap((g) => extractMovements(g.notes));
+
+    days.push({
+      weekNo: weekOf(date),
+      dayNo: isoWeekday(date),
+      title: primary.title,
+      discipline: primary.type as ImportDiscipline,
+      notes: notes && notes.length > 4000 ? `${notes.slice(0, 3997)}…` : notes,
+      items,
+    });
+  }
+
+  if (days.length === 0)
+    return {
+      ok: false,
+      errors: [
+        { row: 0, message: 'Every row is a rest day; there is nothing to put on the calendar' },
+      ],
+    };
+
+  const checked = z.array(importDaySchema).safeParse(days);
+  if (!checked.success) {
+    return {
+      ok: false,
+      errors: checked.error.issues.map((iss) => ({
+        row: 0,
+        message: `${iss.path.join('.')}: ${iss.message}`,
+      })),
+    };
+  }
+
+  return {
+    ok: true,
+    days: checked.data,
+    rowsRead,
+    athleteEmail: [...emails][0] ?? null,
+    startDate,
+    phase,
+    restDays,
+  };
+}
+
+/** "base1" → "Base 1", "build_2" → "Build 2"; anything else is only capitalised. */
+export function prettyPhase(phase: string | null): string | null {
+  if (!phase) return null;
+  const m = phase.trim().match(/^([A-Za-z]+)[\s_-]*(\d+)$/);
+  const s = m ? `${m[1]} ${m[2]}` : phase.trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

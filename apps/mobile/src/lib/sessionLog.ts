@@ -223,7 +223,8 @@ export function useSessionLog(sessionId: string | null, plan: SessionPlanItem[])
     completed,
     total,
     ratio: total ? completed / total : 0,
-    allDone: total > 0 && completed === total,
+    // A day written as a sentence has no sets to tick; doing it is finishing it.
+    allDone: completed === total,
     started: startedAt !== null,
     begin,
     elapsed,

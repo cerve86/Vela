@@ -59,9 +59,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
     const description = [
       done
         ? 'Done ✓'
-        : lines.length
+        : lines.length || s.dayNotes
           ? 'Your session:'
           : 'No exercises listed for this session yet.',
+      ...(s.dayNotes ? [s.dayNotes, ''] : []),
       ...lines,
       '',
       done ? 'Logged in Vela.' : `Done it? Mark the whole session complete here:\n${doneUrl}`,

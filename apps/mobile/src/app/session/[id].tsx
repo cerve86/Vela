@@ -16,6 +16,7 @@ import {
   StatTile,
 } from '@/components/kit';
 import { Rise, Tap } from '@/components/motion';
+import { Prose } from '@/components/prose';
 import { CelebrationCard, ProgressRing, RestBar, SetTickRow } from '@/components/session-kit';
 import { useTheme } from '@/theme';
 import { useSessionMeta, useSessionPlan } from '@/lib/data';
@@ -61,6 +62,10 @@ export default function SessionScreen() {
   const loading = plan.loading || meta.loading || !log.restored;
   const title = meta.data?.title ?? 'Session';
   const mins = planMinutes(active.items.map((i) => ({ sets: i.sets, restSec: i.restSec })));
+  // What her physio wrote for the day. On a run or a swim it is the whole prescription;
+  // beside a list of movements it is the framing — the warm-up, the pool, the why.
+  const dayNotes = meta.data?.dayNotes ?? null;
+  const written = active.items.length === 0;
 
   // Resuming lands straight in the checklist — asking for a symptom score a second time
   // would overwrite the one the session was actually built from.
@@ -76,7 +81,7 @@ export default function SessionScreen() {
   }
 
   function finish() {
-    if (log.completed === 0) {
+    if (log.completed === 0 && log.total > 0) {
       setNudge('Log at least one set first.');
       return;
     }
@@ -119,9 +124,32 @@ export default function SessionScreen() {
           </Body>
           <Display size={28}>{title}</Display>
 
+          {dayNotes && (
+            <Rise>
+              <Card style={{ borderRadius: 22 }}>
+                <Body
+                  size={11}
+                  weight="medium"
+                  color={t.textSecondary}
+                  style={{ letterSpacing: 0.5 }}
+                >
+                  WHAT TO DO
+                </Body>
+                <View style={{ marginTop: 10 }}>
+                  <Prose body={dayNotes} />
+                </View>
+              </Card>
+            </Rise>
+          )}
+
           <Rise>
             <Card style={{ borderRadius: 22 }}>
-              <Body size={11} weight="medium" color={t.textSecondary} style={{ letterSpacing: 0.5 }}>
+              <Body
+                size={11}
+                weight="medium"
+                color={t.textSecondary}
+                style={{ letterSpacing: 0.5 }}
+              >
                 ANYTHING GOING ON?
               </Body>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 12 }}>
@@ -160,8 +188,8 @@ export default function SessionScreen() {
                   }}
                 >
                   <Body size={13} color={t.textSecondary} style={{ lineHeight: 19 }}>
-                    Today drops to breath and connection work. That is the session — not a
-                    lesser version of one — and your physio will see why.
+                    Today drops to breath and connection work. That is the session — not a lesser
+                    version of one — and your physio will see why.
                   </Body>
                 </View>
               )}
@@ -170,7 +198,12 @@ export default function SessionScreen() {
 
           <Rise delay={60}>
             <Card style={{ borderRadius: 22 }}>
-              <Body size={11} weight="medium" color={t.textSecondary} style={{ letterSpacing: 0.5 }}>
+              <Body
+                size={11}
+                weight="medium"
+                color={t.textSecondary}
+                style={{ letterSpacing: 0.5 }}
+              >
                 SYMPTOM BEFORE TRAINING
               </Body>
               <View style={{ marginTop: 12 }}>
@@ -216,7 +249,7 @@ export default function SessionScreen() {
               {title}
             </Text>
             <Body size={12.5} color={t.textSecondary}>
-              {log.completed} of {log.total} sets
+              {written ? 'As your physio wrote it' : `${log.completed} of ${log.total} sets`}
             </Body>
           </View>
           <View style={{ alignItems: 'flex-end', gap: 3 }}>
@@ -264,6 +297,22 @@ export default function SessionScreen() {
           }}
           showsVerticalScrollIndicator={false}
         >
+          {dayNotes && (
+            <Card style={{ borderRadius: 22 }}>
+              <Body
+                size={11}
+                weight="medium"
+                color={t.textSecondary}
+                style={{ letterSpacing: 0.5 }}
+              >
+                WHAT TO DO
+              </Body>
+              <View style={{ marginTop: 10 }}>
+                <Prose body={dayNotes} />
+              </View>
+            </Card>
+          )}
+
           {active.items.map((item, idx) => (
             <Rise key={item.itemId} delay={idx * 40}>
               <Card style={{ borderRadius: 22, paddingVertical: 22 }}>
@@ -335,7 +384,7 @@ export default function SessionScreen() {
             </Body>
           )}
 
-          <Button label="Finish and review" onPress={finish} />
+          <Button label={written ? 'Done — mark it off' : 'Finish and review'} onPress={finish} />
 
           <Tap
             onPress={stopEarly}
@@ -382,7 +431,12 @@ export default function SessionScreen() {
       >
         {log.allDone && !stopped ? (
           <CelebrationCard
-            message={`${log.total} sets, ${clock(log.elapsed)} on the clock. Your physio sees this as soon as you send it.`}
+            title={written ? 'Done' : undefined}
+            message={
+              written
+                ? `Done, ${clock(log.elapsed)} on the clock. Your physio sees this as soon as you send it.`
+                : `${log.total} sets, ${clock(log.elapsed)} on the clock. Your physio sees this as soon as you send it.`
+            }
           />
         ) : (
           <Rise>
@@ -410,11 +464,11 @@ export default function SessionScreen() {
             </Body>
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
               <StatTile label="TIME" value={clock(log.elapsed)} dark flex={1.3} />
-              <StatTile label="SETS" value={`${log.completed}`} />
-              <StatTile label="OF" value={`${log.total}`} />
+              {!written && <StatTile label="SETS" value={`${log.completed}`} />}
+              {!written && <StatTile label="OF" value={`${log.total}`} />}
             </View>
             <Body size={12.5} color={t.textSecondary} style={{ marginTop: 12 }}>
-              Planned {mins} min · {active.tag.toLowerCase()}
+              {written ? active.tag : `Planned ${mins} min · ${active.tag.toLowerCase()}`}
             </Body>
           </Card>
         </Rise>
@@ -435,7 +489,10 @@ export default function SessionScreen() {
 
         {sent ? (
           <Rise>
-            <Card fill={t.dark ? 'rgba(14,159,110,0.14)' : t.tint.mint} style={{ borderRadius: 22 }}>
+            <Card
+              fill={t.dark ? 'rgba(14,159,110,0.14)' : t.tint.mint}
+              style={{ borderRadius: 22 }}
+            >
               <Body size={15} weight="semibold">
                 Sent to your physio
               </Body>
@@ -450,16 +507,13 @@ export default function SessionScreen() {
         ) : (
           <>
             {log.sendState === 'failed' && (
-              <Card
-                fill={t.dark ? 'rgba(196,24,74,0.12)' : '#FDEBF4'}
-                style={{ borderRadius: 22 }}
-              >
+              <Card fill={t.dark ? 'rgba(196,24,74,0.12)' : '#FDEBF4'} style={{ borderRadius: 22 }}>
                 <Body size={13.5} weight="semibold" color={t.status.critical}>
                   Couldn&apos;t reach Vela
                 </Body>
                 <Body size={12.5} color={t.textSecondary} style={{ marginTop: 4, lineHeight: 18 }}>
-                  Your session is saved on this phone — nothing is lost. Try again when you
-                  have signal.
+                  Your session is saved on this phone — nothing is lost. Try again when you have
+                  signal.
                 </Body>
                 {log.sendError && (
                   <Body size={11} color={t.textMuted} style={{ marginTop: 6 }}>

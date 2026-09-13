@@ -143,7 +143,7 @@ export const setLogSchema = z.object({
 });
 export type SetLog = z.infer<typeof setLogSchema>;
 
-export const disciplineSchema = z.enum(['strength', 'run', 'mobility', 'rehab']);
+export const disciplineSchema = z.enum(['strength', 'run', 'mobility', 'rehab', 'cross']);
 export type Discipline = z.infer<typeof disciplineSchema>;
 
 export const sessionSchema = z.object({

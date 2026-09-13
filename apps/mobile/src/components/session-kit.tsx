@@ -280,7 +280,13 @@ export function RestBar({
  * celebration that fires whatever happened is worth nothing the second time. This is the
  * one place the app raises its voice.
  */
-export function CelebrationCard({ message }: { message: string }) {
+export function CelebrationCard({
+  message,
+  title = 'Every set, done',
+}: {
+  message: string;
+  title?: string;
+}) {
   const t = useTheme();
   const s = useSharedValue(0);
 
@@ -331,7 +337,7 @@ export function CelebrationCard({ message }: { message: string }) {
           textAlign: 'center',
         }}
       >
-        Every set, done
+        {title}
       </Text>
       <Body size={13.5} color={t.textSecondary} style={{ textAlign: 'center', lineHeight: 19 }}>
         {message}

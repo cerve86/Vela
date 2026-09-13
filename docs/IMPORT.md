@@ -33,6 +33,47 @@ with its Excel row number, and every exercise name the library does not know. No
 written until the preview is confirmed, and an unmatched exercise blocks it — rename it
 in the file, or add it to the library, then preview again.
 
+## Plan sheets
+
+The second shape: **one row per dated session, for one athlete** — the export a planning
+assistant makes for a physiotherapist. Template: [`/plan-template.csv`](../apps/web/public/plan-template.csv).
+The headers decide which shape a file is: a date column and no sets column is a plan sheet.
+
+| Column             | Required | Accepted spellings                    | Notes                                                                                                                                       |
+| ------------------ | :------: | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| athlete_email      |          | athlete email, email, client          | Who it is for. One athlete per file. Matched to the coach's clients by email.                                                               |
+| date               |   yes    | date, session date, when              | `2026-09-14`, `14/09/2026`, or an Excel date. The Monday of the earliest date is day 1 of week 1; the weekday is the day.                   |
+| phase              |          | phase, block                          | Names the programme with the athlete: "Caroline — Base 1".                                                                                  |
+| week_number        |          | week number, week, wk                 | Read but not relied on: the calendar numbers the weeks from the Monday of the earliest date, so weeks that start mid-week still land right. |
+| title              |   yes    | title, session, session name          | The day's title in the app.                                                                                                                 |
+| type               |          | type, session type, discipline        | strength · run · mobility · rehab · cross · rest. Words for them: intervals/long/tempo → run, spin/swim/bike → cross, recovery → rehab.     |
+| planned_min        |          | planned min, minutes, duration        | Goes into the day's notes as "60 min", with the km, climb and carbs if given.                                                               |
+| planned_km, vert_m |          | km, distance · vert, climb, elevation |                                                                                                                                             |
+| fuel_carbs_g_per_h |          | fuel, carbs per hour                  |                                                                                                                                             |
+| notes              |          | notes, description, details           | Kept whole as the day's notes — the client reads them on Today and before she starts.                                                       |
+
+Rows sharing a date make one day: the longest non-rest session is the day, the others are
+folded into its notes under their own titles ("Daily — ankle: Tennis-ball calf raises 15
+x 2, twice daily."). A date with nothing but a rest row makes no day.
+
+**Movements in the notes.** Wherever the notes name a movement with a dose — "Dead bug hip
+thrust 3 x 12 per side", "Suitcase carry 4 × 45 s, 12.5-15 kg", "single-leg RDL 3 × 8/side"
+— it is also lifted out as an item, so the set is tickable in the app. A range, a unit and
+a per-side marker travel with the reps; a load in kg becomes the target (the lower end of a
+range); "15 x 2" is read as two sets of fifteen; anything else on the tail is the item's
+note. The sentence stays in the notes as written either way. Coaching with no dose
+("hinges lead over squats") is not an item.
+
+**What the preview offers, and does only when ticked:**
+
+- **Add the unmatched names to the library** as the coach's own exercises — name and a
+  category guessed from the day (running, mobility, strength); cues and equipment are
+  filled in from the library later. Unticked, an unmatched name blocks the import as
+  before.
+- **Assign it** to the client the sheet names, from its first Monday, when that email is
+  one of her clients. Her current programme ends there and she gets the usual message.
+  The programme name defaults to "First name — Phase".
+
 ## The API
 
 ```
@@ -75,8 +116,14 @@ Authorization: Bearer <supabase access token>     (or the portal session cookie)
 Defaults apply as in the table: `discipline` strength, `block` A, `restSec` 60,
 `loadKg` / `rpe` / `tempo` / `notes` null.
 
+A day may carry `notes` (up to 4,000 characters) and then an empty `items` list; a day
+needs one or the other. `discipline` also accepts `cross`.
+
 **Multipart body** — the upload without the form: a `file` field holding the .xlsx or
-.csv, plus optional `name`, `description` and `isTemplate` (`true`/`1`/`on`).
+.csv (either shape), plus optional `name`, `description` and `isTemplate`
+(`true`/`1`/`on`). Query flags for either body: `addMissing=1` creates the exercises the
+library lacks as the coach's own; `assign=1` puts a plan sheet on the calendar of the
+client it names, from its first Monday (422 when no client has that email).
 
 ```bash
 curl -X POST "https://www.vela-coaching.com/api/programs/import?dryRun=1" \
@@ -84,13 +131,13 @@ curl -X POST "https://www.vela-coaching.com/api/programs/import?dryRun=1" \
   -F file=@block.xlsx -F "name=Block 3"
 ```
 
-| Status | Body                             | Meaning                                                                                                      |
-| ------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| 201    | `{ id, summary }`                | Created. `id` opens in the builder at `/programs/{id}`.                                                      |
-| 200    | `{ ok: true, summary }`          | Dry run passed; nothing created.                                                                             |
-| 400    | `{ errors: [{ row, message }] }` | The body or file did not validate. `row` is the spreadsheet row (header = 1), or 0 for a body-level problem. |
-| 401    | `{ error }`                      | No session and no usable token.                                                                              |
-| 422    | `{ error, unmatched: [...] }`    | Exercise names not in the coach's library. Nothing created.                                                  |
+| Status | Body                                       | Meaning                                                                                                                                |
+| ------ | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 201    | `{ id, summary, created, assigned }`       | Created. `id` opens in the builder at `/programs/{id}`; `created` lists exercises made, `assigned` says whether it went on a calendar. |
+| 200    | `{ ok: true, summary, unmatched, assign }` | Dry run passed; nothing created.                                                                                                       |
+| 400    | `{ errors: [{ row, message }] }`           | The body or file did not validate. `row` is the spreadsheet row (header = 1), or 0 for a body-level problem.                           |
+| 401    | `{ error }`                                | No session and no usable token.                                                                                                        |
+| 422    | `{ error, unmatched: [...] }`              | Exercise names not in the coach's library. Nothing created.                                                                            |
 
 ### Getting a credential
 
@@ -118,10 +165,12 @@ rather than request a code each time.
 
 ## What is deliberately not here
 
-- **No auto-creation of exercises.** An unmatched name is refused, never invented. A typo
-  that silently became a new library entry is how a client ends up prescribed something
-  that does not exist.
-- **No assignment.** Import makes a programme; assigning it to a client with a start date
-  is a separate, deliberate step in the builder, as it is for every other programme.
+- **No silent creation of exercises.** An unmatched name is refused unless the coach,
+  looking at the list, ticks the box (or a script passes `addMissing=1`). A typo that
+  silently became a new library entry is how a client ends up prescribed something that
+  does not exist; a name she has read and accepted is hers.
+- **No silent assignment.** A plan sheet says who it is for and when; putting it on her
+  calendar is still a box the coach ticks on the preview, and a movement sheet is never
+  assigned by import.
 - **No multi-sheet workbooks.** One flat table. A "Week 1" tab and a "Week 2" tab is a
   reasonable thing to have made and a wrong thing to guess the meaning of.

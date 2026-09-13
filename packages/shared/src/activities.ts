@@ -7,7 +7,7 @@
  * otherwise get wrong in silence.
  */
 
-export type ActivityDiscipline = 'run' | 'strength' | 'mobility';
+export type ActivityDiscipline = 'run' | 'strength' | 'mobility' | 'cross';
 
 export interface ActivityLike {
   sportType: string;
@@ -16,12 +16,8 @@ export interface ActivityLike {
   avgCadence: number | null;
 }
 
-const RUN_SPORTS = new Set([
-  'Run',
-  'TrailRun',
-  'VirtualRun',
-  'Walk',
-  'Hike',
+const RUN_SPORTS = new Set(['Run', 'TrailRun', 'VirtualRun', 'Walk', 'Hike']);
+const CROSS_SPORTS = new Set([
   'Ride',
   'VirtualRide',
   'Swim',
@@ -42,14 +38,14 @@ const MOBILITY_SPORTS = new Set(['Yoga', 'Pilates']);
 /**
  * Which of the programme's disciplines an activity counts towards.
  *
- * The programme only knows strength, run, mobility and rehab; a bike ride or a swim is
- * cardiovascular work and so files under "run", which is what the plan calls its
- * cardio day. Nothing external ever counts as rehab — that is prescribed, never
- * recorded.
+ * A bike ride or a swim is cross-training: cardiovascular work that is not a run. Nothing
+ * external ever counts as rehab — that is prescribed, never recorded. Anything unknown
+ * is taken as a run, the plan's plainest cardio day.
  */
 export function disciplineForSport(sportType: string): ActivityDiscipline {
   if (STRENGTH_SPORTS.has(sportType)) return 'strength';
   if (MOBILITY_SPORTS.has(sportType)) return 'mobility';
+  if (CROSS_SPORTS.has(sportType)) return 'cross';
   if (RUN_SPORTS.has(sportType)) return 'run';
   return 'run';
 }
@@ -115,11 +111,17 @@ export function matchPlannedSession(
   sessions: PlannedSessionLike[],
 ): string | null {
   const discipline = disciplineForSport(activity.sportType);
-  const match = sessions.find(
-    (s) =>
-      s.scheduledDate === activity.localDate &&
-      s.discipline === discipline &&
-      (s.status === 'scheduled' || s.status === 'in_progress'),
-  );
-  return match?.id ?? null;
+  // A ride fulfils a cross-training day first, and failing that a run day: programmes
+  // written before cross-training existed call every cardio day a run.
+  const accepted = discipline === 'cross' ? ['cross', 'run'] : [discipline];
+  for (const want of accepted) {
+    const match = sessions.find(
+      (s) =>
+        s.scheduledDate === activity.localDate &&
+        s.discipline === want &&
+        (s.status === 'scheduled' || s.status === 'in_progress'),
+    );
+    if (match) return match.id;
+  }
+  return null;
 }

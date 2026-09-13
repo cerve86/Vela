@@ -1,6 +1,22 @@
 import { NextResponse } from 'next/server';
-import { importProgram, resolveExerciseNames } from '@vela/api';
-import { importProgramSchema, parseProgramRows, summariseImport } from '@vela/shared';
+import {
+  assignProgram,
+  categoryForDiscipline,
+  createExercisesNamed,
+  findClientByEmail,
+  importProgram,
+  normaliseExerciseName,
+  notifyProgramAssigned,
+  resolveExerciseNames,
+} from '@vela/api';
+import {
+  detectImportFormat,
+  importProgramSchema,
+  parsePlanRows,
+  parseProgramRows,
+  prettyPhase,
+  summariseImport,
+} from '@vela/shared';
 import { requireCoach } from '@/lib/apiRoute';
 import { readSpreadsheet } from '@/lib/spreadsheet';
 import { toWrite } from '@/lib/programImport';
@@ -11,8 +27,11 @@ import { toWrite } from '@/lib/programImport';
  * Two bodies are accepted. `application/json` carrying the programme shape in
  * `importProgramSchema`; or `multipart/form-data` with a `file` field holding a .xlsx or
  * .csv plus optional `name`, `description` and `isTemplate` fields, which is the upload
- * form's path without the form. Add `?dryRun=1` to validate and resolve exercise names
- * without creating anything.
+ * form's path without the form. The file may be a movement sheet or a plan sheet (one
+ * row per dated session); the headers decide. Add `?dryRun=1` to validate and resolve
+ * exercise names without creating anything; `?addMissing=1` to create the exercises the
+ * library lacks as the coach's own; `?assign=1` to put a plan sheet on the calendar of
+ * the client it names, from its first Monday.
  *
  * Authentication is the signed-in coach: the portal's session cookie, a Supabase access
  * token, or a personal API key from Settings, the last two as `Authorization: Bearer …`.
@@ -30,8 +49,13 @@ export async function POST(req: Request) {
   const { supabase, userId, refused } = await requireCoach(req);
   if (refused) return refused;
 
-  const dryRun = new URL(req.url).searchParams.get('dryRun') === '1';
+  const query = new URL(req.url).searchParams;
+  const flag = (name: string) => ['1', 'true', 'on'].includes(query.get(name) ?? '');
+  const dryRun = flag('dryRun');
+  const addMissing = flag('addMissing');
+  const wantAssign = flag('assign');
   const contentType = req.headers.get('content-type') ?? '';
+  let assignTo: { clientId: string; startDate: string } | null = null;
 
   let candidate: unknown;
   if (contentType.includes('multipart/form-data')) {
@@ -56,14 +80,43 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    const parsed = parseProgramRows(table.headers, table.rows);
-    if (!parsed.ok) return NextResponse.json({ errors: parsed.errors }, { status: 400 });
+    const fileName = file.name.replace(/\.(xlsx|csv|txt)$/i, '');
+    let name = String(fd.get('name') ?? '').trim();
+    let days;
+    if (detectImportFormat(table.headers) === 'plan') {
+      const parsed = parsePlanRows(table.headers, table.rows);
+      if (!parsed.ok) return NextResponse.json({ errors: parsed.errors }, { status: 400 });
+      days = parsed.days;
+      const client = parsed.athleteEmail
+        ? await findClientByEmail(supabase, parsed.athleteEmail)
+        : null;
+      if (!name) {
+        const who = client?.name.split(' ')[0] || parsed.athleteEmail?.split('@')[0] || fileName;
+        name = `${who} — ${prettyPhase(parsed.phase) ?? `from ${parsed.startDate}`}`;
+      }
+      if (wantAssign) {
+        if (!client)
+          return NextResponse.json(
+            {
+              error: parsed.athleteEmail
+                ? `No client of yours has the email ${parsed.athleteEmail}; nothing created.`
+                : 'The sheet does not say who it is for; nothing created.',
+            },
+            { status: 422 },
+          );
+        assignTo = { clientId: client.id, startDate: parsed.startDate };
+      }
+    } else {
+      const parsed = parseProgramRows(table.headers, table.rows);
+      if (!parsed.ok) return NextResponse.json({ errors: parsed.errors }, { status: 400 });
+      days = parsed.days;
+    }
 
     candidate = {
-      name: String(fd.get('name') ?? '').trim() || file.name.replace(/\.(xlsx|csv|txt)$/i, ''),
+      name: name || fileName,
       description: String(fd.get('description') ?? '').trim() || undefined,
       isTemplate: ['1', 'true', 'on'].includes(String(fd.get('isTemplate') ?? '').toLowerCase()),
-      days: parsed.days,
+      days,
     };
   } else {
     try {
@@ -94,7 +147,7 @@ export async function POST(req: Request) {
     userId,
     checked.data.days.flatMap((d) => d.items.map((i) => i.exercise)),
   );
-  if (unmatched.length > 0) {
+  if (unmatched.length > 0 && !addMissing) {
     return NextResponse.json(
       { error: 'Some exercises are not in your library.', unmatched },
       { status: 422 },
@@ -102,7 +155,24 @@ export async function POST(req: Request) {
   }
 
   const summary = summariseImport(checked.data.days);
-  if (dryRun) return NextResponse.json({ ok: true, summary });
+  if (dryRun) return NextResponse.json({ ok: true, summary, unmatched, assign: assignTo });
+
+  if (unmatched.length > 0) {
+    const created = await createExercisesNamed(
+      supabase,
+      userId,
+      unmatched.map((name) => ({
+        name,
+        category: categoryForDiscipline(
+          checked.data.days.find((d) =>
+            d.items.some((i) => normaliseExerciseName(i.exercise) === normaliseExerciseName(name)),
+          )?.discipline ?? 'strength',
+        ),
+      })),
+    );
+    if (created.error) return NextResponse.json({ error: created.error }, { status: 500 });
+    for (const [k, v] of created.byName) byName.set(k, v);
+  }
 
   const { id, error } = await importProgram(supabase, userId, toWrite(checked.data, byName));
   if (error || !id)
@@ -111,5 +181,18 @@ export async function POST(req: Request) {
       { status: 500 },
     );
 
-  return NextResponse.json({ id, summary }, { status: 201 });
+  let assigned = false;
+  if (assignTo) {
+    const res = await assignProgram(supabase, id, assignTo.clientId, assignTo.startDate);
+    assigned = Boolean(res.assignmentId);
+    if (assigned)
+      await notifyProgramAssigned(supabase, {
+        clientId: assignTo.clientId,
+        programName: checked.data.name,
+        startDate: assignTo.startDate,
+        via: 'portal',
+      });
+  }
+
+  return NextResponse.json({ id, summary, created: unmatched, assigned }, { status: 201 });
 }
