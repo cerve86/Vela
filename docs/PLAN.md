@@ -920,3 +920,11 @@ client's calendar from the sheet's first Monday. Cross-training is a discipline 
 On the phone, a day written as a sentence shows the sentence on Today and before she
 starts, and "Done — mark it off" completes it without sets to tick. The builder shows and
 edits each day's notes. The calendar feed carries them too.
+
+## Portal functions in Singapore (13 September 2026)
+
+The portal felt slow: a second or two a click. Its server functions were running in
+Vercel's default region, Washington DC, while the database, auth and both users are in
+Singapore — every page paid a trip across the Pacific to reach the server and then five
+to eight round trips back for auth and data, a quarter of a second each. `vercel.json`
+pins the functions to `sin1`, beside the database.
