@@ -892,3 +892,14 @@ becomes "Nothing on the calendar" with the same explanation. The empty gauge dra
 nothing rather than a lone knob beside the mascot. The programme screen has an empty
 state with a title and a sentence instead of one bare line. The portal got the same pass
 the day before: a phone layout, and Settings that hydrates.
+
+## 0.3.6 — Strava's athlete cap, told in the app (13 September 2026)
+
+A client tapped _Connect with Strava_ and landed on Strava's own page: _Error 403: Limit
+of connected athletes exceeded_. A new Strava application may connect one athlete, and
+Strava says so only there, after she has left the app. The portal now knows the cap
+(`STRAVA_ATHLETE_CAPACITY`, default 1), counts connected athletes against it, and refuses
+the next one in the app in a sentence that says whose problem it is; an athlete already
+connected can still reconnect. Settings shows the slots used and where the limit is
+raised. The cap itself is raised by the owner on Strava: to ten in the application's API
+settings, beyond that by review.

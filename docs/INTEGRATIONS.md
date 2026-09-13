@@ -32,6 +32,17 @@ Cadence is shown in steps per minute (both feet); Strava stores one foot's count
    subscription everything still works; imports just wait for _Sync now_ or the next
    connect.
 
+4. Raise the **athlete capacity**. A new Strava application may connect one athlete
+   ("single player mode"); the second client to tap _Connect with Strava_ lands on
+   Strava's own page reading _Error 403: Limit of connected athletes exceeded_, with no
+   way back to the app. On the same API settings page, raise the capacity to 10; for
+   more than 10, submit the application for review through the Developer Program form
+   linked from <https://developers.strava.com/docs/rate-limits/> (reviews take a week or
+   more). Strava does not expose the number, so tell the portal: set
+   `STRAVA_ATHLETE_CAPACITY` in Vercel to the same figure and redeploy. The portal counts
+   connected athletes against it and refuses the next one in the app, in words, before
+   she leaves for Strava; **Settings** in the portal shows the slots used.
+
 Strava's brand guidelines ask that the connect button reads "Connect with Strava" in
 Strava orange and that displayed data is attributed; the app says "via Strava" on every
 activity card. Before a public release, replace the text button with Strava's official
@@ -41,6 +52,9 @@ button asset from the same guidelines page.
 
 - `POST /api/strava/connect` (as the client) returns the authorisation URL. The OAuth
   state is the client id and user id, signed with the client secret and valid ten minutes.
+  Before that it counts `strava_links` against `STRAVA_ATHLETE_CAPACITY` and answers 503
+  with a sentence when a new athlete would be one too many; an athlete who already holds
+  a slot is let through to reconnect.
 - `GET /api/strava/callback` exchanges the code, stores tokens in `strava_tokens` (a
   table nothing signed-in can read) and the link in `strava_links` (which the client and
   her coach can), runs the first import, and sends the phone back to `vela://strava`.

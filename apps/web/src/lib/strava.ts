@@ -25,6 +25,24 @@ export interface StravaConfig {
   clientSecret: string;
   verifyToken: string;
   apiBase: string;
+  /** How many athletes Strava lets this application connect. See `athleteCapacity`. */
+  athleteCapacity: number;
+}
+
+/**
+ * Strava's cap on connected athletes, which Vela cannot read from Strava.
+ *
+ * A new Strava application may connect one athlete ("single player mode"); the owner can
+ * raise that to ten in the API settings dashboard and beyond ten by submitting the app
+ * for review. Strava does not expose the number, and the only sign of hitting it is an
+ * error page the athlete lands on after she has already left the app. So the portal is
+ * told the number and refuses, in words, before she leaves.
+ */
+export const DEFAULT_ATHLETE_CAPACITY = 1;
+
+export function athleteCapacity(raw = process.env.STRAVA_ATHLETE_CAPACITY): number {
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : DEFAULT_ATHLETE_CAPACITY;
 }
 
 export function stravaConfig(): StravaConfig | null {
@@ -36,7 +54,35 @@ export function stravaConfig(): StravaConfig | null {
     clientSecret,
     verifyToken: process.env.STRAVA_WEBHOOK_VERIFY_TOKEN ?? 'vela',
     apiBase: (process.env.STRAVA_API_BASE ?? 'https://www.strava.com').replace(/\/+$/, ''),
+    athleteCapacity: athleteCapacity(),
   };
+}
+
+/**
+ * Athletes currently holding one of the application's slots, as Vela counts them.
+ *
+ * Every link row is a distinct athlete (the athlete id is unique), and disconnecting
+ * deletes the row after revoking at Strava. A link revoked on Strava's side but not here
+ * still counts, which errs towards refusing early rather than sending her to the error
+ * page; the coach can see the count in Settings.
+ */
+export async function connectedAthletes(admin: Admin): Promise<number> {
+  const { count, error } = await admin
+    .from('strava_links')
+    .select('athlete_id', { count: 'exact', head: true });
+  if (error) throw new Error(`Could not count Strava links: ${error.message}`);
+  return count ?? 0;
+}
+
+/** True when a new athlete would be turned away by Strava's cap. */
+export function atCapacity(connected: number, capacity: number): boolean {
+  return connected >= capacity;
+}
+
+/** What the athlete is told when the cap is reached, and what her coach needs to do. */
+export function capacityMessage(capacity: number): string {
+  const slots = capacity === 1 ? 'one athlete' : `${capacity} athletes`;
+  return `Strava lets Vela connect ${slots} at the moment and that room is taken. Ask your physiotherapist to have the limit raised, then tap Connect again.`;
 }
 
 /* ─────────────────────────────────────────────────────────────
