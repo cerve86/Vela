@@ -8,6 +8,7 @@ export * from './readiness';
 export * from './plan';
 export * from './progression';
 export * from './programImport';
+export * from './programWeeks';
 export * from './roster';
 export * from './activities';
 export * from './ics';

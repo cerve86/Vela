@@ -2,9 +2,17 @@ import { useCallback, useMemo, useState } from 'react';
 import { Link, useFocusEffect } from 'expo-router';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronRight, Trophy, Users } from 'lucide-react-native';
+import { CalendarDays, ChevronRight, Trophy, Users } from 'lucide-react-native';
 import { METRIC_META, challengeWeekNow, type MetricType } from '@vela/api';
-import { RECENT_DAYS, deriveMilestones, type Milestone } from '@vela/shared';
+import {
+  RECENT_DAYS,
+  deriveMilestones,
+  programmeWeeks,
+  weekColumnCounts,
+  weekRangeLabel,
+  type Milestone,
+  type ProgrammeWeek,
+} from '@vela/shared';
 import { Body, Card, Display, Screen } from '@/components/kit';
 import { Rise, Tap } from '@/components/motion';
 import { Heatmap, MonoChart, MonoHeader, TrendChart, type CellState } from '@/components/charts';
@@ -18,9 +26,11 @@ import {
   localDay,
   startOfWeek,
   today,
+  useAssignedProgram,
   useHistory,
   useMetrics,
   useNutrition,
+  useProgrammeSessions,
 } from '@/lib/data';
 import { useMyChallenges, type ClientChallenge } from '@/lib/challenges';
 
@@ -58,6 +68,9 @@ export default function ProgressScreen() {
   // backwards from today. Pulling sixteen weeks of meals to answer that would be waste.
   const nutrition = useNutrition(14);
   const challenges = useMyChallenges();
+  const assigned = useAssignedProgram();
+  const programme = assigned.data?.kind === 'structured' ? assigned.data : null;
+  const programmeSessions = useProgrammeSessions(programme);
 
   const [metric, setMetric] = useState<MetricType>('resting_hr');
   /** How far back the vitals chart looks: one, two or four weeks. */
@@ -68,6 +81,8 @@ export default function ProgressScreen() {
       history.reload();
       metrics.reload();
       nutrition.reload();
+      assigned.reload();
+      programmeSessions.reload();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );
@@ -97,7 +112,39 @@ export default function ProgressScreen() {
     return [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
   }, [metrics.data, metric, rangeDays]);
 
-  const { weeks, kept, scheduled } = useMemo(() => buildHeatmap(history.data), [history.data]);
+  const { weeks, kept, scheduled, columnStarts } = useMemo(
+    () => buildHeatmap(history.data),
+    [history.data],
+  );
+
+  /**
+   * The programme laid over the grid: a figure under each column it touches — done over
+   * planned — and a bar bracketing its columns. The grid's weeks start on Sunday and the
+   * programme's on whatever day it was assigned from, so the figures follow the columns.
+   */
+  const programmeMarks = useMemo(() => {
+    if (!programme) return { labels: undefined, mark: null };
+    const counts = weekColumnCounts(columnStarts, programmeSessions.data);
+    const touched = counts.map((c, i) => (c ? i : -1)).filter((i) => i >= 0);
+    return {
+      labels: counts.map((c) => (c ? `${c.done}/${c.planned}` : null)),
+      mark: touched.length ? { from: touched[0]!, to: touched[touched.length - 1]! } : null,
+    };
+  }, [programme, columnStarts, programmeSessions.data]);
+
+  const todayIsoForWeeks = today();
+  const blockWeeks = useMemo(
+    () =>
+      programme
+        ? programmeWeeks({
+            startDate: programme.startDate,
+            durationWeeks: programme.durationWeeks,
+            sessions: programmeSessions.data,
+            today: todayIsoForWeeks,
+          })
+        : [],
+    [programme, programmeSessions.data, todayIsoForWeeks],
+  );
 
   /** Soreness per week, from the scores actually recorded. No reading, no point. */
   const soreness = useMemo(() => weeklySoreness(history.data), [history.data]);
@@ -161,10 +208,33 @@ export default function ProgressScreen() {
                 </View>
 
                 <View style={{ marginTop: 18 }}>
-                  <Heatmap weeks={weeks} />
+                  <Heatmap
+                    weeks={weeks}
+                    labels={programmeMarks.labels}
+                    mark={programmeMarks.mark}
+                  />
                 </View>
+                {programmeMarks.mark && (
+                  <Body size={12} color={t.textMuted} style={{ marginTop: 8, lineHeight: 17 }}>
+                    The bar marks your programme; under each of its weeks, sessions done over
+                    sessions planned.
+                  </Body>
+                )}
               </Card>
             </Rise>
+
+            {assigned.data && (
+              <Rise delay={40}>
+                <ProgrammeCard
+                  name={assigned.data.name}
+                  durationWeeks={assigned.data.durationWeeks}
+                  startDate={assigned.data.startDate}
+                  descriptive={assigned.data.kind === 'descriptive'}
+                  weeks={blockWeeks}
+                  loading={programmeSessions.loading}
+                />
+              </Rise>
+            )}
 
             <Rise delay={60}>
               <Card style={{ borderRadius: 22 }}>
@@ -569,6 +639,125 @@ function CardHead({ icon, title }: { icon: 'trend-wave' | 'pain-point'; title: s
   );
 }
 
+/**
+ * The programme she is on, week by week from this one on.
+ *
+ * Past weeks are the grid's business; here the question is what is coming, and for the
+ * week under way how it stands. Each week lists its sessions by title, in date order, so
+ * "Week 3" is not a number but Gym Day 1, Run&Bun, the pool. A descriptive programme has
+ * no calendar to lay out; it is named, with the way to read it.
+ */
+function ProgrammeCard({
+  name,
+  durationWeeks,
+  startDate,
+  descriptive,
+  weeks,
+  loading,
+}: {
+  name: string;
+  durationWeeks: number;
+  startDate: string;
+  descriptive: boolean;
+  weeks: ProgrammeWeek[];
+  loading: boolean;
+}) {
+  const t = useTheme();
+  const current = weeks.find((w) => w.isCurrent);
+  const ahead = weeks.filter((w) => !w.isPast);
+  const started = new Date(`${startDate}T00:00:00Z`).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  });
+
+  return (
+    <Card style={{ borderRadius: 22 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 10,
+            backgroundColor: t.tint.cream,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <CalendarDays size={16} color={t.brand[600]} strokeWidth={2.1} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Body size={13.5} weight="medium">
+            {name}
+          </Body>
+          <Body size={12} color={t.textSecondary}>
+            {durationWeeks} weeks · from {started}
+            {current ? ` · week ${current.weekNo} of ${durationWeeks}` : ''}
+          </Body>
+        </View>
+      </View>
+
+      {descriptive ? (
+        <Link href="/program" asChild>
+          <Tap
+            accessibilityRole="button"
+            style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+          >
+            <Body size={13} weight="medium" color={t.brand[600]}>
+              Written out as text — read it through
+            </Body>
+            <ChevronRight size={14} color={t.brand[600]} strokeWidth={2.4} />
+          </Tap>
+        </Link>
+      ) : loading && weeks.every((w) => w.planned === 0) ? (
+        <View style={{ marginTop: 14 }}>
+          <ActivityIndicator color={t.brand[600]} />
+        </View>
+      ) : ahead.length === 0 ? (
+        <Body size={13} color={t.textSecondary} style={{ marginTop: 12 }}>
+          Every week of this programme is behind you.
+        </Body>
+      ) : (
+        <View style={{ marginTop: 14, gap: 10 }}>
+          {ahead.map((w) => (
+            <View
+              key={w.weekNo}
+              style={{
+                backgroundColor: w.isCurrent ? t.brand[50] : t.softFill,
+                borderRadius: t.radius.md,
+                paddingVertical: 11,
+                paddingHorizontal: 13,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                <Body size={13} weight="semibold" style={{ flex: 1 }}>
+                  Week {w.weekNo}
+                  {w.isCurrent ? ' · this week' : ''}
+                </Body>
+                <Body size={12} color={t.textSecondary}>
+                  {weekRangeLabel(w.from, w.to)}
+                </Body>
+              </View>
+              <Body size={12.5} color={t.textSecondary} style={{ marginTop: 3 }}>
+                {w.planned === 0
+                  ? 'Nothing on the calendar'
+                  : w.isCurrent
+                    ? `${w.done} of ${w.planned} done${w.missed ? ` · ${w.missed} missed` : ''}`
+                    : `${w.planned} ${w.planned === 1 ? 'session' : 'sessions'}`}
+              </Body>
+              {w.sessions.length > 0 && (
+                <Body size={12.5} style={{ marginTop: 5, lineHeight: 18 }}>
+                  {w.sessions.map((s) => s.title).join(' · ')}
+                </Body>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+    </Card>
+  );
+}
+
 function Figure({
   label,
   value,
@@ -606,11 +795,13 @@ function buildHeatmap(sessions: { scheduledDate: string; status: string }[]) {
   const byDate = new Map(sessions.map((s) => [s.scheduledDate, s.status]));
 
   const weeks: CellState[][] = [];
+  const columnStarts: string[] = [];
   let kept = 0;
   let scheduled = 0;
 
   for (let w = WEEKS_SHOWN - 1; w >= 0; w--) {
     const start = addDays(thisWeekStart, -w * 7);
+    columnStarts.push(start);
     const col: CellState[] = [];
     for (let d = 0; d < 7; d++) {
       const iso = addDays(start, d);
@@ -634,7 +825,7 @@ function buildHeatmap(sessions: { scheduledDate: string; status: string }[]) {
     weeks.push(col);
   }
 
-  return { weeks, kept, scheduled };
+  return { weeks, kept, scheduled, columnStarts };
 }
 
 /** A week's completion, for the trend line. */

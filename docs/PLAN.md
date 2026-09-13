@@ -937,3 +937,12 @@ the same email again; a client who already has a verified account gets the choos
 password link instead, as a first invitation would. **Delete** asks once, inline, and
 removes the client row and everything hanging off it; it is refused for anyone who has
 signed in. Both are logged.
+
+## 0.3.7 — The programme on Progress (13 September 2026)
+
+Under "Showing up", the programme she is on: its name, length and start, and every week
+from this one to the end with its sessions by title — "Week 2 · 14–20 Sep · 7 sessions ·
+Pilates · Daily — ankle · Gym Day 1 …" — and for the week under way, done over planned and
+what was missed. The attendance grid marks the programme's weeks with a bar and writes
+done over planned under each of its columns. Prescribed sessions only: a ride recorded on
+Strava is hers but not the plan's. A written programme is named, with the way to read it.
