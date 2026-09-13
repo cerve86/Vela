@@ -720,37 +720,41 @@ function ProgrammeCard({
       ) : (
         <View style={{ marginTop: 14, gap: 10 }}>
           {ahead.map((w) => (
-            <View
-              key={w.weekNo}
-              style={{
-                backgroundColor: w.isCurrent ? t.brand[50] : t.softFill,
-                borderRadius: t.radius.md,
-                paddingVertical: 11,
-                paddingHorizontal: 13,
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-                <Body size={13} weight="semibold" style={{ flex: 1 }}>
-                  Week {w.weekNo}
-                  {w.isCurrent ? ' · this week' : ''}
+            <Link key={w.weekNo} href={`/week/${w.weekNo}`} asChild>
+              <Tap
+                accessibilityRole="button"
+                accessibilityLabel={`Week ${w.weekNo}, ${weekRangeLabel(w.from, w.to)}`}
+                style={{
+                  backgroundColor: w.isCurrent ? t.brand[50] : t.softFill,
+                  borderRadius: t.radius.md,
+                  paddingVertical: 11,
+                  paddingHorizontal: 13,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                  <Body size={13} weight="semibold" style={{ flex: 1 }}>
+                    Week {w.weekNo}
+                    {w.isCurrent ? ' · this week' : ''}
+                  </Body>
+                  <Body size={12} color={t.textSecondary}>
+                    {weekRangeLabel(w.from, w.to)}
+                  </Body>
+                  <ChevronRight size={14} color={t.textMuted} strokeWidth={2.4} />
+                </View>
+                <Body size={12.5} color={t.textSecondary} style={{ marginTop: 3 }}>
+                  {w.planned === 0
+                    ? 'Nothing on the calendar'
+                    : w.isCurrent
+                      ? `${w.done} of ${w.planned} done${w.missed ? ` · ${w.missed} missed` : ''}`
+                      : `${w.planned} ${w.planned === 1 ? 'session' : 'sessions'}`}
                 </Body>
-                <Body size={12} color={t.textSecondary}>
-                  {weekRangeLabel(w.from, w.to)}
-                </Body>
-              </View>
-              <Body size={12.5} color={t.textSecondary} style={{ marginTop: 3 }}>
-                {w.planned === 0
-                  ? 'Nothing on the calendar'
-                  : w.isCurrent
-                    ? `${w.done} of ${w.planned} done${w.missed ? ` · ${w.missed} missed` : ''}`
-                    : `${w.planned} ${w.planned === 1 ? 'session' : 'sessions'}`}
-              </Body>
-              {w.sessions.length > 0 && (
-                <Body size={12.5} style={{ marginTop: 5, lineHeight: 18 }}>
-                  {w.sessions.map((s) => s.title).join(' · ')}
-                </Body>
-              )}
-            </View>
+                {w.sessions.length > 0 && (
+                  <Body size={12.5} style={{ marginTop: 5, lineHeight: 18 }}>
+                    {w.sessions.map((s) => s.title).join(' · ')}
+                  </Body>
+                )}
+              </Tap>
+            </Link>
           ))}
         </View>
       )}

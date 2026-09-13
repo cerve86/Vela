@@ -1218,6 +1218,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           discipline: string
+          done_item_ids: string[]
           duration_sec: number | null
           id: string
           logged_via: string
@@ -1241,6 +1242,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           discipline?: string
+          done_item_ids?: string[]
           duration_sec?: number | null
           id?: string
           logged_via?: string
@@ -1264,6 +1266,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           discipline?: string
+          done_item_ids?: string[]
           duration_sec?: number | null
           id?: string
           logged_via?: string

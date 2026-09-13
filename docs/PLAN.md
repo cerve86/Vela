@@ -946,3 +946,12 @@ Pilates · Daily — ankle · Gym Day 1 …" — and for the week under way, don
 what was missed. The attendance grid marks the programme's weeks with a bar and writes
 done over planned under each of its columns. Prescribed sessions only: a ride recorded on
 Strava is hers but not the plan's. A written programme is named, with the way to read it.
+
+## 0.3.8 — A week, opened (13 September 2026)
+
+Tapping a week on Progress opens it: seven days across the top, the chosen day below with
+what her physio wrote and every movement in it, and arrows that walk the block from its
+first week to its last. A day she sent shows which movements she finished outright —
+every set ticked — as green checks, and a day written as a sentence shows Done for the
+whole thing. To carry that, the session now records the ids of the items whose every set
+was ticked (`done_item_ids`), written with the rest of the outcome on send.
