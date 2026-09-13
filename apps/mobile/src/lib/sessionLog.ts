@@ -184,10 +184,19 @@ export function useSessionLog(sessionId: string | null, plan: SessionPlanItem[])
       setSendState('sending');
       setSendError(null);
 
+      // The movements she finished outright — every set ticked — so the week view can
+      // mark each one rather than only the day.
+      const doneItemIds = plan
+        .filter((i) =>
+          Array.from({ length: i.sets }, (_, k) => done[setKey(i.itemId, k)]).every(Boolean),
+        )
+        .map((i) => i.itemId);
+
       const { error } = await supabase
         .from('sessions')
         .update({
           status: stopped && completed === 0 ? 'skipped' : 'completed',
+          done_item_ids: doneItemIds,
           completed_at: new Date().toISOString(),
           pain_before: painBefore,
           pain_after: painAfter,
@@ -213,7 +222,7 @@ export function useSessionLog(sessionId: string | null, plan: SessionPlanItem[])
       // Only now is the local copy redundant.
       void AsyncStorage.removeItem(key(sessionId)).catch(() => {});
     },
-    [sessionId, painBefore, completed, total, startedAt],
+    [sessionId, painBefore, completed, total, startedAt, plan, done],
   );
 
   return {

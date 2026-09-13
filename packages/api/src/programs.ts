@@ -528,6 +528,8 @@ export interface ScheduledSession {
    * set she described rather than listed. Null when the day has none, or no day at all.
    */
   dayNotes: string | null;
+  /** Prescribed items whose every set she ticked, once the session was sent. */
+  doneItemIds: string[];
   /** Where the completion came from. Only prescribed sessions count towards adherence. */
   loggedVia: 'app' | 'strava' | 'calendar';
   /** How hard she said it was, 1–10, when she said. */
@@ -535,7 +537,7 @@ export interface ScheduledSession {
 }
 
 const SESSION_COLUMNS =
-  'id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe, program_days(notes)';
+  'id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe, done_item_ids, program_days(notes)';
 
 function toSession(row: {
   id: string;
@@ -551,6 +553,7 @@ function toSession(row: {
   program_day_id: string | null;
   logged_via: string;
   session_rpe: number | string | null;
+  done_item_ids?: string[] | null;
   program_days?: { notes: string | null } | null;
 }): ScheduledSession {
   return {
@@ -566,6 +569,7 @@ function toSession(row: {
     durationSec: row.duration_sec === null ? null : Number(row.duration_sec),
     programDayId: row.program_day_id,
     dayNotes: row.program_days?.notes ?? null,
+    doneItemIds: row.done_item_ids ?? [],
     loggedVia: row.logged_via as ScheduledSession['loggedVia'],
     sessionRpe: row.session_rpe === null ? null : Number(row.session_rpe),
   };
