@@ -43,6 +43,16 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
 
   const completed = sessions.filter((s) => s.status === 'completed');
 
+  // The programme's own sessions: prescribed, and from the day it was assigned. A run
+  // imported from Strava is written as completed too, because it happened, but it is a
+  // recorded activity, not a session of the plan, and counting it here once read as
+  // "26 of 54 logged" for a client who had not started.
+  const planned = assignment
+    ? sessions.filter((s) => s.programDayId !== null && s.scheduledDate >= assignment.start_date)
+    : [];
+  const plannedDone = planned.filter((s) => s.status === 'completed');
+  const recorded = completed.filter((s) => s.loggedVia === 'strava');
+
   /**
    * The session under review: the most recent one she finished.
    *
@@ -171,7 +181,15 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
               </p>
             </div>
             <div className="text-right text-sm ink-2">
-              {completed.length} of {sessions.length} sessions logged
+              <div className="tabular-nums">
+                {plannedDone.length} of {planned.length} programme sessions logged
+              </div>
+              {recorded.length > 0 && (
+                <div className="mt-0.5 text-xs ink-3 tabular-nums">
+                  {recorded.length} {recorded.length === 1 ? 'activity' : 'activities'} recorded on
+                  Strava
+                </div>
+              )}
             </div>
           </div>
         ) : (
