@@ -928,3 +928,12 @@ Vercel's default region, Washington DC, while the database, auth and both users 
 Singapore — every page paid a trip across the Pacific to reach the server and then five
 to eight round trips back for auth and data, a quarter of a second each. `vercel.json`
 pins the functions to `sin1`, beside the database.
+
+## Invitations nobody answered (13 September 2026)
+
+The "Awaiting acceptance" list on Clients gained two links per row. **Send a reminder**
+mints a fresh invitation (the old one is superseded, the fourteen days restart) and sends
+the same email again; a client who already has a verified account gets the choose-a-
+password link instead, as a first invitation would. **Delete** asks once, inline, and
+removes the client row and everything hanging off it; it is refused for anyone who has
+signed in. Both are logged.

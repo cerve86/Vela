@@ -11,6 +11,7 @@ import { Meter } from '@/components/charts';
 import { Avatar, Card, EmptyState, StatTile, StatusPill } from '@/components/ui';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { ClientCard, sinceWords, type RosterClient } from './ClientCard';
+import { InviteActions } from './InviteActions';
 
 export const metadata = { title: 'Clients — Vela' };
 
@@ -250,7 +251,7 @@ export default async function ClientsPage() {
             <Card title="Awaiting acceptance" className="mb-6">
               <ul className="divide-y" style={{ borderColor: 'var(--border)' }}>
                 {invited.map((client) => (
-                  <li key={client.id} className="flex items-center gap-3 py-2.5">
+                  <li key={client.id} className="flex flex-wrap items-center gap-3 py-2.5">
                     <Avatar name={client.name} size={28} />
                     <div className="min-w-0 flex-1">
                       <span className="text-sm font-medium">{client.name}</span>
@@ -260,6 +261,7 @@ export default async function ClientsPage() {
                       Invited {invitedWords(client.createdAt, today)}
                     </span>
                     <StatusPill tone="warning">Awaiting</StatusPill>
+                    <InviteActions clientId={client.id} name={client.name.split(' ')[0] ?? ''} />
                   </li>
                 ))}
               </ul>
