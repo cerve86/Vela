@@ -127,13 +127,22 @@ export default async function ClientsPage() {
             {active.length} active · {invited.length} awaiting acceptance
           </p>
         </div>
-        <Link
-          href="/clients/invite"
-          className="display-face rounded-full px-4 py-2.5 text-sm font-semibold text-white transition-transform hover:-translate-y-px"
-          style={{ background: palette.brand[600] }}
-        >
-          Invite client
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/calendar"
+            className="display-face rounded-full px-4 py-2.5 text-sm font-semibold transition-transform hover:-translate-y-px"
+            style={{ background: 'var(--ghost)', color: 'var(--ink-primary)' }}
+          >
+            Calendar
+          </Link>
+          <Link
+            href="/clients/invite"
+            className="display-face rounded-full px-4 py-2.5 text-sm font-semibold text-white transition-transform hover:-translate-y-px"
+            style={{ background: palette.brand[600] }}
+          >
+            Invite client
+          </Link>
+        </div>
       </header>
 
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

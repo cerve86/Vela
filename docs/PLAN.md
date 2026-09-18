@@ -955,3 +955,17 @@ first week to its last. A day she sent shows which movements she finished outrig
 every set ticked — as green checks, and a day written as a sentence shows Done for the
 whole thing. To carry that, the session now records the ids of the items whose every set
 was ticked (`done_item_ids`), written with the rest of the outcome on send.
+
+## The calendar, everyone at once (18 September 2026)
+
+A Calendar page in the portal, reached from a button on Clients and from the sidebar.
+Week is a row per client and a column per day with a chip per session; Day is the list of
+who trains that day and where each stands; Month is a dot per session per day. One line
+above says how the practice is doing over what is shown. Click a client or a session and
+a panel slides in with her own calendar in the same three views, the day you clicked
+selected, and under it the physio's notes, the movements with checks for what was
+finished, sets done over planned, and symptom before and after; from there, message her,
+edit the programme, or open her training tab. The URL carries view, date and client, so a
+week of one client is a link. Five states in one language: done, partly, missed, planned,
+and logged for a run recorded on Strava or a walk she logged, which is shown and never
+counted against the plan.

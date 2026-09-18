@@ -487,6 +487,42 @@ export async function findClientByEmail(
   };
 }
 
+export interface ActiveAssignment {
+  clientId: string;
+  programId: string;
+  programName: string;
+  kind: ProgramKind;
+  durationWeeks: number;
+  startDate: string;
+}
+
+/** Every live assignment the caller can see — for a coach, one per client on a programme. */
+export async function listActiveAssignments(supabase: VelaClient): Promise<ActiveAssignment[]> {
+  const { data } = await supabase
+    .from('assignments')
+    .select('client_id, start_date, programs ( id, name, kind, duration_weeks )')
+    .eq('status', 'active');
+  return (data ?? []).flatMap((r) => {
+    const p = r.programs as unknown as {
+      id: string;
+      name: string;
+      kind: string;
+      duration_weeks: number;
+    } | null;
+    if (!p) return [];
+    return [
+      {
+        clientId: r.client_id,
+        programId: p.id,
+        programName: p.name,
+        kind: p.kind as ProgramKind,
+        durationWeeks: p.duration_weeks,
+        startDate: r.start_date,
+      },
+    ];
+  });
+}
+
 export async function assignProgram(
   supabase: VelaClient,
   programId: string,
@@ -503,6 +539,7 @@ export async function assignProgram(
 
 export interface ScheduledSession {
   id: string;
+  clientId: string;
   title: string;
   discipline: Discipline;
   scheduledDate: string;
@@ -537,10 +574,11 @@ export interface ScheduledSession {
 }
 
 const SESSION_COLUMNS =
-  'id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe, done_item_ids, program_days(notes)';
+  'id, client_id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe, done_item_ids, program_days(notes)';
 
 function toSession(row: {
   id: string;
+  client_id: string;
   title: string;
   discipline: string;
   scheduled_date: string;
@@ -558,6 +596,7 @@ function toSession(row: {
 }): ScheduledSession {
   return {
     id: row.id,
+    clientId: row.client_id,
     title: row.title,
     discipline: row.discipline as Discipline,
     scheduledDate: row.scheduled_date,
