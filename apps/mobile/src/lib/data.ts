@@ -234,6 +234,16 @@ export function useProgrammeSessions(program: { startDate: string; durationWeeks
   );
 }
 
+/** Every session of hers between two dates, for the calendar. */
+export function useSessionsBetween(from: string, to: string) {
+  const { client } = useSession();
+  return useAsync<ScheduledSession[]>(
+    async () => (client ? listSessions(supabase, { clientId: client.id, from, to }) : []),
+    [],
+    [client?.id, from, to],
+  );
+}
+
 export function useUpcoming(limit = 5) {
   const { client } = useSession();
   return useAsync<ScheduledSession[]>(

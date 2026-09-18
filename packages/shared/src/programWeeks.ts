@@ -112,3 +112,50 @@ export function weekRangeLabel(from: string, to: string): string {
     ? `${f.getUTCDate()}–${t.getUTCDate()} ${month(t)}`
     : `${f.getUTCDate()} ${month(f)} – ${t.getUTCDate()} ${month(t)}`;
 }
+
+/**
+ * Five states, one language: what a session is, seen from today.
+ *
+ * Done is sent with every set; partly is sent with some, or started and not sent; missed
+ * is a day that passed without a send; planned is still ahead. A session not from the
+ * programme — a run recorded on Strava, a walk she logged — is "logged": hers, shown,
+ * never counted against the plan.
+ */
+export type SessionState = 'done' | 'partial' | 'missed' | 'planned' | 'logged';
+
+export function sessionState(
+  s: {
+    scheduledDate: string;
+    status: string;
+    programDayId: string | null;
+    setsDone?: number | null;
+    setsPlanned?: number | null;
+  },
+  today: string,
+): SessionState {
+  if (s.programDayId === null) return 'logged';
+  if (s.status === 'completed') {
+    return s.setsPlanned &&
+      s.setsDone !== null &&
+      s.setsDone !== undefined &&
+      s.setsDone < s.setsPlanned
+      ? 'partial'
+      : 'done';
+  }
+  if (s.status === 'in_progress') return 'partial';
+  if (s.status === 'skipped' || s.scheduledDate < today) return 'missed';
+  return 'planned';
+}
+
+/** Done, partly, missed and planned over a set of sessions; logged ones are not counted. */
+export function stateCounts(
+  sessions: Parameters<typeof sessionState>[0][],
+  today: string,
+): { done: number; partial: number; missed: number; planned: number } {
+  const c = { done: 0, partial: 0, missed: 0, planned: 0 };
+  for (const s of sessions) {
+    const st = sessionState(s, today);
+    if (st !== 'logged') c[st]++;
+  }
+  return c;
+}

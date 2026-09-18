@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { programmeWeeks, weekColumnCounts, weekRangeLabel } from './programWeeks.ts';
+import {
+  programmeWeeks,
+  sessionState,
+  stateCounts,
+  weekColumnCounts,
+  weekRangeLabel,
+} from './programWeeks.ts';
 
 const s = (date: string, status: string, day: string | null = 'd', title = 'Run') => ({
   scheduledDate: date,
@@ -69,5 +75,74 @@ describe('programmeWeeks', () => {
   it('writes a week range', () => {
     assert.equal(weekRangeLabel('2026-09-14', '2026-09-20'), '14–20 Sep');
     assert.equal(weekRangeLabel('2026-09-28', '2026-10-04'), '28 Sep – 4 Oct');
+  });
+});
+
+describe('sessionState', () => {
+  const today = '2026-09-18';
+  it('reads each session from today', () => {
+    assert.equal(
+      sessionState(
+        {
+          scheduledDate: '2026-09-17',
+          status: 'completed',
+          programDayId: 'd',
+          setsDone: 9,
+          setsPlanned: 9,
+        },
+        today,
+      ),
+      'done',
+    );
+    assert.equal(
+      sessionState(
+        {
+          scheduledDate: '2026-09-17',
+          status: 'completed',
+          programDayId: 'd',
+          setsDone: 6,
+          setsPlanned: 9,
+        },
+        today,
+      ),
+      'partial',
+    );
+    assert.equal(
+      sessionState(
+        { scheduledDate: '2026-09-18', status: 'in_progress', programDayId: 'd' },
+        today,
+      ),
+      'partial',
+    );
+    assert.equal(
+      sessionState({ scheduledDate: '2026-09-16', status: 'scheduled', programDayId: 'd' }, today),
+      'missed',
+    );
+    assert.equal(
+      sessionState({ scheduledDate: '2026-09-18', status: 'scheduled', programDayId: 'd' }, today),
+      'planned',
+    );
+    assert.equal(
+      sessionState({ scheduledDate: '2026-09-19', status: 'scheduled', programDayId: 'd' }, today),
+      'planned',
+    );
+    assert.equal(
+      sessionState({ scheduledDate: '2026-09-16', status: 'completed', programDayId: null }, today),
+      'logged',
+    );
+  });
+  it('counts everything but the logged', () => {
+    assert.deepEqual(
+      stateCounts(
+        [
+          { scheduledDate: '2026-09-14', status: 'completed', programDayId: 'd' },
+          { scheduledDate: '2026-09-16', status: 'scheduled', programDayId: 'd' },
+          { scheduledDate: '2026-09-19', status: 'scheduled', programDayId: 'd' },
+          { scheduledDate: '2026-09-15', status: 'completed', programDayId: null },
+        ],
+        today,
+      ),
+      { done: 1, partial: 0, missed: 1, planned: 1 },
+    );
   });
 });

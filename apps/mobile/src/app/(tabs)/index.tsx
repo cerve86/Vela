@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { Frown, Laugh, Meh, Smile, SmilePlus, Utensils } from 'lucide-react-native';
+import { ChevronRight, Frown, Laugh, Meh, Smile, SmilePlus, Utensils } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { activePlan, planMinutes, type RecoveryBand } from '@vela/shared';
+import { activePlan, planMinutes, stateCounts, type RecoveryBand } from '@vela/shared';
 import { VelaIcon as VelaGlyph } from '@/components/brand';
 import {
   Body,
@@ -32,6 +32,7 @@ import {
   today,
   useNutrition,
   useSessionPlan,
+  useSessionsBetween,
   useUpcoming,
   useWeek,
   weekAdherence,
@@ -133,6 +134,9 @@ export default function TodayScreen() {
   const name = client?.firstName ?? fallback.charAt(0).toUpperCase() + fallback.slice(1);
   const writtenPlan = Boolean(weekly.data) || assigned.data?.kind === 'descriptive';
   const todayIso = today();
+  // The calendar's week runs Monday to Sunday, as a programme's does; Today's own week
+  // grid runs Sunday to Saturday. The card tallies the calendar's week so the two agree.
+  const calendarWeek = useSessionsBetween(mondayOfIso(todayIso), addDays(mondayOfIso(todayIso), 6));
 
   const active = activePlan(plan.data, daily.current, daily.read.symptom);
   const mins = planMinutes(active.items.map((i) => ({ sets: i.sets, restSec: i.restSec })));
@@ -325,6 +329,41 @@ export default function TodayScreen() {
           allLogged={daily.allLogged}
           readGiven={daily.current !== null}
         />
+
+        {/* Her calendar: this week in a line, and the way in. */}
+        <Link href={{ pathname: '/calendar', params: { view: 'week', date: todayIso } }} asChild>
+          <Pressable accessibilityRole="button" accessibilityLabel="Open your calendar">
+            <Card style={{ borderRadius: 22, paddingVertical: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 12,
+                    backgroundColor: t.brand[50],
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text
+                    style={{ fontFamily: t.font.displaySemi, fontSize: 15, color: t.brand[600] }}
+                  >
+                    {Number(todayIso.slice(8, 10))}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Body size={15} weight="semibold">
+                    Your calendar
+                  </Body>
+                  <Body size={12.5} color={t.textSecondary} style={{ marginTop: 2 }}>
+                    {calendarLine(assigned.data, calendarWeek.data, todayIso)}
+                  </Body>
+                </View>
+                <ChevronRight size={16} color={t.brand[600]} strokeWidth={2.5} />
+              </View>
+            </Card>
+          </Pressable>
+        </Link>
 
         {/* This week's plan from the physio: written on her page or sent from her Claude,
             read live here. A plan written for a coming week says so. */}
@@ -676,4 +715,33 @@ function MoodIcon({ level, color }: { level: number | null; color: string }) {
     default:
       return <Smile {...props} />;
   }
+}
+
+/** "Week 2 of 5 · 3 done, 1 missed, 2 to come", or what can be said with less. */
+function calendarLine(
+  program: { kind: string; startDate: string; durationWeeks: number } | null,
+  weekSessions: { scheduledDate: string; status: string; programDayId: string | null }[],
+  todayIso: string,
+): string {
+  const c = stateCounts(weekSessions, todayIso);
+  const tally = `${c.done} done, ${c.missed} missed, ${c.planned} to come`;
+  if (program && program.kind === 'structured') {
+    const weekNo =
+      Math.floor(
+        (new Date(`${todayIso}T00:00:00Z`).getTime() -
+          new Date(`${program.startDate}T00:00:00Z`).getTime()) /
+          86_400_000 /
+          7,
+      ) + 1;
+    if (weekNo >= 1 && weekNo <= program.durationWeeks)
+      return `Week ${weekNo} of ${program.durationWeeks} · ${tally}`;
+  }
+  return c.done + c.missed + c.planned > 0
+    ? `This week · ${tally}`
+    : 'Nothing on the calendar this week';
+}
+
+function mondayOfIso(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`).getUTCDay();
+  return addDays(iso, d === 0 ? -6 : 1 - d);
 }

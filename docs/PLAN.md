@@ -969,3 +969,12 @@ edit the programme, or open her training tab. The URL carries view, date and cli
 week of one client is a link. Five states in one language: done, partly, missed, planned,
 and logged for a run recorded on Strava or a walk she logged, which is shown and never
 counted against the plan.
+
+## 0.3.9 — Her calendar (18 September 2026)
+
+A "Your calendar" card under the check-in on Today — "Week 2 of 5 · 3 done, 1 missed, 2 to
+come" — opens the calendar: Day, Week and Month of her own training, sharing one selected
+day. Week is the screen Progress already opened; Day is that day's session with the notes,
+the movements and their checks, and yesterday beneath; Month is a mark per day, tapped to
+open it. Five states in the same language as the portal's calendar. Nothing else on Today
+moved.
