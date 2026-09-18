@@ -720,7 +720,11 @@ function ProgrammeCard({
       ) : (
         <View style={{ marginTop: 14, gap: 10 }}>
           {ahead.map((w) => (
-            <Link key={w.weekNo} href={`/week/${w.weekNo}`} asChild>
+            <Link
+              key={w.weekNo}
+              href={{ pathname: '/calendar', params: { view: 'week', date: w.from } }}
+              asChild
+            >
               <Tap
                 accessibilityRole="button"
                 accessibilityLabel={`Week ${w.weekNo}, ${weekRangeLabel(w.from, w.to)}`}
