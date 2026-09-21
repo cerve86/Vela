@@ -3,7 +3,8 @@ import { useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { cacheOffFood, foodByBarcode, isPlausibleBarcode, lookupBarcode } from '@vela/api';
+import { foodByBarcode, isPlausibleBarcode } from '@vela/api';
+import { resolveBarcode } from '@/lib/integrations';
 import { Body, Button, Card, Display, Pill, Screen } from '@/components/kit';
 import { useTheme } from '@/theme';
 import { supabase } from '@/lib/supabase';
@@ -46,21 +47,15 @@ export default function ScanScreen() {
         return;
       }
 
-      const { product, error: lookupError } = await lookupBarcode(code);
+      const { food, error: lookupError } = await resolveBarcode(code);
       if (lookupError) {
         setError(lookupError);
         return;
       }
-      if (!product) {
+      if (!food) {
         setError(
           "Open Food Facts doesn't have this one. You can still log it with just the calories.",
         );
-        return;
-      }
-
-      const { food, error: cacheError } = await cacheOffFood(supabase, product);
-      if (cacheError || !food) {
-        setError(cacheError ?? 'Could not save that product.');
         return;
       }
       router.replace({ pathname: '/food/add', params: { foodId: food.id, barcode: code } });
@@ -89,13 +84,19 @@ export default function ScanScreen() {
         {!granted ? (
           <Card>
             <Pill tone="neutral">Camera not enabled</Pill>
-            <Body size={14} color={t.textSecondary} style={{ marginTop: t.space.md, lineHeight: 20 }}>
-              Vela uses the camera only to read the barcode. Nothing is photographed, and
-              no image ever leaves your phone.
+            <Body
+              size={14}
+              color={t.textSecondary}
+              style={{ marginTop: t.space.md, lineHeight: 20 }}
+            >
+              Vela uses the camera only to read the barcode. Nothing is photographed, and no image
+              ever leaves your phone.
             </Body>
             <View style={{ marginTop: t.space.lg }}>
               <Button
-                label={permission?.canAskAgain === false ? 'Open Settings to allow' : 'Allow the camera'}
+                label={
+                  permission?.canAskAgain === false ? 'Open Settings to allow' : 'Allow the camera'
+                }
                 onPress={() => requestPermission()}
               />
             </View>
@@ -184,9 +185,8 @@ export default function ScanScreen() {
         </Card>
 
         <Body size={11} color={t.textMuted} style={{ lineHeight: 16 }}>
-          Product data comes from Open Food Facts, an open database maintained by
-          volunteers. Values are as accurate as the label somebody photographed — check
-          anything that looks wrong.
+          Product data comes from Open Food Facts, an open database maintained by volunteers. Values
+          are as accurate as the label somebody photographed — check anything that looks wrong.
         </Body>
 
         <Button label="Back" variant="secondary" onPress={() => router.back()} />

@@ -5,7 +5,7 @@ import { createClient, type EmailOtpType } from '@supabase/supabase-js';
 import type { Database } from '@vela/api/types';
 import { palette } from '@vela/shared/tokens';
 
-type Stage = 'checking' | 'code' | 'verifying' | 'invalid' | 'set' | 'saving' | 'done';
+type Stage = 'checking' | 'code' | 'verifying' | 'invalid' | 'set' | 'saving' | 'move' | 'done';
 
 const field = 'w-full rounded-[14px] px-3.5 py-2.5 text-sm outline-none';
 const fieldStyle = { background: 'var(--ghost)', color: 'var(--ink-primary)' };
@@ -43,6 +43,7 @@ export function WelcomeForm() {
   const [again, setAgain] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [joined, setJoined] = useState<boolean | null>(null);
+  const [moveQuestion, setMoveQuestion] = useState<string>('');
 
   useEffect(() => {
     let cancelled = false;
@@ -124,11 +125,31 @@ export function WelcomeForm() {
     }
 
     // If a practice invited her, this is the moment she joins it. Somebody who only reset
-    // a password has no pending invitation, and that is not an error.
-    const { error: acceptError } = await supabase.rpc('accept_my_invite');
+    // a password has no pending invitation, and that is not an error. Somebody already
+    // with another practice is asked, in both practices' names, before anything moves.
+    const { error: acceptError } = await supabase.rpc('accept_my_invite', { p_move: false });
+    if (acceptError?.code === 'P0003') {
+      setMoveQuestion(acceptError.message);
+      setStage('move');
+      return;
+    }
     setJoined(acceptError ? (acceptError.code === 'P0002' ? false : null) : true);
     if (acceptError && acceptError.code !== 'P0002') {
       setError(`Your password is saved, but joining the practice failed: ${acceptError.message}`);
+    }
+    await supabase.auth.signOut();
+    setStage('done');
+  }
+
+  async function answerMove(move: boolean) {
+    setStage('saving');
+    if (move) {
+      const { error: acceptError } = await supabase.rpc('accept_my_invite', { p_move: true });
+      setJoined(!acceptError);
+      if (acceptError)
+        setError(`Your password is saved, but the move failed: ${acceptError.message}`);
+    } else {
+      setJoined(false);
     }
     await supabase.auth.signOut();
     setStage('done');
@@ -218,6 +239,37 @@ export function WelcomeForm() {
         >
           I have a code instead
         </button>
+      </div>
+    );
+  }
+
+  if (stage === 'move') {
+    return (
+      <div className="surface rounded-[20px] p-6" style={{ background: 'var(--surface)' }}>
+        <h1 className="display-face text-xl font-bold">Password saved</h1>
+        <p className="mt-2 text-sm">{moveQuestion}</p>
+        <p className="mt-1 text-sm ink-2">
+          Moving takes your check-ins, health data and messages to the new practice from now on.
+          Your history stays with the practice it was recorded under.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => answerMove(true)}
+            className="display-face rounded-full px-4 py-2.5 text-sm font-semibold text-white"
+            style={{ background: palette.brand[600] }}
+          >
+            Move to the new practice
+          </button>
+          <button
+            type="button"
+            onClick={() => answerMove(false)}
+            className="display-face rounded-full px-4 py-2.5 text-sm font-semibold"
+            style={{ background: 'var(--ghost)', color: 'var(--ink-primary)' }}
+          >
+            Stay where I am
+          </button>
+        </div>
       </div>
     );
   }

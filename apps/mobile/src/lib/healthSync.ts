@@ -3,6 +3,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { syncHealth } from './health';
 import { useSession } from './session';
+import { supabase } from './supabase';
 
 /**
  * Keeping Apple Health current without anybody asking.
@@ -60,16 +61,23 @@ function notify() {
  */
 async function syncIfDue(force = false): Promise<void> {
   try {
+    // The stamp is per account, and the first sync for an account this phone has not
+    // synced before is never automatic: her readings go only where she has already sent
+    // them from this device, so a session planted here cannot collect them on its own.
+    const userId = (await supabase.auth.getSession()).data.session?.user.id;
+    if (!userId) return;
+    const key = `${LAST_SYNC_KEY}.${userId}`;
+    const last = await AsyncStorage.getItem(key);
     if (!force) {
-      const last = await AsyncStorage.getItem(LAST_SYNC_KEY);
-      const at = last ? Number(last) : 0;
+      if (last === null) return;
+      const at = Number(last);
       if (Number.isFinite(at) && Date.now() - at < MIN_INTERVAL_MS) return;
     }
 
     // Stamped before the run, not after. A sync that throws or hangs should still hold the
     // interval open — otherwise every foreground retries a failure that is not going to
     // fix itself in thirty seconds.
-    await AsyncStorage.setItem(LAST_SYNC_KEY, String(Date.now()));
+    await AsyncStorage.setItem(key, String(Date.now()));
 
     const { written } = await syncHealth(30);
     // An automatic sync tells the screens itself. A forced one does not: the caller asked

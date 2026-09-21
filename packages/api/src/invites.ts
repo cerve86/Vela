@@ -55,10 +55,11 @@ export async function createInvite(
  */
 export async function acceptMyInvite(
   supabase: VelaClient,
-): Promise<{ clientId: string | null; error: string | null }> {
-  const { data, error } = await supabase.rpc('accept_my_invite');
-  if (error) return { clientId: null, error: error.message };
-  return { clientId: data as string, error: null };
+  opts: { move?: boolean } = {},
+): Promise<{ clientId: string | null; error: string | null; code: string | null }> {
+  const { data, error } = await supabase.rpc('accept_my_invite', { p_move: opts.move ?? false });
+  if (error) return { clientId: null, error: error.message, code: error.code ?? null };
+  return { clientId: data as string, error: null, code: null };
 }
 
 /** Verifies the six-digit invitation code. Signs the user in and marks the email verified. */

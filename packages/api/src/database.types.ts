@@ -1381,7 +1381,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      accept_my_invite: { Args: never; Returns: string }
+      accept_my_invite: { Args: { p_move?: boolean }; Returns: string }
       assign_program: {
         Args: {
           p_client_id: string

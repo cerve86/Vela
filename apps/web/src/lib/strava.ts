@@ -181,6 +181,8 @@ export async function deauthorize(cfg: StravaConfig, accessToken: string): Promi
 /** A summary activity as Strava lists it — only the fields that are read. */
 export interface StravaActivity {
   id: number;
+  /** Whose it is. Set on a single-activity read; used to refuse one that is not hers. */
+  athlete?: { id: number };
   name: string;
   sport_type: string;
   start_date: string;
@@ -330,13 +332,39 @@ export async function syncStrava(
   return result;
 }
 
-/** A webhook names one activity: fetch that one, file it, and touch nothing else. */
+/** True while her access token still works at Strava; false once it answers 401. */
+export async function tokenStillValid(
+  cfg: StravaConfig,
+  admin: Admin,
+  clientId: string,
+): Promise<boolean> {
+  const accessToken = await usableAccessToken(cfg, admin, clientId).catch(() => null);
+  if (!accessToken) return false;
+  try {
+    const res = await fetch(`${cfg.apiBase}/api/v3/athlete`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    return res.status !== 401;
+  } catch {
+    // Unreachable is not revoked: keep the link and let the next sync find out.
+    return true;
+  }
+}
+
+/**
+ * A webhook names one activity: fetch that one, file it, and touch nothing else.
+ *
+ * `athleteId` is the link's own record of whose account this is. Strava returns other
+ * people's public activities to any valid token, so an activity that is not hers is
+ * dropped rather than filed into her history.
+ */
 export async function syncStravaActivity(
   cfg: StravaConfig,
   admin: Admin,
   asUser: AsUser,
   clientId: string,
   activityId: number,
+  athleteId?: number,
 ): Promise<SyncResult> {
   const result: SyncResult = { imported: 0, matched: 0, skipped: 0, error: null };
   const accessToken = await usableAccessToken(cfg, admin, clientId).catch((e: Error) => {
@@ -354,6 +382,7 @@ export async function syncStravaActivity(
     result.error = e instanceof Error ? e.message : String(e);
     return failLink(admin, clientId, result);
   }
+  if (activity && athleteId !== undefined && activity.athlete?.id !== athleteId) activity = null;
   if (activity) await importActivities(asUser, clientId, [activity], result);
   await admin.from('strava_links').update({ last_error: result.error }).eq('client_id', clientId);
   return result;
