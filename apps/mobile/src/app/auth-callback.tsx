@@ -24,8 +24,6 @@ export default function AuthCallbackScreen() {
   const params = useLocalSearchParams<{
     code?: string;
     error_description?: string;
-    token_hash?: string;
-    type?: string;
   }>();
 
   const [error, setError] = useState<string | null>(null);
@@ -48,17 +46,11 @@ export default function AuthCallbackScreen() {
           setError(exchangeError.message);
           return;
         }
-      } else if (params.token_hash) {
-        const { error: otpError } = await supabase.auth.verifyOtp({
-          token_hash: String(params.token_hash),
-          type: (params.type as 'magiclink') ?? 'magiclink',
-        });
-        if (cancelled) return;
-        if (otpError) {
-          setError(otpError.message);
-          return;
-        }
       } else {
+        // Only a PKCE code is accepted. A bare token hash would sign this phone into
+        // whichever account the hash was minted for — including someone else's, on a
+        // link they sent — and the app's own flows never produce one.
+
         setError('That link is missing its sign-in code.');
         return;
       }
@@ -73,7 +65,7 @@ export default function AuthCallbackScreen() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.code, params.token_hash, params.error_description]);
+  }, [params.code, params.error_description]);
 
   if (error) {
     return (
@@ -85,9 +77,8 @@ export default function AuthCallbackScreen() {
               {error}
             </Body>
             <Body size={13} color={t.textMuted} style={{ marginTop: t.space.md, lineHeight: 19 }}>
-              Sign-in links can only be used once, and expire after an hour. Ask for a new
-              code and type the six digits instead — that works even when the email is on
-              another device.
+              Sign-in links can only be used once, and expire after an hour. Ask for a new code and
+              type the six digits instead — that works even when the email is on another device.
             </Body>
           </Card>
           <Button label="Back to sign in" onPress={() => router.replace('/sign-in')} />

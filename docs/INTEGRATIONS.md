@@ -24,9 +24,14 @@ Cadence is shown in steps per minute (both feet); Strava stores one foot's count
    ```bash
    curl -X POST https://www.strava.com/api/v3/push_subscriptions \
      -F client_id=$STRAVA_CLIENT_ID -F client_secret=$STRAVA_CLIENT_SECRET \
-     -F callback_url=https://www.vela-coaching.com/api/strava/webhook \
+     -F "callback_url=https://www.vela-coaching.com/api/strava/webhook?k=$STRAVA_WEBHOOK_VERIFY_TOKEN" \
      -F verify_token=$STRAVA_WEBHOOK_VERIFY_TOKEN
    ```
+
+   The token rides in the callback URL as well as in the handshake because Strava does
+   not sign events: a POST without `?k=` is refused. A subscription registered before
+   21 September 2026 lacks it — list it (`GET /api/v3/push_subscriptions`), delete it by
+   id, and create it again with the URL above.
 
    Strava calls `GET /api/strava/webhook` to verify, then `POST`s events. Without the
    subscription everything still works; imports just wait for _Sync now_ or the next

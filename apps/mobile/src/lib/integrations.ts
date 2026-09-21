@@ -5,6 +5,7 @@ import {
   getStravaLink,
   listActivities,
   type Activity,
+  type Food,
   type StravaLink,
 } from '@vela/api';
 import { supabase } from './supabase';
@@ -137,6 +138,28 @@ export function useActivities(days = 14) {
     [],
     [client?.id, from],
   );
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Barcodes
+ * ───────────────────────────────────────────────────────────── */
+
+/**
+ * A scanned barcode, looked up and cached by the portal.
+ *
+ * The product cache is shared by every practice, so the phone sends the barcode and the
+ * portal writes the row from Open Food Facts itself — never from what a phone claims.
+ */
+export async function resolveBarcode(
+  barcode: string,
+): Promise<{ food: Food | null; error: string | null }> {
+  const { ok, body } = await portal<{ food?: Food | null; error?: string }>('/api/foods/barcode', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ barcode }),
+  });
+  if (!ok) return { food: null, error: body?.error ?? 'Could not look that product up.' };
+  return { food: body?.food ?? null, error: null };
 }
 
 /* ─────────────────────────────────────────────────────────────

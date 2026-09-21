@@ -978,3 +978,19 @@ day. Week is the screen Progress already opened; Day is that day's session with 
 the movements and their checks, and yesterday beneath; Month is a mark per day, tapped to
 open it. Five states in the same language as the portal's calendar. Nothing else on Today
 moved.
+
+## Security review, round one (21 September 2026)
+
+Seven findings from a review of the portal, the app and the schema, all closed. Coaches
+are provisioned, never self-made: the signed-in role lost INSERT on coaches and may
+update only her own name, avatar, locale and timezone on her profile, with a trigger
+behind the grant. A sent message can be marked read and nothing else. A challenge takes
+only the coach's own clients and its standing counts only them. The product cache is
+written by the portal from Open Food Facts, never by whoever scanned. An invitation is
+refused while another practice's stands, and moving practices is a question the client
+answers by name, never a side effect of a password reset. The Strava webhook carries a
+secret on every event, believes a deauthorisation only once the token really fails, and
+files an activity only when Strava says it is hers. The app no longer signs in from a bare
+token hash, and Apple Health never syncs automatically for an account this phone has not
+synced by hand. Six new pgTAP assertions (suite at 126). One thing by hand: re-register
+the Strava subscription with `?k=` in the callback URL.

@@ -314,52 +314,6 @@ export async function createCustomFood(
   return { food: data ? toFood(data) : null, error: error?.message ?? null };
 }
 
-/**
- * Caches a product looked up from Open Food Facts.
- *
- * Races are expected: two clients scanning the same tin at once both try to insert. The
- * unique index settles it, and the loser simply reads the winner's row — hence the
- * re-select on a duplicate rather than an error the caller has to think about.
- */
-export async function cacheOffFood(
-  supabase: VelaClient,
-  input: {
-    barcode: string;
-    name: string;
-    brand?: string | null;
-    servingName?: string | null;
-    servingG?: number | null;
-    per100g: Macros;
-  },
-): Promise<{ food: Food | null; error: string | null }> {
-  const { data, error } = await supabase
-    .from('foods')
-    .insert({
-      coach_id: null,
-      source: 'off',
-      barcode: input.barcode,
-      name: input.name.trim(),
-      brand: input.brand?.trim() || null,
-      serving_name: input.servingName?.trim() || null,
-      serving_g: input.servingG ?? null,
-      kcal_100g: input.per100g.kcal,
-      protein_100g: input.per100g.proteinG,
-      carbs_100g: input.per100g.carbsG,
-      fat_100g: input.per100g.fatG,
-    })
-    .select(FOOD_COLUMNS)
-    .single();
-
-  if (error) {
-    if (error.code === '23505') {
-      const existing = await foodByBarcode(supabase, input.barcode);
-      if (existing) return { food: existing, error: null };
-    }
-    return { food: null, error: error.message };
-  }
-  return { food: data ? toFood(data) : null, error: null };
-}
-
 // ---------------------------------------------------------------------------
 // The diary
 // ---------------------------------------------------------------------------

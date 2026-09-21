@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (119);
+  plan (126);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -504,10 +504,19 @@ values
 set local role authenticated;
 set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
 
+-- A password reset must never move her practice on its own: the move is refused until
+-- she says so, and the refusal names both practices.
+select throws_ok (
+  $$select public.accept_my_invite()$$,
+  'P0003',
+  'You are already a client of Practice A. Confirm if you want to move to Practice B.',
+  'a person already linked elsewhere is not moved without saying so'
+);
+
 select is (
-  (select public.accept_my_invite()),
+  (select public.accept_my_invite(true)),
   '00000000-0000-4000-8000-0000000000f5'::uuid,
-  'a person already linked elsewhere can accept a new invitation'
+  'and can accept the new invitation once she confirms the move'
 );
 
 select is (
@@ -1110,12 +1119,12 @@ values
 
 insert into public.challenges (id, coach_id, name, metric, starts_on, weeks, weekly_target)
 values
-  ('00000000-0000-4000-8000-00000000cc01', '00000000-0000-4000-8000-0000000000a1', 'Four weeks, four sessions', 'sessions_completed', '2026-08-03', 4, 4);
+  ('00000000-0000-4000-8000-00000000cc09', '00000000-0000-4000-8000-0000000000a1', 'Four weeks, four sessions', 'sessions_completed', '2026-08-03', 4, 4);
 
 insert into public.challenge_participants (challenge_id, coach_id, client_id)
 values
-  ('00000000-0000-4000-8000-00000000cc01', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000f1'),
-  ('00000000-0000-4000-8000-00000000cc01', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000f3');
+  ('00000000-0000-4000-8000-00000000cc09', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000f1'),
+  ('00000000-0000-4000-8000-00000000cc09', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000f3');
 
 -- Two completed sessions for client one, three for client three, all inside week 1.
 insert into public.sessions (client_id, title, discipline, scheduled_date, status)
@@ -1132,19 +1141,19 @@ set local role authenticated;
 set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
 
 select is (
-  (select total from public.challenge_weeks('00000000-0000-4000-8000-00000000cc01') where week_no = 1),
+  (select total from public.challenge_weeks('00000000-0000-4000-8000-00000000cc09') where week_no = 1),
   5::bigint,
   'the owning coach sees the whole group total for week one (positive control)'
 );
 
 select is (
-  (select count(*) from public.challenge_board('00000000-0000-4000-8000-00000000cc01')),
+  (select count(*) from public.challenge_board('00000000-0000-4000-8000-00000000cc09')),
   2::bigint,
   'and both participants on the board'
 );
 
 select is (
-  (select target from public.challenge_weeks('00000000-0000-4000-8000-00000000cc01') where week_no = 1),
+  (select target from public.challenge_weeks('00000000-0000-4000-8000-00000000cc09') where week_no = 1),
   8::bigint,
   'the weekly target scales with the head count — two people, four each'
 );
@@ -1159,13 +1168,13 @@ select is (
 );
 
 select is (
-  (select count(*) from public.challenge_board('00000000-0000-4000-8000-00000000cc01')),
+  (select count(*) from public.challenge_board('00000000-0000-4000-8000-00000000cc09')),
   0::bigint,
   'nor read its board by naming its id'
 );
 
 select is (
-  (select count(*) from public.challenge_standing('00000000-0000-4000-8000-00000000cc01')),
+  (select count(*) from public.challenge_standing('00000000-0000-4000-8000-00000000cc09')),
   0::bigint,
   'nor its standing — the guard fails closed for a stranger'
 );
@@ -1186,19 +1195,19 @@ select is (
 );
 
 select is (
-  (select group_total from public.challenge_standing('00000000-0000-4000-8000-00000000cc01')),
+  (select group_total from public.challenge_standing('00000000-0000-4000-8000-00000000cc09')),
   5::bigint,
   'she gets the group total, which is the point of the feature'
 );
 
 select is (
-  (select mine from public.challenge_standing('00000000-0000-4000-8000-00000000cc01')),
+  (select mine from public.challenge_standing('00000000-0000-4000-8000-00000000cc09')),
   2::bigint,
   'and her own share of it, separated out'
 );
 
 select is (
-  (select participants from public.challenge_standing('00000000-0000-4000-8000-00000000cc01')),
+  (select participants from public.challenge_standing('00000000-0000-4000-8000-00000000cc09')),
   2,
   'and the head count, so the total has a denominator'
 );
@@ -1216,7 +1225,7 @@ select is (
 );
 
 select is (
-  (select count(*) from public.challenge_board('00000000-0000-4000-8000-00000000cc01')),
+  (select count(*) from public.challenge_board('00000000-0000-4000-8000-00000000cc09')),
   1::bigint,
   'the board gives a participant only herself, so it cannot be used to name the others'
 );
@@ -1226,7 +1235,7 @@ select is (
 -- writes and gets nothing back has no way to tell success from a policy denial.
 select throws_ok (
   $$insert into public.challenge_participants (challenge_id, coach_id, client_id)
-    values ('00000000-0000-4000-8000-00000000cc01', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000f2')$$,
+    values ('00000000-0000-4000-8000-00000000cc09', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000f2')$$,
   '42501',
   null,
   'and cannot enrol anybody — membership is the coach''s to decide'
@@ -1242,7 +1251,7 @@ select is (
 );
 
 select is (
-  (select count(*) from public.challenge_standing('00000000-0000-4000-8000-00000000cc01')),
+  (select count(*) from public.challenge_standing('00000000-0000-4000-8000-00000000cc09')),
   0::bigint,
   'and gets no standing from one she is not in'
 );
@@ -1261,6 +1270,80 @@ select is (
    where grantee = 'anon' and table_schema = 'public'),
   0::bigint,
   'anon holds no privilege on any table in public'
+);
+
+
+-- Security review, 21 September 2026 ----------------------------------------
+reset role;
+
+insert into public.messages (id, client_id, sender, body)
+values
+  ('00000000-0000-4000-8000-00000000ee01', '00000000-0000-4000-8000-0000000000f1', 'coach', 'Three sets, stop if it hurts');
+
+insert into public.challenges (id, coach_id, name, metric, starts_on, weeks, weekly_target)
+values
+  ('00000000-0000-4000-8000-00000000cc0a', '00000000-0000-4000-8000-0000000000a1', 'September', 'sessions_completed', current_date, 4, 3);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select throws_ok (
+  $$insert into public.coaches (id, practice_name) values ('00000000-0000-4000-8000-0000000000c1', 'Mine')$$,
+  '42501',
+  null,
+  'a client cannot make herself a coach'
+);
+
+select throws_ok (
+  $$update public.profiles set role = 'coach' where id = '00000000-0000-4000-8000-0000000000c1'$$,
+  '42501',
+  null,
+  'nor change her own role'
+);
+
+select throws_ok (
+  $$update public.messages set body = 'Ten sets' where id = '00000000-0000-4000-8000-00000000ee01'$$,
+  '42501',
+  null,
+  'nor rewrite what her physiotherapist wrote'
+);
+
+select throws_ok (
+  $$insert into public.foods (coach_id, source, barcode, name, kcal_100g, protein_100g, carbs_100g, fat_100g)
+    values (null, 'off', '5000159407236', 'Mars Bar', 1, 99, 0, 0)$$,
+  '42501',
+  null,
+  'nor write a product every practice would then read'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select throws_ok (
+  $$insert into public.challenge_participants (challenge_id, coach_id, client_id)
+    values ('00000000-0000-4000-8000-00000000cc0a', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000f2')$$,
+  '42501',
+  null,
+  'coach A cannot enrol coach B''s client in her challenge'
+);
+
+-- Coach A has a live invitation out for stranded@test.local (accepted above, so use a
+-- fresh address): a second practice cannot invite the same person while it stands.
+reset role;
+insert into public.clients (id, coach_id, email, status, first_name_hint, last_name_hint)
+values
+  ('00000000-0000-4000-8000-0000000000f7', '00000000-0000-4000-8000-0000000000a1', 'contested@test.local', 'invited', 'Con', '');
+insert into public.client_invites (coach_id, client_id, email, token_hash, expires_at)
+values
+  ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000f7', 'contested@test.local', 'contested-hash', now() + interval '1 day');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+
+select throws_ok (
+  $$select * from public.create_client_invite('contested@test.local', 'Con', '')$$,
+  'P0004',
+  null,
+  'coach B cannot invite someone coach A has already invited'
 );
 
 select * from finish ();
