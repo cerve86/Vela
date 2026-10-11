@@ -10,7 +10,13 @@ import { useTheme } from '@/theme';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/lib/session';
 import { dismissOnboarding } from '@/lib/onboardingLocal';
-import { isHealthAvailable, requestHealthAccess, syncHealth, READ_PERMISSION_LABELS } from '@/lib/health';
+import {
+  isHealthAvailable,
+  requestHealthAccess,
+  syncHealth,
+  READ_PERMISSION_LABELS,
+} from '@/lib/health';
+import { markSyncedByHand } from '@/lib/healthSync';
 
 /**
  * The welcome flow: three screens, once.
@@ -91,7 +97,11 @@ export default function WelcomeScreen() {
           <Step
             character="athlete"
             eyebrow="WHAT THIS IS"
-            title={name ? `Your programme, ${name} —\nnot a workout app` : 'Your programme —\nnot a workout app'}
+            title={
+              name
+                ? `Your programme, ${name} —\nnot a workout app`
+                : 'Your programme —\nnot a workout app'
+            }
             body="Francesca builds your sessions around your goals and adjusts them as you go. Each day you get one plan: what to do, how much, and why. Nothing to design yourself."
             note="If a day is heavy or something hurts, tell the app and the session shrinks to fit. That is the point of it."
             cta="How it uses Apple Health"
@@ -146,6 +156,7 @@ function HealthStep({ onDone }: { onDone: () => void }) {
     }
 
     const { written, scanned, error: syncError } = await syncHealth(30);
+    if (!syncError) await markSyncedByHand();
     setBusy(false);
 
     if (syncError) {
@@ -165,7 +176,12 @@ function HealthStep({ onDone }: { onDone: () => void }) {
         <MilestoneBlob character="cloud" state="earned" index={0} width={132} />
       </View>
 
-      <Body size={11} weight="medium" color={t.textSecondary} style={{ letterSpacing: 0.6, marginTop: 18 }}>
+      <Body
+        size={11}
+        weight="medium"
+        color={t.textSecondary}
+        style={{ letterSpacing: 0.6, marginTop: 18 }}
+      >
         ONE PERMISSION
       </Body>
       <Text
@@ -182,8 +198,8 @@ function HealthStep({ onDone }: { onDone: () => void }) {
       </Text>
 
       <Body size={14} color={t.textSecondary} style={{ marginTop: 10, lineHeight: 21 }}>
-        Your resting heart rate and sleep say whether last week landed well — often before
-        you feel it. Francesca uses them to decide when to push and when to hold.
+        Your resting heart rate and sleep say whether last week landed well — often before you feel
+        it. Francesca uses them to decide when to push and when to hold.
       </Body>
 
       <View style={{ gap: 9, marginTop: 18 }}>
@@ -196,21 +212,21 @@ function HealthStep({ onDone }: { onDone: () => void }) {
       </View>
 
       <Body size={12} color={t.textMuted} style={{ marginTop: 16, lineHeight: 18 }}>
-        Read-only — Vela never writes to Apple Health, and never reads anything not on this
-        list. You can revoke it in Settings → Health → Data Access at any time.
+        Read-only — Vela never writes to Apple Health, and never reads anything not on this list.
+        You can revoke it in Settings → Health → Data Access at any time.
       </Body>
 
       {available === false && (
         <Body size={12.5} color={t.status.warning} style={{ marginTop: 14, lineHeight: 18 }}>
-          Apple Health is not available on this device. On the Simulator that is expected —
-          it needs a real iPhone. You can connect later from your profile.
+          Apple Health is not available on this device. On the Simulator that is expected — it needs
+          a real iPhone. You can connect later from your profile.
         </Body>
       )}
 
       {refused && (
         <Body size={12.5} color={t.textSecondary} style={{ marginTop: 14, lineHeight: 18 }}>
-          Not connected. That is a fine answer — everything else works without it, and
-          Profile has the switch when you want it.
+          Not connected. That is a fine answer — everything else works without it, and Profile has
+          the switch when you want it.
         </Body>
       )}
 
@@ -227,7 +243,11 @@ function HealthStep({ onDone }: { onDone: () => void }) {
           <>
             <Button
               label={
-                busy ? 'Connecting…' : available === false ? 'Apple Health unavailable' : 'Connect Apple Health'
+                busy
+                  ? 'Connecting…'
+                  : available === false
+                    ? 'Apple Health unavailable'
+                    : 'Connect Apple Health'
               }
               disabled={busy || available === false}
               onPress={() => void connect()}
@@ -235,7 +255,11 @@ function HealthStep({ onDone }: { onDone: () => void }) {
             {busy ? (
               <ActivityIndicator color={t.brand[600]} />
             ) : (
-              <Button label={refused ? 'Continue' : 'Not now'} variant="secondary" onPress={onDone} />
+              <Button
+                label={refused ? 'Continue' : 'Not now'}
+                variant="secondary"
+                onPress={onDone}
+              />
             )}
           </>
         )}
@@ -288,7 +312,12 @@ function Step({
         />
       </View>
 
-      <Body size={11} weight="medium" color={t.textSecondary} style={{ letterSpacing: 0.6, marginTop: 18 }}>
+      <Body
+        size={11}
+        weight="medium"
+        color={t.textSecondary}
+        style={{ letterSpacing: 0.6, marginTop: 18 }}
+      >
         {eyebrow}
       </Body>
       <Text
