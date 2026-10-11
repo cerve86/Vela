@@ -4,6 +4,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 import { Body, Button, Card } from '@/components/kit';
 import { useTheme } from '@/theme';
 import { celebrate } from '@/lib/mascot';
+import { useMetrics } from '@/lib/data';
 import {
   connectStrava,
   disconnectStrava,
@@ -96,6 +97,10 @@ export function ConnectionsCard() {
   return (
     <Card title="Connections">
       <View style={{ gap: 18 }}>
+        <AppleHealthRow />
+
+        <View style={{ height: 1, backgroundColor: t.border }} />
+
         <View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <View
@@ -196,4 +201,71 @@ export function ConnectionsCard() {
       </View>
     </Card>
   );
+}
+
+/**
+ * Apple Health, as the first connection: where it stands, and the way in.
+ *
+ * The Health screen is where she grants access and syncs by hand; this row is the door
+ * to it. Status is read from what actually arrived — the newest reading Vela holds from
+ * Apple Health — rather than from the permission sheet, which iOS does not let an app
+ * read back for read-only access.
+ */
+function AppleHealthRow() {
+  const t = useTheme();
+  const router = useRouter();
+  // The same window the Health screen reads, so the two never disagree about whether
+  // anything has arrived; an old last reading says so in words rather than as "not
+  // connected".
+  const metrics = useMetrics(['steps', 'resting_hr', 'hrv_ms', 'weight_kg', 'sleep_core_min'], 90);
+  const latest = metrics.data
+    .filter((m) => m.source === 'healthkit')
+    .reduce<string | null>(
+      (max, m) => (max === null || m.recordedAt > max ? m.recordedAt : max),
+      null,
+    );
+  const connected = latest !== null;
+
+  return (
+    <View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: connected ? t.status.good : t.textMuted,
+          }}
+        />
+        <Body size={15} weight="medium" style={{ flex: 1 }}>
+          Apple Health
+        </Body>
+        {connected && (
+          <Body size={12} color={t.textMuted}>
+            Last reading {sinceWords(latest)}
+          </Body>
+        )}
+      </View>
+      <Body size={13} color={t.textSecondary} style={{ marginTop: 4, lineHeight: 18 }}>
+        {connected
+          ? 'Sleep, heart rate, HRV, steps and weight reach your physio from Apple Health, and from any watch or app that writes to it.'
+          : 'Let Vela read sleep, heart rate, HRV, steps and weight from Apple Health, so your physio sees how your body is coping, not just how the sessions went.'}
+      </Body>
+      <View style={{ marginTop: 12 }}>
+        <Button
+          label={connected ? 'Manage Apple Health' : 'Connect Apple Health'}
+          variant={connected ? 'secondary' : 'primary'}
+          onPress={() => router.push('/health')}
+        />
+      </View>
+    </View>
+  );
+}
+
+function sinceWords(iso: string | null): string {
+  if (!iso) return '';
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  return `${days} days ago`;
 }

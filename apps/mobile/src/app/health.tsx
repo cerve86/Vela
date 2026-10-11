@@ -5,7 +5,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { METRIC_META, type MetricType } from '@vela/api';
 import { Body, Button, Card, Display, Pill, Screen } from '@/components/kit';
 import { useTheme } from '@/theme';
-import { READ_PERMISSION_LABELS, isHealthAvailable, requestHealthAccess, syncHealth } from '@/lib/health';
+import {
+  READ_PERMISSION_LABELS,
+  isHealthAvailable,
+  requestHealthAccess,
+  syncHealth,
+} from '@/lib/health';
+import { markSyncedByHand } from '@/lib/healthSync';
 import { latestOf, useMetrics } from '@/lib/data';
 
 const SHOWN: MetricType[] = ['weight_kg', 'resting_hr', 'hrv_ms', 'steps', 'vo2max'];
@@ -51,6 +57,7 @@ export default function HealthScreen() {
     }
 
     const { written, scanned, error: syncError } = await syncHealth(30);
+    if (!syncError) await markSyncedByHand();
     if (syncError) setError(syncError);
     else {
       // Two numbers because they answer different questions: `scanned` is how much Apple
@@ -78,9 +85,9 @@ export default function HealthScreen() {
       >
         <Display size={30}>Apple Health</Display>
         <Body size={14} color={t.textSecondary} style={{ lineHeight: 20 }}>
-          Vela reads a few measurements so your physio can see how training is landing
-          against your sleep, resting heart rate and weight. It never writes to Apple
-          Health, and it never reads anything not listed here.
+          Vela reads a few measurements so your physio can see how training is landing against your
+          sleep, resting heart rate and weight. It never writes to Apple Health, and it never reads
+          anything not listed here.
         </Body>
 
         <Card title="What Vela reads">
@@ -95,17 +102,21 @@ export default function HealthScreen() {
             ))}
           </View>
           <Body size={12} color={t.textMuted} style={{ marginTop: t.space.lg, lineHeight: 17 }}>
-            Read-only. You can revoke any of this at any time in Settings → Health → Data
-            Access, and delete everything Vela holds from your profile.
+            Read-only. You can revoke any of this at any time in Settings → Health → Data Access,
+            and delete everything Vela holds from your profile.
           </Body>
         </Card>
 
         {available === false && (
           <Card>
             <Pill tone="warning">Not available here</Pill>
-            <Body size={13} color={t.textSecondary} style={{ marginTop: t.space.md, lineHeight: 19 }}>
-              Apple Health isn&apos;t available on this device. On the Simulator that is
-              expected — the connection needs a real iPhone.
+            <Body
+              size={13}
+              color={t.textSecondary}
+              style={{ marginTop: t.space.md, lineHeight: 19 }}
+            >
+              Apple Health isn&apos;t available on this device. On the Simulator that is expected —
+              the connection needs a real iPhone.
             </Body>
           </Card>
         )}
@@ -126,7 +137,13 @@ export default function HealthScreen() {
         )}
 
         <Button
-          label={busy ? 'Syncing…' : available === false ? 'Apple Health unavailable' : 'Connect and sync'}
+          label={
+            busy
+              ? 'Syncing…'
+              : available === false
+                ? 'Apple Health unavailable'
+                : 'Connect and sync'
+          }
           disabled={busy || available === false}
           onPress={connect}
         />
@@ -136,8 +153,8 @@ export default function HealthScreen() {
             <ActivityIndicator color={t.brand[600]} />
           ) : metrics.data.length === 0 ? (
             <Body size={13} color={t.textSecondary}>
-              Nothing yet. Once connected, your readings appear here and on your
-              physio&apos;s dashboard.
+              Nothing yet. Once connected, your readings appear here and on your physio&apos;s
+              dashboard.
             </Body>
           ) : (
             <View style={{ gap: t.space.md }}>
@@ -147,7 +164,11 @@ export default function HealthScreen() {
                 return (
                   <View
                     key={type}
-                    style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
                   >
                     <View>
                       <Body size={15}>{meta.label}</Body>

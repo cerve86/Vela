@@ -994,3 +994,14 @@ files an activity only when Strava says it is hers. The app no longer signs in f
 token hash, and Apple Health never syncs automatically for an account this phone has not
 synced by hand. Six new pgTAP assertions (suite at 126). One thing by hand: re-register
 the Strava subscription with `?k=` in the callback URL.
+
+## 0.3.11 — Apple Health back in Connections (11 October 2026)
+
+The Today redesign on 6 September removed the only way into the Apple Health screen; it
+was reachable afterwards from the first-run welcome alone, so a client who skipped that
+step had no way to connect. It is back as the first row of Profile → Connections, with
+its state read from what arrived ("Last reading 2 days ago", or Connect when nothing has)
+and a button into the Health screen. And a regression from 0.3.10 is fixed: automatic
+syncs run only for an account that synced by hand on that phone, but the two hand syncs
+(welcome and the Health screen) never recorded it, so new clients never synced on their
+own until they pulled to refresh on Today.

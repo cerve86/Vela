@@ -117,6 +117,20 @@ export function useHealthAutoSync(): void {
   }, [armed]);
 }
 
+/**
+ * Records that this account synced Apple Health by hand on this phone.
+ *
+ * Automatic syncs only ever run for an account that has done so (see `syncIfDue`). The
+ * welcome flow and the Apple Health screen sync by hand but call the importer directly,
+ * so without this they never armed the automatic sync, and a client who connected there
+ * waited for a pull-to-refresh she had no reason to do.
+ */
+export async function markSyncedByHand(): Promise<void> {
+  const userId = (await supabase.auth.getSession()).data.session?.user.id;
+  if (!userId) return;
+  await AsyncStorage.setItem(`${LAST_SYNC_KEY}.${userId}`, String(Date.now())).catch(() => {});
+}
+
 /** Forces a sync regardless of the interval — for pull-to-refresh, which is an explicit ask. */
 export async function syncHealthNow(): Promise<void> {
   await syncIfDue(true);
