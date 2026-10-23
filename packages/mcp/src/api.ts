@@ -147,6 +147,22 @@ export interface ClientReport {
     stress: number;
   }[];
   openFlags?: { kind: string; detail: string; createdAt: string }[];
+  freshness?: {
+    acute: number;
+    chronic: number;
+    ratio: number | null;
+    monotony: number | null;
+    strain: number | null;
+    sessions7: number;
+    unmeasured7: number;
+    historyDays: number;
+  } | null;
+  cycle?: {
+    status: string;
+    periodStarts: string[];
+    day: number | null;
+    averageLength: number | null;
+  } | null;
 }
 
 export interface ProgramSummary {

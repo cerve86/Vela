@@ -111,6 +111,7 @@ function Gate() {
       <Stack.Screen name="readiness" options={{ presentation: 'modal' }} />
       <Stack.Screen name="mood" options={{ presentation: 'modal' }} />
       <Stack.Screen name="wellness" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="cycle" options={{ presentation: 'modal' }} />
       <Stack.Screen name="program" />
       <Stack.Screen name="calendar" />
       <Stack.Screen name="weekly" />

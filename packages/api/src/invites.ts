@@ -115,7 +115,7 @@ export async function revokeInvite(
   return { error: error?.message ?? null };
 }
 
-export type ConsentType = 'tos' | 'privacy' | 'health_data_processing';
+export type ConsentType = 'tos' | 'privacy' | 'health_data_processing' | 'cycle_context';
 
 export async function recordConsent(
   supabase: VelaClient,

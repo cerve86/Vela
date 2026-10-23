@@ -253,6 +253,43 @@ export function formatReport(r: ClientReport): string {
       : '  nothing logged',
   );
 
+  if (r.freshness !== undefined) {
+    const f = r.freshness;
+    out.push(
+      '\nFRESHNESS (session load = RPE × minutes, heart rate where Strava has it; context only, the acute:chronic ratio is contested and never a verdict on its own):',
+    );
+    if (!f || f.historyDays === 0) out.push('  nothing recorded yet');
+    else {
+      out.push(
+        `- last 7 days ${f.acute} AU · 4-week weekly average ${f.chronic} AU · acute:chronic ${
+          f.historyDays >= 21 && f.ratio !== null
+            ? f.ratio
+            : `not yet (${f.historyDays} days recorded, needs 21)`
+        }`,
+      );
+      if (f.monotony !== null) out.push(`- monotony ${f.monotony} · strain ${f.strain}`);
+      out.push(
+        `- ${f.sessions7} sessions in 7 days` +
+          (f.unmeasured7 ? `, ${f.unmeasured7} with no RPE or heart rate (no load)` : ''),
+      );
+    }
+  }
+
+  if (r.cycle !== undefined) {
+    out.push('\nCYCLE CONTEXT (shared with her consent; context, never a gate):');
+    const c = r.cycle;
+    out.push(
+      c
+        ? `- ${c.status.replace('_', ' ')}` +
+            (c.day !== null ? `, day ${c.day}` : '') +
+            (c.averageLength ? `, cycles average ${c.averageLength} days` : '') +
+            (c.periodStarts.length
+              ? ` · recent starts ${c.periodStarts.slice(0, 3).join(', ')}`
+              : '')
+        : '  not shared',
+    );
+  }
+
   if (r.wellness) {
     out.push('\nWELLNESS, WEEKLY (1 = good, 5 = poor):');
     out.push(

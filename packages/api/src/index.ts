@@ -18,4 +18,5 @@ export type { Database } from './database.types';
 export * from './notify';
 export * from './errors';
 export * from './audit';
+export * from './freshness';
 export * from './readiness';

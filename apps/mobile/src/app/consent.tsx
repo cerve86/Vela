@@ -13,7 +13,10 @@ import { useSession } from '@/lib/session';
  *  grant never silently covers new processing. */
 const POLICY_VERSION = '2026-08-01';
 
-const ITEMS: { type: ConsentType; title: string; body: string; required: boolean }[] = [
+/** The three given at sign-up. Cycle context has its own screen and its own consent. */
+type SignUpConsent = Exclude<ConsentType, 'cycle_context'>;
+
+const ITEMS: { type: SignUpConsent; title: string; body: string; required: boolean }[] = [
   {
     type: 'health_data_processing',
     title: 'Processing my health data',
@@ -45,7 +48,7 @@ export default function ConsentScreen() {
   const insets = useSafeAreaInsets();
   const { refresh } = useSession();
 
-  const [granted, setGranted] = useState<Record<ConsentType, boolean>>({
+  const [granted, setGranted] = useState<Record<SignUpConsent, boolean>>({
     health_data_processing: false,
     privacy: false,
     tos: false,

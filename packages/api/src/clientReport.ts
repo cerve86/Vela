@@ -1,4 +1,4 @@
-import { hrvGuidance, type HrvGuidance } from '@vela/shared';
+import { cycleDay, hrvGuidance, type HrvGuidance } from '@vela/shared';
 import { listActivities, type Activity } from './activities';
 import type { VelaClient } from './client';
 import { listClientPlans, type ClientPlan } from './clientPlans';
@@ -12,6 +12,7 @@ import {
   type AssignedProgram,
   type ScheduledSession,
 } from './programs';
+import { getCycleContext, getFreshness, type CycleContext, type Freshness } from './freshness';
 import { listFlags, listWellness, type CoachFlag, type WellnessCheck } from './readiness';
 
 /**
@@ -55,6 +56,10 @@ export interface ClientReport {
   wellness: WellnessCheck[];
   /** Flags waiting for the coach's decision. */
   openFlags: CoachFlag[];
+  /** Session load, the week against the month. Context, never a verdict. */
+  freshness: Freshness | null;
+  /** Only while she consents to share it. */
+  cycle: (CycleContext & { day: number | null; averageLength: number | null }) | null;
 }
 
 const VITALS = [
@@ -101,6 +106,8 @@ export async function buildClientReport(
     programme,
     wellness,
     openFlags,
+    freshness,
+    cycleContext,
   ] = await Promise.all([
     listSessions(supabase, { clientId, from, to: shift(to, 14) }),
     listDailyReads(supabase, { clientId, from, to }),
@@ -118,6 +125,8 @@ export async function buildClientReport(
     getAssignedProgram(supabase, clientId),
     listWellness(supabase, clientId, 4),
     listFlags(supabase, { clientId, open: true }),
+    getFreshness(supabase, clientId, to),
+    getCycleContext(supabase, clientId),
   ]);
 
   // Vitals by local day, averaged: an imported row and a manual one for the same day
@@ -198,6 +207,17 @@ export async function buildClientReport(
     messages: [...messages].reverse(),
     wellness,
     openFlags,
+    freshness,
+    cycle: cycleContext
+      ? (() => {
+          const position = cycleDay(cycleContext.periodStarts, to);
+          return {
+            ...cycleContext,
+            day: position?.day ?? null,
+            averageLength: position?.averageLength ?? null,
+          };
+        })()
+      : null,
   };
 }
 

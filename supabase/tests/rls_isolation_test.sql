@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (144);
+  plan (154);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -1519,6 +1519,122 @@ select is (
   (select count(*) from public.coach_flags),
   0::bigint,
   'another coach sees none of them'
+);
+
+-- Freshness, the divergence flag and cycle context (25 October 2026) -----------
+reset role;
+
+-- Four weeks of steady training for client one: 40 minutes at RPE 5 every other day.
+insert into public.sessions (client_id, title, scheduled_date, status, duration_sec, session_rpe)
+select '00000000-0000-4000-8000-0000000000f1', 'Steady', current_date - g, 'completed', 2400, 5
+from generate_series(1, 27, 2) g;
+
+-- One session she rated 6 for 30 minutes, and one Strava brought with heart rate.
+insert into public.sessions (id, client_id, title, scheduled_date, status, duration_sec, session_rpe)
+values
+  ('00000000-0000-4000-8000-00000000fb01', '00000000-0000-4000-8000-0000000000f1', 'Rated', current_date - 40, 'completed', 1800, 6),
+  ('00000000-0000-4000-8000-00000000fb02', '00000000-0000-4000-8000-0000000000f1', 'Strava run', current_date - 41, 'completed', 3000, 3);
+
+insert into public.activities (client_id, session_id, source, external_id, sport_type, name, started_at, local_date, elapsed_sec, moving_sec, avg_hr, max_hr)
+values ('00000000-0000-4000-8000-0000000000f1', '00000000-0000-4000-8000-00000000fb02', 'strava', 'tap-1', 'Run', 'Strava run',
+  now() - interval '41 days', current_date - 41, 3100, 3000, 160, 190);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select load from public.session_loads('00000000-0000-4000-8000-0000000000f1', current_date - 40, current_date - 40)
+    where session_id = '00000000-0000-4000-8000-00000000fb01'),
+  180::numeric,
+  'session load is RPE times minutes'
+);
+
+select is (
+  (select basis || ' ' || load from public.session_loads('00000000-0000-4000-8000-0000000000f1', current_date - 41, current_date - 41)
+    where session_id = '00000000-0000-4000-8000-00000000fb02'),
+  'heart_rate 250',
+  'where Strava has heart rate it sets the intensity (160 of 190 reads as 5, over 50 minutes)'
+);
+
+select ok (
+  (select ratio between 0.8 and 1.3 and history_days >= 21
+    from public.client_freshness('00000000-0000-4000-8000-0000000000f1')),
+  'a steady month reads as a steady ratio'
+);
+
+-- Wellness: two good earlier weeks, then this week's (3, 2, 4, 3 = 12) re-sent.
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+insert into public.wellness_checks (client_id, week_start, sleep, fatigue, soreness, stress)
+values
+  ('00000000-0000-4000-8000-0000000000f1', date_trunc('week', current_date)::date - 14, 2, 2, 2, 2),
+  ('00000000-0000-4000-8000-0000000000f1', date_trunc('week', current_date)::date - 7, 2, 2, 2, 2);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select count(*) from public.coach_flags where kind = 'divergence'),
+  0::bigint,
+  'no divergence flag before there is a trend to diverge from'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+update public.wellness_checks set stress = 3
+where client_id = '00000000-0000-4000-8000-0000000000f1' and week_start = date_trunc('week', current_date)::date;
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select count(*) from public.coach_flags where kind = 'divergence' and resolved_at is null),
+  1::bigint,
+  'wellness four points worse on a steady load flags the coach'
+);
+
+-- Cycle context: nothing without its own consent; gone when it is withdrawn.
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select throws_ok (
+  $$insert into public.cycle_context (client_id, status) values ('00000000-0000-4000-8000-0000000000f1', 'regular')$$,
+  '42501',
+  null,
+  'cycle context cannot be stored without its consent'
+);
+
+select lives_ok (
+  $$select public.record_consent (array['cycle_context']::public.consent_type[], '2026-10-25');
+    insert into public.cycle_context (client_id, status) values ('00000000-0000-4000-8000-0000000000f1', 'regular');
+    insert into public.period_starts (client_id, started_on) values ('00000000-0000-4000-8000-0000000000f1', current_date - 10)$$,
+  'with consent she records her cycle'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select count(*) from public.period_starts),
+  1::bigint,
+  'her coach reads it while the consent stands'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+
+select is (
+  (select count(*) from public.cycle_context),
+  0::bigint,
+  'another coach does not'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+update public.consents set revoked_at = now()
+where client_id = '00000000-0000-4000-8000-0000000000f1' and type = 'cycle_context';
+
+reset role;
+
+select is (
+  (select count(*) from public.cycle_context) + (select count(*) from public.period_starts),
+  0::bigint,
+  'withdrawing the consent deletes what it covered'
 );
 
 select * from finish ();
