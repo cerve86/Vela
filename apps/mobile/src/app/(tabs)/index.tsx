@@ -39,6 +39,7 @@ import {
   weekAdherence,
   useAssignedProgram,
   useWeeklyPlan,
+  useWellnessThisWeek,
 } from '@/lib/data';
 import { useDailyRead } from '@/lib/daily';
 import { syncHealthNow } from '@/lib/healthSync';
@@ -60,6 +61,7 @@ export default function TodayScreen() {
   const insets = useSafeAreaInsets();
   const { client } = useSession();
   const updateNeeded = useUpdateNeeded();
+  const wellness = useWellnessThisWeek();
 
   const week = useWeek();
   const assigned = useAssignedProgram();
@@ -82,6 +84,7 @@ export default function TodayScreen() {
     useCallback(() => {
       week.reload();
       nutrition.reload();
+      wellness.reload();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );
@@ -136,11 +139,18 @@ export default function TodayScreen() {
   const name = client?.firstName ?? fallback.charAt(0).toUpperCase() + fallback.slice(1);
   const writtenPlan = Boolean(weekly.data) || assigned.data?.kind === 'descriptive';
   const todayIso = today();
-  // The calendar's week runs Monday to Sunday, as a programme's does; Today's own week
-  // grid runs Sunday to Saturday. The card tallies the calendar's week so the two agree.
+  // The calendar's week, Monday to Sunday, as a programme's is.
   const calendarWeek = useSessionsBetween(mondayOfIso(todayIso), addDays(mondayOfIso(todayIso), 6));
 
-  const active = activePlan(plan.data, daily.current, daily.read.symptom);
+  // Today's session as the readiness tap before it, or the physio's answer, made it.
+  const todays = week.todaySession;
+  const active = activePlan(plan.data, {
+    readiness: todays?.readinessBefore ?? null,
+    pfFlag: todays?.pfFlag ?? null,
+    acute: todays?.acuteSymptom ?? null,
+    adjustedTo: todays?.adjustedTo ?? null,
+    adjustedNote: todays?.adjustedNote ?? null,
+  });
   const mins = planMinutes(active.items.map((i) => ({ sets: i.sets, restSec: i.restSec })));
 
   const started = week.todaySession?.status === 'in_progress';
@@ -250,13 +260,11 @@ export default function TodayScreen() {
                 paddingHorizontal: 8,
               }}
             >
-              {/* The week's HRV through the training decision tree, crossed with her read,
-                  once there is a range to read it against; the recovery note until then. */}
-              {vitality.guidance
-                ? vitality.guidance.note
-                : vitality.recovery.score === null
-                  ? greeting(name, daily.current, done, Boolean(week.todaySession), writtenPlan)
-                  : vitality.recovery.note}
+              {/* The HRV decision-tree read is the coach's: it goes to her portal and her
+                  Claude, never to this screen. Here, a greeting or the recovery note. */}
+              {vitality.recovery.score === null
+                ? greeting(name, daily.current, done, Boolean(week.todaySession), writtenPlan)
+                : vitality.recovery.note}
             </Text>
             <Body size={11} color={t.textSecondary} style={{ textAlign: 'center', marginTop: 6 }}>
               {vitality.recovery.score === null
@@ -267,11 +275,6 @@ export default function TodayScreen() {
                 ? ' · from how you feel'
                 : ''}
             </Body>
-            {vitality.guidance ? (
-              <Body size={11} color={t.textSecondary} style={{ textAlign: 'center', marginTop: 2 }}>
-                {vitality.guidance.summary}
-              </Body>
-            ) : null}
 
             <View style={{ flexDirection: 'row', marginTop: 22, width: '100%' }}>
               <RingStat
@@ -336,6 +339,7 @@ export default function TodayScreen() {
         </HeroBand>
 
         <CheckInCard
+          wellnessDue={!wellness.loading && wellness.data === null && Boolean(client)}
           completed={weekSoFar.completed}
           due={weekSoFar.due}
           goal={client?.goal ?? null}

@@ -4,10 +4,14 @@ import { revalidatePath } from 'next/cache';
 import {
   friendlyError,
   listClientPlans,
+  listFlags,
   logAudit,
   mondayOf,
+  resolveFlag,
+  saveClientGates,
   sendMessage,
   upsertClientPlan,
+  type ClientGates,
 } from '@vela/api';
 import { createServerSupabase } from '@/lib/supabase/server';
 
@@ -79,4 +83,57 @@ function pretty(iso: string): string {
     month: 'long',
     timeZone: 'UTC',
   });
+}
+
+/**
+ * Answer a flag. For a hold the answer is what her session becomes today, which she then
+ * sees on her phone; for the others it records that the coach has seen it.
+ */
+export async function resolveFlagAction(
+  flagId: string,
+  input: {
+    resolution: string;
+    adjustTo?: 'gentle' | 'low_impact' | 'strength' | 'as_planned';
+    note?: string | null;
+  },
+): Promise<Result> {
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not signed in.' };
+  const [flag] = (await listFlags(supabase, { open: true, limit: 200 })).filter(
+    (f) => f.id === flagId,
+  );
+  if (!flag) return { ok: false, error: 'That flag is already resolved.' };
+  const { error } = await resolveFlag(supabase, flag, input);
+  if (error) return { ok: false, error: friendlyError(error) };
+  await logAudit(supabase, {
+    actorId: user.id,
+    action: `flag.${input.adjustTo ?? input.resolution}`,
+    entity: 'client',
+    entityId: flag.clientId,
+    via: 'portal',
+  });
+  revalidatePath(`/clients/${flag.clientId}`);
+  revalidatePath('/clients');
+  return { ok: true };
+}
+
+/** Her pain thresholds and the pelvic-floor gate, as the coach sets them. */
+export async function saveGatesAction(clientId: string, gates: ClientGates): Promise<Result> {
+  const supabase = await createServerSupabase();
+  const clean: ClientGates = {
+    pfGate: gates.pfGate,
+    painThresholds: gates.painThresholds
+      .filter((t) => t.location.trim() && Number.isFinite(t.max))
+      .map((t) => ({
+        location: t.location.trim().toLowerCase(),
+        max: Math.max(0, Math.min(10, Math.round(t.max))),
+      })),
+  };
+  const { error } = await saveClientGates(supabase, clientId, clean);
+  if (error) return { ok: false, error: friendlyError(error) };
+  revalidatePath(`/clients/${clientId}`);
+  return { ok: true };
 }

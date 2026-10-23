@@ -10,6 +10,9 @@ import {
   type MetricType,
   type ScheduledSession,
   listClientPlans,
+  listFlags,
+  listWellness,
+  getClientGates,
   mondayOf,
 } from '@vela/api';
 import {
@@ -27,6 +30,8 @@ import { FillBar, Reading, ReadingGroup, ScaleBar } from '@/components/readings'
 import { dateWindow } from '@/lib/series';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { WeeklyPlanCard } from './WeeklyPlanCard';
+import { GatesCard } from './GatesCard';
+import { FlagsPanel } from '@/components/flags/FlagsPanel';
 
 const VITALS: MetricType[] = ['weight_kg', 'resting_hr', 'hrv_ms', 'steps'];
 
@@ -73,7 +78,7 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
   const todayIso = new Date().toISOString().slice(0, 10);
   const since28 = daysBack(27);
 
-  const [sessions, metrics, reads, activities, plans] = await Promise.all([
+  const [sessions, metrics, reads, activities, plans, flags, gates, wellness] = await Promise.all([
     listSessions(supabase, { clientId: id, from: since28 }),
     listMetrics(supabase, {
       clientId: id,
@@ -84,6 +89,9 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
     listDailyReads(supabase, { clientId: id, from: daysBack(6) }),
     listActivities(supabase, { clientId: id, from: since28 }),
     listClientPlans(supabase, id),
+    listFlags(supabase, { clientId: id, open: true }),
+    getClientGates(supabase, id),
+    listWellness(supabase, id, 4),
   ]);
   const firstName = client.first_name_hint?.trim() || client.email.split('@')[0] || 'her';
 
@@ -386,12 +394,65 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
         </div>
       )}
 
+      <FlagsPanel flags={flags} />
+
       <WeeklyPlanCard
         clientId={id}
         firstName={firstName}
         thisWeek={mondayOf(todayIso)}
         plans={plans}
       />
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <GatesCard clientId={id} gates={gates} />
+        <Card title="Wellness, weekly">
+          {wellness.length === 0 ? (
+            <p className="text-sm ink-2">
+              No answers yet. She is asked four questions once a week from her check-in card.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs ink-3">
+                    <th className="pb-2 font-medium">Week of</th>
+                    <th className="pb-2 font-medium">Sleep</th>
+                    <th className="pb-2 font-medium">Fatigue</th>
+                    <th className="pb-2 font-medium">Soreness</th>
+                    <th className="pb-2 font-medium">Stress</th>
+                  </tr>
+                </thead>
+                <tbody className="tnum">
+                  {wellness.map((w) => (
+                    <tr
+                      key={w.weekStart}
+                      className="border-t"
+                      style={{ borderColor: 'var(--border)' }}
+                    >
+                      <td className="py-2">{w.weekStart}</td>
+                      {[w.sleep, w.fatigue, w.soreness, w.stress].map((v, i) => (
+                        <td
+                          key={i}
+                          className="py-2"
+                          style={{
+                            color: v >= 4 ? palette.status.critical : undefined,
+                            fontWeight: v >= 4 ? 600 : undefined,
+                          }}
+                        >
+                          {v}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-2 text-xs ink-3">
+                1 is good and 5 is bad for all four; 4 or 5 is shown in red.
+              </p>
+            </div>
+          )}
+        </Card>
+      </div>
 
       <ReadingGroup title="Training" hint="Last 7 days · trends over 4 weeks">
         <Reading

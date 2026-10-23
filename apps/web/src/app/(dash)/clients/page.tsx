@@ -7,6 +7,8 @@ import {
   type RosterRollup,
 } from '@vela/shared';
 import { palette } from '@vela/shared/tokens';
+import { listFlags } from '@vela/api';
+import { FlagsPanel } from '@/components/flags/FlagsPanel';
 import { Meter } from '@/components/charts';
 import { Avatar, Card, EmptyState, StatTile, StatusPill } from '@/components/ui';
 import { createServerSupabase } from '@/lib/supabase/server';
@@ -118,6 +120,10 @@ export default async function ClientsPage() {
     (a, b) => rank(rollups.get(a.id)!) - rank(rollups.get(b.id)!) || a.name.localeCompare(b.name),
   );
 
+  // Flags awaiting a decision, across every client: the first thing on the page.
+  const openFlags = await listFlags(supabase, { open: true });
+  const names = Object.fromEntries(rows.map((c) => [c.id, c.name]));
+
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 md:p-8">
       <header className="mb-6 flex items-end justify-between">
@@ -144,6 +150,12 @@ export default async function ClientsPage() {
           </Link>
         </div>
       </header>
+
+      {openFlags.length > 0 && (
+        <div className="mb-6">
+          <FlagsPanel flags={openFlags} names={names} />
+        </div>
+      )}
 
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile

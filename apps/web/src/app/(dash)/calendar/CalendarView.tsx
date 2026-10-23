@@ -53,6 +53,10 @@ export interface CalendarSession {
   loggedVia: string;
   dayNotes: string | null;
   doneItemIds: string[];
+  readinessBefore: number | null;
+  completion: 'all' | 'some' | 'none' | null;
+  sessionRpe: number | null;
+  adjustedTo: string | null;
 }
 
 /**
@@ -67,6 +71,7 @@ export type State = 'done' | 'partial' | 'missed' | 'planned' | 'logged';
 
 export function stateOf(s: CalendarSession, today: string): State {
   if (!s.prescribed) return 'logged';
+  if (s.status === 'completed' && s.completion) return s.completion === 'all' ? 'done' : 'partial';
   if (s.status === 'completed') {
     return s.setsPlanned && s.setsDone !== null && s.setsDone < s.setsPlanned ? 'partial' : 'done';
   }
@@ -130,7 +135,9 @@ function Chip({ state }: { state: State }) {
 function meta(s: CalendarSession, state: State): string {
   const parts: string[] = [DISCIPLINE_LABEL[s.discipline]];
   if (state === 'done' || state === 'partial') {
-    if (s.setsPlanned) parts.push(`${s.setsDone ?? 0} of ${s.setsPlanned} sets`);
+    if (s.completion) parts.push(s.completion === 'all' ? 'all of it' : 'some of it');
+    else if (s.setsPlanned) parts.push(`${s.setsDone ?? 0} of ${s.setsPlanned} sets`);
+    if (s.sessionRpe !== null) parts.push(`RPE ${s.sessionRpe}`);
     else if (s.status === 'in_progress') parts.push('started');
     else if (s.durationSec) parts.push(`${Math.round(s.durationSec / 60)} min`);
   } else if (state === 'logged') {
@@ -1078,11 +1085,16 @@ function SessionDetail({
 
       {(session.status === 'completed' || session.status === 'in_progress') && (
         <p className="mt-3 text-xs ink-2">
-          {items.length > 0 && session.status === 'completed'
-            ? finished === items.length
-              ? 'Every movement finished. '
-              : `${finished} of ${items.length} movements finished outright. `
+          {session.readinessBefore !== null
+            ? `Readiness ${session.readinessBefore}/10 before. `
             : ''}
+          {session.completion
+            ? `Did ${session.completion === 'all' ? 'all of it' : session.completion === 'some' ? 'some of it' : 'none of it'}${session.sessionRpe !== null ? `, RPE ${session.sessionRpe}` : ''}. `
+            : items.length > 0 && session.status === 'completed' && session.doneItemIds.length > 0
+              ? finished === items.length
+                ? 'Every movement finished. '
+                : `${finished} of ${items.length} movements finished outright. `
+              : ''}
           {session.painBefore !== null || session.painAfter !== null
             ? `Symptom ${session.painBefore ?? '—'} before → ${session.painAfter ?? 'not yet sent'} after.`
             : session.status === 'completed'

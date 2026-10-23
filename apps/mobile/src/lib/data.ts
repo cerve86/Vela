@@ -18,6 +18,8 @@ import {
   type NutritionTarget,
   type ScheduledSession,
   type SessionPlanItem,
+  listWellness,
+  type WellnessCheck,
 } from '@vela/api';
 import { supabase } from './supabase';
 import { useSession } from './session';
@@ -235,6 +237,21 @@ export function useProgrammeSessions(program: { startDate: string; durationWeeks
       client && from && to ? listSessions(supabase, { clientId: client.id, from, to }) : [],
     [],
     [client?.id, from, to],
+  );
+}
+
+/** This week's wellness check (Monday-start), or null when she has not answered yet. */
+export function useWellnessThisWeek() {
+  const { client } = useSession();
+  const monday = startOfWeek(today());
+  return useAsync<WellnessCheck | null>(
+    async () => {
+      if (!client) return null;
+      const [latest] = await listWellness(supabase, client.id, 1);
+      return latest && latest.weekStart === monday ? latest : null;
+    },
+    null,
+    [client?.id, monday],
   );
 }
 

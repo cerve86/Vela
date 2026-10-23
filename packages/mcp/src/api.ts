@@ -112,6 +112,11 @@ export interface ClientReport {
     durationSec: number | null;
     sessionRpe: number | null;
     loggedVia: string;
+    // Absent from a portal older than the readiness gate.
+    readinessBefore?: number | null;
+    completion?: 'all' | 'some' | 'none' | null;
+    painLocation?: string | null;
+    adjustedTo?: string | null;
   }[];
   reads: { readOn: string; window: string; readiness: number; symptom: string }[];
   vitals: Record<string, { day: string; value: number }[]>;
@@ -134,6 +139,14 @@ export interface ClientReport {
     targetKcal: number | null;
   }[];
   messages: { sender: string; body: string; createdAt: string }[];
+  wellness?: {
+    weekStart: string;
+    sleep: number;
+    fatigue: number;
+    soreness: number;
+    stress: number;
+  }[];
+  openFlags?: { kind: string; detail: string; createdAt: string }[];
 }
 
 export interface ProgramSummary {

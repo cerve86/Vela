@@ -141,6 +141,21 @@ export function useActivities(days = 14) {
 }
 
 /* ─────────────────────────────────────────────────────────────
+ * The coach's flags
+ * ───────────────────────────────────────────────────────────── */
+
+/**
+ * Asks the portal to tell the coach about any flag her last answers raised.
+ *
+ * The flags themselves are raised by the database when the session is written; this only
+ * gets the email out. Best effort and silent: the coach also sees every flag in the
+ * portal, so a failed call here loses nothing.
+ */
+export async function notifyCoach(): Promise<void> {
+  await portal('/api/flags/notify', { method: 'POST' }).catch(() => {});
+}
+
+/* ─────────────────────────────────────────────────────────────
  * Barcodes
  * ───────────────────────────────────────────────────────────── */
 
