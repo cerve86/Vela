@@ -182,6 +182,7 @@ export type Database = {
           client_id: string
           coach_id: string
           created_at: string
+          first_day: string | null
           id: string
           program_id: string
           start_date: string
@@ -191,6 +192,7 @@ export type Database = {
           client_id: string
           coach_id: string
           created_at?: string
+          first_day?: string | null
           id?: string
           program_id: string
           start_date: string
@@ -200,6 +202,7 @@ export type Database = {
           client_id?: string
           coach_id?: string
           created_at?: string
+          first_day?: string | null
           id?: string
           program_id?: string
           start_date?: string
@@ -1544,6 +1547,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      sync_program_sessions: { Args: { p_program_id: string }; Returns: number }
       unassign_program: {
         Args: { p_assignment_id: string }
         Returns: undefined

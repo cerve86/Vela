@@ -69,12 +69,15 @@ describe('configFromEnv', () => {
 });
 
 describe('tools', () => {
-  it('publishes the fourteen tools with the programme schema described field by field', async () => {
+  it('publishes the twenty tools with the programme schema described field by field', async () => {
     const client = await connect(fakePortal({}).fetchImpl);
     const { tools } = await client.listTools();
     assert.deepEqual(tools.map((t) => t.name).sort(), [
+      'add_program_day',
       'add_program_item',
+      'assign_program',
       'create_descriptive_program',
+      'create_exercise',
       'create_program',
       'delete_program',
       'get_client_report',
@@ -83,16 +86,57 @@ describe('tools', () => {
       'list_exercises',
       'list_programs',
       'preview_program',
+      'remove_program_day',
       'remove_program_item',
       'send_weekly_plan',
+      'unassign_program',
+      'update_program_day',
       'update_program_item',
       'whoami',
     ]);
     const create = tools.find((t) => t.name === 'create_program')!;
     const schema = JSON.stringify(create.inputSchema);
     assert.match(schema, /Matching ignores case, spacing and hyphens/);
-    assert.match(schema, /not a weekday/);
+    assert.match(schema, /1 = Monday/);
     assert.equal(create.annotations?.destructiveHint, false);
+  });
+
+  it('assigns from the Monday and says when her first session is', async () => {
+    let sent: unknown = null;
+    const portal = fakePortal({
+      '/api/clients/00000000-0000-4000-8000-000000000001/assignment': (init) => {
+        sent = JSON.parse(String(init?.body));
+        return {
+          status: 201,
+          body: {
+            assignment: {
+              id: 'a1',
+              programId: 'p1',
+              programName: 'Base 1',
+              weekOneMonday: '2026-10-26',
+              firstDay: '2026-10-28',
+            },
+          },
+        };
+      },
+    });
+    const client = await connect(portal.fetchImpl);
+    const res = await client.callTool({
+      name: 'assign_program',
+      arguments: {
+        client_id: '00000000-0000-4000-8000-000000000001',
+        program_id: '00000000-0000-4000-8000-000000000002',
+        start_date: '2026-10-28',
+      },
+    });
+    assert.deepEqual(sent, {
+      programId: '00000000-0000-4000-8000-000000000002',
+      startDate: '2026-10-28',
+    });
+    assert.match(
+      firstText(res),
+      /Week 1 starts Monday 2026-10-26; her first session is from 2026-10-28/,
+    );
   });
 
   it('sends the key as a Bearer header and reports who it is', async () => {

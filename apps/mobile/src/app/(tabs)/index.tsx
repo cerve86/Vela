@@ -26,6 +26,7 @@ import { Prose } from '@/components/prose';
 import { Illustration } from '@/components/Illustration';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
+import { useUpdateNeeded } from '@/lib/appVersion';
 import {
   addDays,
   localDay,
@@ -58,6 +59,7 @@ export default function TodayScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { client } = useSession();
+  const updateNeeded = useUpdateNeeded();
 
   const week = useWeek();
   const assigned = useAssignedProgram();
@@ -215,6 +217,18 @@ export default function TodayScreen() {
           />
         }
       >
+        {updateNeeded && (
+          <Card style={{ borderRadius: 18, paddingVertical: 14, marginTop: insets.top + 8 }}>
+            <Body size={14} weight="semibold">
+              A newer Vela is waiting
+            </Body>
+            <Body size={13} color={t.textSecondary} style={{ marginTop: 3, lineHeight: 18 }}>
+              Your physio has added things to your programme that this version can&apos;t show. Open
+              TestFlight and update Vela to see all of it.
+            </Body>
+          </Card>
+        )}
+
         <HeroBand>
           <View style={{ paddingTop: insets.top + 10, alignItems: 'center' }}>
             {/* The mascot, under the trend gauge: how today is going, before any number. */}

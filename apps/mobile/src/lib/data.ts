@@ -51,10 +51,14 @@ export function addDays(iso: string, n: number): string {
 }
 
 /** Sunday-based start of the week containing `iso`, to match the week strip. */
+/**
+ * The Monday of the week. Monday-first everywhere: programmes are assigned from a Monday
+ * and their day 1 is a Monday, so a Sunday-first grid put the long run on the wrong day.
+ */
 export function startOfWeek(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   const dt = new Date(y!, (m ?? 1) - 1, d ?? 1);
-  return addDays(iso, -dt.getDay());
+  return addDays(iso, -((dt.getDay() + 6) % 7));
 }
 
 interface Async<T> {

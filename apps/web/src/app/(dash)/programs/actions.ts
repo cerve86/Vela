@@ -22,6 +22,7 @@ import {
   listExercises,
   listPrograms,
   unassignProgram,
+  updateDay,
   updateDayNotes,
   updateItem,
   updateProgramBody,
@@ -165,6 +166,20 @@ export async function addDayAction(
 ): Promise<Result> {
   const { supabase } = await ctx();
   const { error } = await addDay(supabase, programId, input);
+  if (error) return { ok: false, error: friendlyError(error) };
+  await edited(supabase, programId);
+  revalidatePath(`/programs/${programId}`);
+  return { ok: true };
+}
+
+/** Rename a day, or change its discipline. Her upcoming sessions follow. */
+export async function updateDayAction(
+  programId: string,
+  dayId: string,
+  patch: { title?: string; discipline?: Discipline },
+): Promise<Result> {
+  const { supabase } = await ctx();
+  const { error } = await updateDay(supabase, dayId, patch);
   if (error) return { ok: false, error: friendlyError(error) };
   await edited(supabase, programId);
   revalidatePath(`/programs/${programId}`);

@@ -1,5 +1,8 @@
 import type { VelaClient } from './client';
 import { listExercises, type ExerciseCategory } from './exercises';
+import { matchExerciseNames, normaliseExerciseName } from './exerciseMatch';
+
+export { matchExerciseNames, normaliseExerciseName, stripBrackets } from './exerciseMatch';
 
 export type Discipline = 'strength' | 'run' | 'mobility' | 'rehab' | 'cross';
 
@@ -288,30 +291,122 @@ export async function createProgram(
   return { id: data?.id ?? null, error: error?.message ?? null };
 }
 
+/**
+ * Brings every client on this programme back in line with its days: upcoming sessions
+ * added, removed, renamed or moved; nothing done or past is touched. Every change to a
+ * day goes through here, which is what keeps a calendar from being orphaned by an edit.
+ */
+export async function syncProgramSessions(
+  supabase: VelaClient,
+  programId: string,
+): Promise<{ changed: number; error: string | null }> {
+  const { data, error } = await supabase.rpc('sync_program_sessions', { p_program_id: programId });
+  return { changed: (data as number) ?? 0, error: error?.message ?? null };
+}
+
+/** Day numbers are weekdays: 1 is Monday, 7 is Sunday. Assignments start on a Monday. */
+export const WEEKDAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+
+export function weekdayOfDay(dayNo: number): string {
+  return WEEKDAY_SHORT[dayNo - 1] ?? `Day ${dayNo}`;
+}
+
 export async function addDay(
   supabase: VelaClient,
   programId: string,
-  input: { weekNo: number; dayNo: number; title: string; discipline: Discipline },
-): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('program_days').insert({
-    program_id: programId,
-    week_no: input.weekNo,
-    day_no: input.dayNo,
-    title: input.title.trim() || 'Session',
-    discipline: input.discipline,
-  });
-  return {
-    error: error
-      ? error.message.includes('program_days_program_id_week_no_day_no_key')
-        ? `Week ${input.weekNo} already has a day ${input.dayNo}.`
-        : error.message
-      : null,
-  };
+  input: {
+    weekNo: number;
+    dayNo: number;
+    title: string;
+    discipline: Discipline;
+    notes?: string | null;
+  },
+): Promise<{ id: string | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from('program_days')
+    .insert({
+      program_id: programId,
+      week_no: input.weekNo,
+      day_no: input.dayNo,
+      title: input.title.trim() || 'Session',
+      discipline: input.discipline,
+      notes: input.notes?.trim() || null,
+    })
+    .select('id')
+    .single();
+  if (error)
+    return {
+      id: null,
+      error: error.message.includes('program_days_program_id_week_no_day_no_key')
+        ? `Week ${input.weekNo} already has a ${weekdayOfDay(input.dayNo)} (day ${input.dayNo}).`
+        : error.message,
+    };
+  const sync = await syncProgramSessions(supabase, programId);
+  return { id: data?.id ?? null, error: sync.error };
 }
 
+/**
+ * Removes a day. Her upcoming session for it leaves her calendar; a session she already
+ * did on it stays in her history, unlinked from the day that no longer exists.
+ */
 export async function deleteDay(supabase: VelaClient, dayId: string) {
-  const { error } = await supabase.from('program_days').delete().eq('id', dayId);
-  return { error: error?.message ?? null };
+  const { data, error } = await supabase
+    .from('program_days')
+    .delete()
+    .eq('id', dayId)
+    .select('program_id');
+  if (error) return { error: error.message };
+  const programId = data?.[0]?.program_id;
+  if (programId) {
+    const sync = await syncProgramSessions(supabase, programId);
+    if (sync.error) return { error: sync.error };
+  }
+  return { error: null };
+}
+
+/**
+ * Changes a day in place: its title, discipline, notes, or its place in the block. The
+ * upcoming sessions follow — renamed, re-disciplined, moved — so a haze week is one edit,
+ * not remove, re-add and re-add every exercise.
+ */
+export async function updateDay(
+  supabase: VelaClient,
+  dayId: string,
+  patch: {
+    title?: string;
+    discipline?: Discipline;
+    notes?: string | null;
+    weekNo?: number;
+    dayNo?: number;
+  },
+): Promise<{ error: string | null }> {
+  const row: {
+    title?: string;
+    discipline?: string;
+    notes?: string | null;
+    week_no?: number;
+    day_no?: number;
+  } = {};
+  if (patch.title !== undefined) row.title = patch.title.trim() || 'Session';
+  if (patch.discipline !== undefined) row.discipline = patch.discipline;
+  if (patch.notes !== undefined) row.notes = patch.notes?.trim() || null;
+  if (patch.weekNo !== undefined) row.week_no = patch.weekNo;
+  if (patch.dayNo !== undefined) row.day_no = patch.dayNo;
+  if (Object.keys(row).length === 0) return { error: null };
+  const { data, error } = await supabase
+    .from('program_days')
+    .update(row)
+    .eq('id', dayId)
+    .select('program_id');
+  if (error)
+    return {
+      error: error.message.includes('program_days_program_id_week_no_day_no_key')
+        ? 'That week already has a session on that day.'
+        : error.message,
+    };
+  const programId = data?.[0]?.program_id;
+  if (!programId) return { error: 'No such day.' };
+  return { error: (await syncProgramSessions(supabase, programId)).error };
 }
 
 export async function addItem(
@@ -736,16 +831,6 @@ export async function createBundledProgram(
  * Importing a whole programme — from a spreadsheet or JSON
  * ───────────────────────────────────────────────────────────── */
 
-/** Library names as a coach types them, made comparable: case, spacing and hyphens aside. */
-export function normaliseExerciseName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[-–—_/]+/g, ' ')
-    .replace(/[^a-z0-9 ]+/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 /**
  * Matches exercise names to library rows, the coach's own taking precedence over shipped.
  *
@@ -760,24 +845,7 @@ export async function resolveExerciseNames(
   coachId: string,
   names: string[],
 ): Promise<{ byName: Map<string, string>; unmatched: string[] }> {
-  const library = await listExercises(supabase, coachId);
-
-  const index = new Map<string, string>();
-  for (const e of library) {
-    const key = normaliseExerciseName(e.name);
-    // A coach's own exercise shadows a shipped one of the same name: she made it on purpose.
-    if (!index.has(key) || e.isMine) index.set(key, e.id);
-  }
-
-  const byName = new Map<string, string>();
-  const unmatched: string[] = [];
-  for (const raw of names) {
-    const key = normaliseExerciseName(raw);
-    const id = index.get(key);
-    if (id) byName.set(key, id);
-    else if (!unmatched.some((u) => normaliseExerciseName(u) === key)) unmatched.push(raw);
-  }
-  return { byName, unmatched };
+  return matchExerciseNames(await listExercises(supabase, coachId), names);
 }
 
 /**
@@ -832,11 +900,7 @@ export async function updateDayNotes(
   dayId: string,
   notes: string | null,
 ): Promise<{ error: string | null }> {
-  const { error } = await supabase
-    .from('program_days')
-    .update({ notes: notes?.trim() || null })
-    .eq('id', dayId);
-  return { error: error?.message ?? null };
+  return updateDay(supabase, dayId, { notes });
 }
 
 export interface ImportedProgramInput {

@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (126);
+  plan (134);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -1344,6 +1344,87 @@ select throws_ok (
   'P0004',
   null,
   'coach B cannot invite someone coach A has already invited'
+);
+
+
+-- The calendar follows the programme (23 October 2026) -----------------------
+-- A programme of three weeks for client one, assigned from last Monday. Day numbers are
+-- weekdays (1 = Monday); the assignment is anchored on the Monday of its start week.
+reset role;
+
+insert into public.programs (id, coach_id, name, duration_weeks)
+values ('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-0000000000a1', 'Reflow', 3);
+
+insert into public.program_days (id, program_id, week_no, day_no, title)
+values
+  ('00000000-0000-4000-8000-0000000000d1', '00000000-0000-4000-8000-0000000000b1', 1, 1, 'Past Monday'),
+  ('00000000-0000-4000-8000-0000000000d2', '00000000-0000-4000-8000-0000000000b1', 3, 1, 'Next-next Monday'),
+  ('00000000-0000-4000-8000-0000000000d3', '00000000-0000-4000-8000-0000000000b1', 3, 2, 'Next-next Tuesday');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select lives_ok (
+  $$select public.assign_program('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-0000000000f1', (date_trunc('week', current_date)::date - 7))$$,
+  'coach A assigns the programme from last Monday'
+);
+
+reset role;
+update public.sessions set status = 'completed', completed_at = now()
+where program_day_id = '00000000-0000-4000-8000-0000000000d1';
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+delete from public.program_days where id in ('00000000-0000-4000-8000-0000000000d1', '00000000-0000-4000-8000-0000000000d3');
+select public.sync_program_sessions('00000000-0000-4000-8000-0000000000b1');
+
+select is (
+  (select count(*) from public.sessions s join public.assignments a on a.id = s.assignment_id
+   where a.program_id = '00000000-0000-4000-8000-0000000000b1' and a.status = 'active' and s.status = 'completed'),
+  1::bigint,
+  'removing a day never removes the session she completed on it'
+);
+
+select is (
+  (select count(*) from public.sessions where title = 'Next-next Tuesday'),
+  0::bigint,
+  'and an upcoming session whose day was removed is taken off her calendar'
+);
+
+insert into public.program_days (id, program_id, week_no, day_no, title)
+values ('00000000-0000-4000-8000-0000000000d4', '00000000-0000-4000-8000-0000000000b1', 3, 4, 'Added Thursday');
+update public.program_days set title = 'Renamed Monday' where id = '00000000-0000-4000-8000-0000000000d2';
+select public.sync_program_sessions('00000000-0000-4000-8000-0000000000b1');
+
+select is (
+  (select scheduled_date from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000d4'),
+  date_trunc('week', current_date)::date + 10,
+  'a day added to the programme lands on her calendar, on its weekday'
+);
+
+select is (
+  (select title from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000d2'),
+  'Renamed Monday',
+  'and a renamed day renames her upcoming session'
+);
+
+select is (
+  public.sync_program_sessions('00000000-0000-4000-8000-0000000000b1'),
+  0,
+  'a second sync changes nothing'
+);
+
+-- A start mid-week anchors on that Monday and skips the earlier days.
+select lives_ok (
+  $$select public.assign_program('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-0000000000f1', (date_trunc('week', current_date)::date + 9))$$,
+  'coach A re-assigns from a Wednesday'
+);
+
+select is (
+  (select start_date from public.assignments where program_id = '00000000-0000-4000-8000-0000000000b1' and status = 'active'),
+  date_trunc('week', current_date)::date + 7,
+  'and the block is anchored on that week''s Monday'
 );
 
 select * from finish ();

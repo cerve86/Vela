@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   DISCIPLINES,
+  weekdayOfDay,
   type Discipline,
   type LibraryExercise,
   type Program,
@@ -20,6 +21,7 @@ import {
   deleteDayAction,
   deleteItemAction,
   unassignAction,
+  updateDayAction,
   updateItemAction,
   updateDayNotesAction,
 } from '../actions';
@@ -51,6 +53,7 @@ export function Builder({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [week, setWeek] = useState(1);
+  const [renaming, setRenaming] = useState<string | null>(null);
 
   const weeks = useMemo(
     () => Array.from({ length: program.durationWeeks }, (_, i) => i + 1),
@@ -182,20 +185,28 @@ export function Builder({
       {daysThisWeek.length === 0 ? (
         <Card>
           <p className="text-sm ink-2">
-            Week {week} is empty. Add a training day above — day 1 is the first session of the week,
-            and the start date you assign decides what that means on a calendar.
+            Week {week} is empty. Add a training day above. Days are weekdays — day 1 is Monday, day
+            7 Sunday — because every block starts on the Monday of the week it is assigned.
           </p>
         </Card>
       ) : (
         daysThisWeek.map((day) => (
           <Card
             key={day.id}
-            title={`Day ${day.dayNo} — ${day.title}`}
+            title={`${weekdayOfDay(day.dayNo)} · Day ${day.dayNo} — ${day.title}`}
             action={
               <span className="flex items-center gap-3">
                 <StatusPill tone={DISCIPLINE_TONE[day.discipline]}>
                   {DISCIPLINES.find((d) => d.value === day.discipline)?.label ?? day.discipline}
                 </StatusPill>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => setRenaming(renaming === day.id ? null : day.id)}
+                  className="text-xs underline ink-2 disabled:opacity-40"
+                >
+                  {renaming === day.id ? 'Cancel' : 'Rename'}
+                </button>
                 <button
                   type="button"
                   disabled={pending}
@@ -207,6 +218,20 @@ export function Builder({
               </span>
             }
           >
+            {renaming === day.id && (
+              <DayTitleEditor
+                title={day.title}
+                discipline={day.discipline}
+                pending={pending}
+                onSave={(title, discipline) => {
+                  setRenaming(null);
+                  run(
+                    () => updateDayAction(program.id, day.id, { title, discipline }),
+                    'Saved. Her upcoming sessions show the new name.',
+                  );
+                }}
+              />
+            )}
             <DayNotes
               notes={day.notes}
               pending={pending}
@@ -531,6 +556,61 @@ function DayNotes({
   );
 }
 
+/** Rename a day and change its discipline in place, without rebuilding it. */
+function DayTitleEditor({
+  title,
+  discipline,
+  pending,
+  onSave,
+}: {
+  title: string;
+  discipline: Discipline;
+  pending: boolean;
+  onSave: (title: string, discipline: Discipline) => void;
+}) {
+  const [draft, setDraft] = useState(title);
+  const [kind, setKind] = useState<Discipline>(discipline);
+  return (
+    <form
+      className="mb-3 flex flex-wrap items-center gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (draft.trim()) onSave(draft.trim(), kind);
+      }}
+    >
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        maxLength={80}
+        autoFocus
+        className={`${input} min-w-56 flex-1`}
+        style={inputStyle}
+        aria-label="Day title"
+      />
+      <select
+        value={kind}
+        onChange={(e) => setKind(e.target.value as Discipline)}
+        className={input}
+        style={inputStyle}
+        aria-label="Discipline"
+      >
+        {DISCIPLINES.map((d) => (
+          <option key={d.value} value={d.value}>
+            {d.label}
+          </option>
+        ))}
+      </select>
+      <button
+        type="submit"
+        disabled={pending || !draft.trim()}
+        className="text-xs font-medium underline disabled:opacity-40"
+      >
+        Save
+      </button>
+    </form>
+  );
+}
+
 function AddDayCard({
   week,
   existingDayNos,
@@ -563,12 +643,12 @@ function AddDayCard({
           <select
             value={dayNo}
             onChange={(e) => setDayNo(Number(e.target.value))}
-            className={`${input} ml-2 w-16`}
+            className={`${input} ml-2 w-24`}
             style={inputStyle}
           >
             {free.map((n) => (
               <option key={n} value={n}>
-                {n}
+                {n} · {weekdayOfDay(n)}
               </option>
             ))}
           </select>
@@ -626,7 +706,8 @@ export function AssignCard({
   onUnassign?: (assignmentId: string, clientName: string) => void;
 }) {
   const [clientId, setClientId] = useState('');
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState(nextMonday);
+  const monday = mondayOf(startDate);
 
   return (
     <Card title="Assign to a client">
@@ -694,7 +775,12 @@ export function AssignCard({
               Assign
             </button>
           </div>
-          <p className="mt-2 text-xs ink-3">
+          <p className="mt-2 text-xs ink-2">
+            Week 1 runs from Monday {longDay(monday)}; day 1 is Monday.
+            {startDate !== monday &&
+              ` Days before ${weekdayOfDay(isoWeekday(startDate))} in that first week are skipped.`}
+          </p>
+          <p className="mt-1 text-xs ink-3">
             Assigning replaces any live programme and clears her <em>future</em> scheduled sessions.
             Anything already completed stays — that is training history, not a draft.
           </p>
@@ -702,4 +788,32 @@ export function AssignCard({
       )}
     </Card>
   );
+}
+
+/** Monday = 1 … Sunday = 7. */
+function isoWeekday(iso: string): number {
+  const d = new Date(`${iso}T00:00:00Z`).getUTCDay();
+  return d === 0 ? 7 : d;
+}
+
+function mondayOf(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return new Date(d.getTime() - (isoWeekday(iso) - 1) * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Today if it is a Monday, else the coming Monday: where a block naturally starts. */
+function nextMonday(): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const wd = isoWeekday(today);
+  if (wd === 1) return today;
+  const d = new Date(`${today}T00:00:00Z`);
+  return new Date(d.getTime() + (8 - wd) * 86_400_000).toISOString().slice(0, 10);
+}
+
+function longDay(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  });
 }

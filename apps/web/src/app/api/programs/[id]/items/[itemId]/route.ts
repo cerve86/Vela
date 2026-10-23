@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { deleteItem, getProgram, logAudit, notifyProgramEdited, updateItem } from '@vela/api';
 import { requireCoach } from '@/lib/apiRoute';
+import { ITEM_NOTES_MAX } from '@/lib/programInput';
 
 type Ctx = { params: Promise<{ id: string; itemId: string }> };
 
@@ -54,7 +55,14 @@ export async function PATCH(req: Request, { params }: Ctx) {
   if (b.rpe !== undefined) patch.targetRpe = b.rpe === null ? null : Number(b.rpe);
   if (b.tempo !== undefined) patch.tempo = b.tempo === null ? null : String(b.tempo).trim() || null;
   if (b.restSec !== undefined) patch.restSec = Number(b.restSec);
-  if (b.notes !== undefined) patch.notes = b.notes === null ? null : String(b.notes).trim() || null;
+  if (b.notes !== undefined) {
+    patch.notes = b.notes === null ? null : String(b.notes).trim() || null;
+    if (patch.notes && patch.notes.length > ITEM_NOTES_MAX)
+      return NextResponse.json(
+        { error: `notes may be up to ${ITEM_NOTES_MAX} characters.` },
+        { status: 400 },
+      );
+  }
   if (b.block !== undefined) patch.block = String(b.block).trim().toUpperCase() || 'A';
   if (Object.keys(patch).length === 0)
     return NextResponse.json({ error: 'Nothing to change.' }, { status: 400 });

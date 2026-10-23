@@ -68,10 +68,10 @@ export const importItemSchema = z.object({
   notes: z
     .string()
     .trim()
-    .max(500)
+    .max(1000)
     .nullable()
     .default(null)
-    .describe('Coaching cue for this item, or null.'),
+    .describe('Coaching cue for this item, or null. Up to 1,000 characters.'),
 });
 
 export const importDayShape = {
@@ -81,7 +81,9 @@ export const importDayShape = {
     .int()
     .min(1)
     .max(7)
-    .describe('Order within the week, 1–7 — not a weekday. The start date decides the calendar.'),
+    .describe(
+      'The weekday: 1 = Monday … 7 = Sunday. A programme is assigned from the Monday of its first week.',
+    ),
   title: z
     .string()
     .trim()

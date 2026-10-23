@@ -58,21 +58,24 @@ to `http://localhost:4310` against a local stack.
 
 ## The tools
 
-| Tool              | What it does                                                                  |
-| ----------------- | ----------------------------------------------------------------------------- |
-| `whoami`          | The coach the key acts as. The first call to make when something is off.      |
-| `list_exercises`  | The library — shipped plus her own — optionally filtered by name or category. |
-| `list_programs`   | Her programmes and templates, with ids and portal links.                      |
-| `get_program`     | One programme in full, as days of prescriptions.                              |
-| `preview_program` | Validates a draft and matches every exercise name. Creates nothing.           |
-| `create_program`  | Creates the programme and returns its link. Never assigns.                    |
-| `delete_program`  | Archives a programme; the coach can restore it from the portal.               |
-| `create_descriptive_program` | A written programme: name, weeks and the text the client reads as it is. |
-| `list_clients`    | Her active clients, by name, with ids.                                        |
-| `send_weekly_plan` | This week's plan for one client, straight to her phone, with a message.      |
-| `get_client_report` | Everything about one client as a page: sessions, reads, vitals, HRV read, activities, meals, messages. |
-| `update_program_item` | Change sets, reps, load, RPE, tempo, rest or notes of one prescription.   |
-| `add_program_item` / `remove_program_item` | Add a movement to a day, or take one off.                |
+| Tool                                                            | What it does                                                                                                                                                                   |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `whoami`                                                        | The coach the key acts as. The first call to make when something is off.                                                                                                       |
+| `list_exercises`                                                | The library — shipped plus her own — optionally filtered by name or category.                                                                                                  |
+| `list_programs`                                                 | Her programmes and templates, with ids and portal links.                                                                                                                       |
+| `get_program`                                                   | One programme in full, as days of prescriptions.                                                                                                                               |
+| `preview_program`                                               | Validates a draft and matches every exercise name. Creates nothing.                                                                                                            |
+| `create_program`                                                | Creates the programme and returns its link. Never assigns.                                                                                                                     |
+| `delete_program`                                                | Archives a programme; the coach can restore it from the portal.                                                                                                                |
+| `create_descriptive_program`                                    | A written programme: name, weeks and the text the client reads as it is.                                                                                                       |
+| `list_clients`                                                  | Her active clients, by name, with ids.                                                                                                                                         |
+| `send_weekly_plan`                                              | This week's plan for one client, straight to her phone, with a message.                                                                                                        |
+| `get_client_report`                                             | Everything about one client as a page: sessions, reads, vitals, HRV read, activities, meals, messages.                                                                         |
+| `update_program_item`                                           | Change sets, reps, load, RPE, tempo, rest or notes of one prescription.                                                                                                        |
+| `add_program_item` / `remove_program_item`                      | Add a movement to a day, or take one off.                                                                                                                                      |
+| `add_program_day` / `update_program_day` / `remove_program_day` | Add a day (movements, notes, or notes only), rename it, change its discipline or notes, move it, or remove it. Clients' upcoming sessions follow; completed ones never change. |
+| `assign_program` / `unassign_program`                           | Put a programme on a client's calendar from the Monday of the start week, or take it off. Only when the coach asks.                                                            |
+| `create_exercise`                                               | Add a movement to her own library, once she has agreed the name. Duplicates are refused.                                                                                       |
 
 The programme shape is the one in [IMPORT.md](IMPORT.md): the server publishes the
 import schema, field by field, as the tool's input, so a draft that passes here is exactly
@@ -110,12 +113,10 @@ every tool's wording, including the refusals.
 
 ## What is deliberately not here
 
-- **No assignment**, as above.
-- **No exercise creation.** An unmatched name is refused, never invented.
-- **No deleting or editing.** A programme Claude created and the coach dislikes is deleted
-  in the portal, by her.
-- **No client data.** The API exposes the library and programmes. Nothing about a client
-  is reachable with a key.
+- **No acting without the coach.** Every write tool says so in its description, and the
+  instructions tell Claude to change, assign or create nothing she has not agreed to.
+- **No guessed exercises.** An unmatched name is refused; a new movement is created only
+  under the name she agreed, and a duplicate of an existing one is refused.
 - **No remote server.** This runs on the coach's own machine, which is where the key
   stays. A hosted version for claude.ai in the browser would need OAuth in front of it,
   and is a separate piece of work.

@@ -8,6 +8,7 @@ import {
   updateItem,
 } from '@vela/api';
 import { requireCoach } from '@/lib/apiRoute';
+import { ITEM_NOTES_MAX } from '@/lib/programInput';
 
 /**
  * POST /api/programs/{id}/items — add a prescription to a day of a programme.
@@ -46,6 +47,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!reps)
     return NextResponse.json(
       { error: 'reps is required (e.g. "8-10", "AMRAP", "30s").' },
+      { status: 400 },
+    );
+
+  if (typeof b.notes === 'string' && b.notes.trim().length > ITEM_NOTES_MAX)
+    return NextResponse.json(
+      { error: `notes may be up to ${ITEM_NOTES_MAX} characters.` },
       { status: 400 },
     );
 
