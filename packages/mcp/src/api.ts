@@ -306,7 +306,7 @@ export class VelaApi {
       throw new VelaApiError(
         status,
         body,
-        `Not in her library: ${(b.unmatched ?? []).join(', ')}. Use list_exercises and pick a name from it, or ask her to add the movement.`,
+        `Not in her library: ${(b.unmatched ?? []).join(', ')}. Use list_exercises and pick a name from it, or, if the coach agrees, add it with create_exercise.`,
       );
     }
     throw new VelaApiError(status, body, explain(status, body));
@@ -328,6 +328,93 @@ export class VelaApi {
       `/api/programs/${encodeURIComponent(programId)}/items/${encodeURIComponent(itemId)}`,
     );
     if (status >= 200 && status < 300) return (body as { removed: string }).removed;
+    throw new VelaApiError(status, body, explain(status, body));
+  }
+
+  /** Add a day to a programme; every client on it gets the session if it is still ahead. */
+  async addProgramDay(
+    programId: string,
+    input: { weekNo: number; dayNo: number; title: string; discipline?: string; notes?: string },
+  ): Promise<{ id: string }> {
+    const { status, body } = await this.request(
+      'POST',
+      `/api/programs/${encodeURIComponent(programId)}/days`,
+      input,
+    );
+    if (status === 201) return (body as { day: { id: string } }).day;
+    throw new VelaApiError(status, body, explain(status, body));
+  }
+
+  /** Change a day in place; her upcoming sessions follow. */
+  async updateProgramDay(
+    programId: string,
+    dayId: string,
+    patch: {
+      title?: string;
+      discipline?: string;
+      notes?: string | null;
+      weekNo?: number;
+      dayNo?: number;
+    },
+  ): Promise<{ title: string; weekNo: number; dayNo: number; discipline: string }> {
+    const { status, body } = await this.request(
+      'PATCH',
+      `/api/programs/${encodeURIComponent(programId)}/days/${encodeURIComponent(dayId)}`,
+      patch,
+    );
+    if (status >= 200 && status < 300)
+      return (body as { day: { title: string; weekNo: number; dayNo: number; discipline: string } })
+        .day;
+    throw new VelaApiError(status, body, explain(status, body));
+  }
+
+  async removeProgramDay(programId: string, dayId: string): Promise<{ title: string }> {
+    const { status, body } = await this.request(
+      'DELETE',
+      `/api/programs/${encodeURIComponent(programId)}/days/${encodeURIComponent(dayId)}`,
+    );
+    if (status >= 200 && status < 300) return (body as { removed: { title: string } }).removed;
+    throw new VelaApiError(status, body, explain(status, body));
+  }
+
+  /** Put a programme on a client's calendar from the Monday of startDate's week. */
+  async assignProgram(input: {
+    clientId: string;
+    programId: string;
+    startDate: string;
+  }): Promise<{ programName: string; weekOneMonday: string; firstDay: string }> {
+    const { status, body } = await this.request(
+      'POST',
+      `/api/clients/${encodeURIComponent(input.clientId)}/assignment`,
+      { programId: input.programId, startDate: input.startDate },
+    );
+    if (status === 201)
+      return (
+        body as { assignment: { programName: string; weekOneMonday: string; firstDay: string } }
+      ).assignment;
+    throw new VelaApiError(status, body, explain(status, body));
+  }
+
+  async unassignProgram(clientId: string): Promise<{ programName: string }> {
+    const { status, body } = await this.request(
+      'DELETE',
+      `/api/clients/${encodeURIComponent(clientId)}/assignment`,
+    );
+    if (status >= 200 && status < 300)
+      return (body as { removed: { programName: string } }).removed;
+    throw new VelaApiError(status, body, explain(status, body));
+  }
+
+  /** A new movement in the coach's own library. 409 names the one that already exists. */
+  async createExercise(input: {
+    name: string;
+    category: string;
+    cue?: string;
+    equipment?: string;
+    notes?: string;
+  }): Promise<{ id: string | null; name: string }> {
+    const { status, body } = await this.request('POST', '/api/exercises', input);
+    if (status === 201) return (body as { exercise: { id: string | null; name: string } }).exercise;
     throw new VelaApiError(status, body, explain(status, body));
   }
 

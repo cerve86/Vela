@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
-import { EXERCISE_CATEGORIES, listExercises, type ExerciseCategory } from '@vela/api';
+import {
+  EXERCISE_CATEGORIES,
+  createExercise,
+  listExercises,
+  logAudit,
+  normaliseExerciseName,
+  type ExerciseCategory,
+} from '@vela/api';
 import { requireCoach } from '@/lib/apiRoute';
 
 /**
@@ -40,4 +47,72 @@ export async function GET(req: Request) {
       isMine: e.isMine,
     })),
   });
+}
+
+/**
+ * POST /api/exercises — add a movement to this coach's own library.
+ *
+ * Body: `{ name, category, cue?, equipment?, notes? }`. Refused with 409 when a movement
+ * of the same name (case, spacing, hyphens aside) is already hers or shipped, so a typo
+ * never becomes a second copy. 201 with the exercise.
+ */
+export async function POST(req: Request) {
+  const { supabase, userId, via, refused } = await requireCoach(req);
+  if (refused) return refused;
+
+  let b: Record<string, unknown>;
+  try {
+    b = (await req.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: 'Send JSON.' }, { status: 400 });
+  }
+  const name = typeof b.name === 'string' ? b.name.trim() : '';
+  if (name.length < 2 || name.length > 120)
+    return NextResponse.json({ error: 'name must be 2–120 characters.' }, { status: 400 });
+  const category = EXERCISE_CATEGORIES.find((c) => c.value === b.category)?.value as
+    ExerciseCategory | undefined;
+  if (!category)
+    return NextResponse.json(
+      { error: `category is one of ${EXERCISE_CATEGORIES.map((c) => c.value).join(', ')}.` },
+      { status: 400 },
+    );
+  const cue = typeof b.cue === 'string' ? b.cue.trim().slice(0, 240) : '';
+  const equipment = typeof b.equipment === 'string' ? b.equipment.trim().slice(0, 60) : '';
+  const notes = typeof b.notes === 'string' ? b.notes.trim().slice(0, 1000) : null;
+
+  const library = await listExercises(supabase, userId);
+  const key = normaliseExerciseName(name);
+  const clash = library.find((e) => normaliseExerciseName(e.name) === key);
+  if (clash)
+    return NextResponse.json(
+      {
+        error: `"${clash.name}" is already in the library.`,
+        exercise: { id: clash.id, name: clash.name },
+      },
+      { status: 409 },
+    );
+
+  const { error } = await createExercise(supabase, userId, {
+    name,
+    category,
+    cues: cue ? [cue] : [],
+    muscleGroups: [],
+    equipment,
+    notes,
+  });
+  if (error) return NextResponse.json({ error }, { status: 500 });
+  const created = (await listExercises(supabase, userId, { mineOnly: true })).find(
+    (e) => normaliseExerciseName(e.name) === key,
+  );
+  await logAudit(supabase, {
+    actorId: userId,
+    action: 'exercise.created',
+    entity: 'exercise',
+    entityId: created?.id ?? null,
+    via,
+  });
+  return NextResponse.json(
+    { exercise: { id: created?.id ?? null, name, category, equipment: equipment || 'Bodyweight' } },
+    { status: 201 },
+  );
 }

@@ -17,16 +17,17 @@ import {
  * server a physiotherapist experiences: it is why her Claude looks the library up before
  * inventing a movement, previews before creating, and never assigns.
  */
-const INSTRUCTIONS = `Vela is a physiotherapy coaching platform. These tools let you draft training programmes into the coach's own Vela account.
+const INSTRUCTIONS = `Vela is a physiotherapy coaching platform. These tools let you draft and maintain training programmes in the coach's own Vela account.
 
 How to work:
-1. Call list_exercises before writing a programme. Every movement must use a name from the library exactly (matching ignores case, spacing and hyphens — nothing else). If the movement the coach wants is not there, say so and ask her to add it in Vela → Exercise library. Never substitute a similar exercise on her behalf.
-2. A programme is weeks of days. weekNo is 1–52; dayNo is 1–7 and is the order within the week, not a weekday. Each day has a title, a discipline (strength, run, mobility, rehab) and one or more items: exercise, block letter (items sharing a letter are a superset), sets, reps as free text ("8-10", "AMRAP", "30s each side"), and optionally loadKg, rpe, tempo, restSec and notes.
+1. Call list_exercises before writing a programme. Every movement must use a name from the library; matching ignores case, spacing, hyphens and a bracketed equipment note ("Split Squat (Dumbbell)" finds "Split Squat"). If a movement is not there, say so. Only add it with create_exercise once the coach has agreed to that name; never substitute a similar exercise on her behalf.
+2. A programme is weeks of days. weekNo is 1–52; dayNo is the weekday, 1 = Monday … 7 = Sunday, because every block is assigned from the Monday of its first week. Each day has a title, a discipline (strength, run, mobility, rehab, cross — cross is bike, swim or walk) and either movements or notes, or both. A day that is a duration or an RPE target with no exercises (a bike ladder, a long run described in words) is a day with notes and no items. Items: exercise, block letter (items sharing a letter are a superset), sets, reps as free text ("8-10", "AMRAP", "30s each side"), and optionally loadKg, rpe, tempo, restSec and notes (up to 1,000 characters).
 3. Call preview_program first and show the coach the result. Only call create_program once she has agreed to the draft.
-4. create_program makes a programme in her account and returns a link. It never assigns a programme to a client; she does that herself in the portal, with a start date.
-5. The week's plan for one client — what to do this week, in the coach's words — is send_weekly_plan: call list_clients for the client's id, then send the text as she wrote or approved it. It lands on her phone at once with a message saying it is there; nothing to assign. Use this for the weekly note; use a programme for a block that runs for weeks.
-6. To reason about a client, call get_client_report: her profile, programme and weekly plans, every session with pain and RPE, adherence, her daily reads, vitals by day, the week's HRV read through the training decision tree, recorded activities, meals and the last messages. Read it before recommending anything. Then act on the coach's decision in one of two ways: send_weekly_plan for the week's instructions in prose, or update_program_item / add_program_item / remove_program_item to change a specific prescription in her programme (ids come from get_program; sessions already on her calendar read the programme live, so the change reaches her next session). Never change a prescription the coach has not agreed to.
-7. Not every plan is days of sets and reps. When the coach wants to send instructions as prose — what to do this week, in her own words — use create_descriptive_program with the text as she wrote or approved it. The client reads it on her phone exactly as written; blank lines make paragraphs, lines starting with a number or a dash become a list. Do not turn prose into a structured programme, or the other way round, unless she asks.
+4. To change a programme already made, use get_program for the day and item ids, then add_program_day, update_program_day (rename, change discipline, notes, or move it), remove_program_day, and add_program_item, update_program_item, remove_program_item. Every client on that programme sees the change: upcoming sessions are added, renamed, moved or removed to match; completed sessions never change.
+5. assign_program puts a programme on one client's calendar from the Monday of the week of the start date; it replaces what she was on, and she is told. Call it only when the coach has named the client, the programme and the start date and asked you to assign. unassign_program takes her current programme off.
+6. The week's plan for one client — what to do this week, in the coach's words — is send_weekly_plan: call list_clients for the client's id, then send the text as she wrote or approved it. It lands on her phone at once with a message saying it is there. Use this for the weekly note; use a programme for a block that runs for weeks.
+7. To reason about a client, call get_client_report: her profile, programme and weekly plans, every session with pain and RPE, adherence, her daily reads, vitals by day, the week's HRV read through the training decision tree, recorded activities, meals and the last messages. Read it before recommending anything, and change nothing the coach has not agreed to.
+8. When the coach wants to send instructions as prose, use create_descriptive_program with the text as she wrote or approved it. Do not turn prose into a structured programme, or the other way round, unless she asks.
 
 Be exact with prescriptions: sets, reps, load and rest are clinical instructions, not suggestions to round.`;
 
@@ -57,7 +58,7 @@ async function guarded(
 }
 
 export function buildServer(api: VelaApi): McpServer {
-  const server = new McpServer({ name: 'vela', version: '0.1.0' }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: 'vela', version: '0.2.0' }, { instructions: INSTRUCTIONS });
   const portal = api.portalUrl;
 
   server.registerTool(
@@ -137,7 +138,7 @@ export function buildServer(api: VelaApi): McpServer {
     {
       title: 'Create a programme',
       description:
-        "Creates the programme in the coach's Vela account and returns a link to it. Nothing is assigned to a client — she does that in the portal. Only call this after preview_program passed and the coach agreed.",
+        "Creates the programme in the coach's Vela account and returns a link to it. Nothing is assigned to a client — use assign_program for that, when she asks. Only call this after preview_program passed and the coach agreed.",
       inputSchema: programInput,
       annotations: {
         readOnlyHint: false,
@@ -194,7 +195,7 @@ export function buildServer(api: VelaApi): McpServer {
     rpe: z.number().min(1).max(10).nullable().optional(),
     tempo: z.string().trim().max(20).nullable().optional(),
     restSec: z.number().int().min(0).max(900).optional(),
-    notes: z.string().trim().max(240).nullable().optional(),
+    notes: z.string().trim().max(1000).nullable().optional(),
   };
 
   server.registerTool(
@@ -394,6 +395,162 @@ export function buildServer(api: VelaApi): McpServer {
         return text(
           'Archived. It has left the list; the coach can restore it from the bottom of the programmes page, and any client on it stays on it.',
         );
+      }),
+  );
+
+  const disciplineEnum = z
+    .enum(['strength', 'run', 'mobility', 'rehab', 'cross'])
+    .describe('strength | run | mobility | rehab | cross (bike, swim, walk).');
+  const writeAnnotations = {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: false,
+  } as const;
+
+  server.registerTool(
+    'add_program_day',
+    {
+      title: 'Add a day to a programme',
+      description:
+        'Adds a day to a programme: a title, a discipline, and notes, with movements added afterwards by add_program_item — or notes alone for a duration or RPE session. Every client on the programme gets the session if its date is still ahead. Only after the coach agreed.',
+      inputSchema: {
+        program_id: z.string().uuid(),
+        week_no: z.number().int().min(1).max(52),
+        day_no: z.number().int().min(1).max(7).describe('Weekday: 1 = Monday … 7 = Sunday.'),
+        title: z.string().trim().min(1).max(80),
+        discipline: disciplineEnum.optional(),
+        notes: z.string().trim().max(4000).optional().describe('What to do, in words.'),
+      },
+      annotations: writeAnnotations,
+    },
+    ({ program_id, week_no, day_no, title, discipline, notes }) =>
+      guarded(async () => {
+        const day = await api.addProgramDay(program_id, {
+          weekNo: week_no,
+          dayNo: day_no,
+          title,
+          discipline,
+          notes,
+        });
+        return text(`Added "${title}", week ${week_no} day ${day_no} · day id ${day.id}`);
+      }),
+  );
+
+  server.registerTool(
+    'update_program_day',
+    {
+      title: 'Change a day',
+      description:
+        "Renames a day, changes its discipline or notes, or moves it to another week or weekday. day_id comes from get_program. Clients' upcoming sessions follow; completed ones never change. Only after the coach agreed.",
+      inputSchema: {
+        program_id: z.string().uuid(),
+        day_id: z.string().uuid(),
+        title: z.string().trim().min(1).max(80).optional(),
+        discipline: disciplineEnum.optional(),
+        notes: z.string().trim().max(4000).nullable().optional(),
+        week_no: z.number().int().min(1).max(52).optional(),
+        day_no: z.number().int().min(1).max(7).optional().describe('Weekday: 1 = Monday.'),
+      },
+      annotations: { ...writeAnnotations, idempotentHint: true },
+    },
+    ({ program_id, day_id, title, discipline, notes, week_no, day_no }) =>
+      guarded(async () => {
+        const day = await api.updateProgramDay(program_id, day_id, {
+          title,
+          discipline,
+          notes,
+          weekNo: week_no,
+          dayNo: day_no,
+        });
+        return text(`Now "${day.title}", week ${day.weekNo} day ${day.dayNo} (${day.discipline}).`);
+      }),
+  );
+
+  server.registerTool(
+    'remove_program_day',
+    {
+      title: 'Remove a day',
+      description:
+        "Removes a day and its movements from a programme. Clients' upcoming sessions for it leave their calendars; sessions already done stay in their history. Only after the coach agreed.",
+      inputSchema: { program_id: z.string().uuid(), day_id: z.string().uuid() },
+      annotations: { ...writeAnnotations, destructiveHint: true, idempotentHint: true },
+    },
+    ({ program_id, day_id }) =>
+      guarded(async () => {
+        const removed = await api.removeProgramDay(program_id, day_id);
+        return text(`Removed "${removed.title}".`);
+      }),
+  );
+
+  server.registerTool(
+    'assign_program',
+    {
+      title: 'Assign a programme to a client',
+      description:
+        "Puts a programme on one client's calendar. Week 1 starts on the Monday of start_date's week (day 1 = Monday); days before start_date in that week are skipped. Replaces her current programme — its upcoming sessions go, completed ones stay — and she gets a message. Only when the coach has named the client, the programme and the date and asked you to assign.",
+      inputSchema: {
+        client_id: z.string().uuid().describe('From list_clients.'),
+        program_id: z.string().uuid().describe('From list_programs.'),
+        start_date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .describe('YYYY-MM-DD.'),
+      },
+      annotations: { ...writeAnnotations, destructiveHint: true },
+    },
+    ({ client_id, program_id, start_date }) =>
+      guarded(async () => {
+        const a = await api.assignProgram({
+          clientId: client_id,
+          programId: program_id,
+          startDate: start_date,
+        });
+        return text(
+          `Assigned "${a.programName}". Week 1 starts Monday ${a.weekOneMonday}` +
+            (a.firstDay !== a.weekOneMonday ? `; her first session is from ${a.firstDay}.` : '.') +
+            ' She has a message saying so.',
+        );
+      }),
+  );
+
+  server.registerTool(
+    'unassign_program',
+    {
+      title: 'Take a client off her programme',
+      description:
+        'Takes her current programme off: upcoming sessions from it go, completed ones stay, and she gets a message. Only when the coach asked.',
+      inputSchema: { client_id: z.string().uuid().describe('From list_clients.') },
+      annotations: { ...writeAnnotations, destructiveHint: true, idempotentHint: true },
+    },
+    ({ client_id }) =>
+      guarded(async () => {
+        const removed = await api.unassignProgram(client_id);
+        return text(`Took "${removed.programName}" off her calendar.`);
+      }),
+  );
+
+  server.registerTool(
+    'create_exercise',
+    {
+      title: 'Add a movement to the library',
+      description:
+        "Adds a movement to the coach's own library so programmes can prescribe it. Refused if the name already exists (the existing one is named). Only once the coach has agreed to the name.",
+      inputSchema: {
+        name: z.string().trim().min(2).max(120),
+        category: z
+          .enum(['pelvic_floor', 'strength', 'plyometric', 'running', 'mobility'])
+          .describe('The library category.'),
+        cue: z.string().trim().max(240).optional().describe('One coaching cue.'),
+        equipment: z.string().trim().max(60).optional().describe('e.g. Dumbbell, Band, Box.'),
+        notes: z.string().trim().max(1000).optional(),
+      },
+      annotations: writeAnnotations,
+    },
+    (input) =>
+      guarded(async () => {
+        const ex = await api.createExercise(input);
+        return text(`Added "${ex.name}" to her library${ex.id ? ` · id ${ex.id}` : ''}.`);
       }),
   );
 

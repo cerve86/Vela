@@ -195,10 +195,10 @@ function painUnderThree(input: MilestoneInput): Milestone {
  * Date helpers — string in, string out, no Date arithmetic leaking out
  * ───────────────────────────────────────────────────────────── */
 
-/** Sunday-based, matching the week strip and heatmap on Progress. */
+/** Monday-based, matching the week strip, the heatmap and the programme's day 1. */
 function startOfWeekIso(iso: string): string {
   const dt = parse(iso);
-  return shiftIso(iso, -dt.getDay());
+  return shiftIso(iso, -((dt.getDay() + 6) % 7));
 }
 
 function shiftIso(iso: string, days: number): string {

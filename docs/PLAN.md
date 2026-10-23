@@ -1005,3 +1005,16 @@ and a button into the Health screen. And a regression from 0.3.10 is fixed: auto
 syncs run only for an account that synced by hand on that phone, but the two hand syncs
 (welcome and the Health screen) never recorded it, so new clients never synced on their
 own until they pulled to refresh on Today.
+
+## Coaching layer, phase 1 — the calendar follows the programme (23 October 2026)
+
+The repairs from the Angkor cohort. A day added, removed, renamed or moved now updates
+every live client's upcoming sessions through `sync_program_sessions`; completed sessions
+never change. Assignments anchor on the Monday of their start week, so day numbers are
+weekdays (1 = Monday) everywhere, the builder prints the weekday beside each day, and the
+app's own week is Monday-first; a mid-week start skips the earlier days (`first_day`).
+The API and the extension (0.2.0, twenty tools) can add, rename, move and remove days,
+assign and unassign programmes, and create exercises; cross-training and notes-only days
+are accepted; item notes are 1,000 characters everywhere; a bracketed equipment note no
+longer defeats the name matcher. The app asks to be updated when it is older than the
+oldest build that renders everything a programme can carry (`/api/app/min-version`).
