@@ -1040,3 +1040,29 @@ The coach is emailed once per batch through Resend (`RESEND_API_KEY`, `NOTIFY_FR
 Vercel). The HRV guidance is now the coach's only. The client report and the extension
 (0.2.1) carry readiness, completion, open flags and wellness. Ten new pgTAP assertions
 (suite at 144).
+
+## 0.3.14 — Coaching layer, phase 3: freshness for the coach, and cycle context (25 October 2026)
+
+Session load is defined once, in the database (`session_loads`): RPE × minutes, Foster's
+units. Where Strava brought the session with heart rate, the intensity comes from heart
+rate against her maximum (the higher of her six-month Strava peak and 220 minus age) and
+the duration from Strava, so mixed sources stay on one scale. `client_freshness` reads the
+last seven days against the 28-day weekly average, with monotony and strain. The Training
+tab has a Freshness panel: the four numbers, daily load against the monthly average,
+weekly wellness on the same axis, where each session's intensity came from, and the
+spec's caveat on the panel itself. The ratio waits for three weeks of recording.
+
+The ratio alone raises nothing. A `divergence` flag is raised when a weekly wellness
+check disagrees with load: three or more points worse than her recent weeks on a steady
+load (0.8–1.3), or load past 1.5 while wellness is no worse. Her readiness taps now show
+against her own 28-day mean, on the Training tab and in the session history.
+
+Cycle and menopause context is optional, with its own versioned consent
+(`cycle_context`). The client records her status and period starts from Profile → Your
+cycle; the coach reads them on the Freshness panel and in the client report only while the
+consent stands, and withdrawing it deletes them (a trigger, not the app). Never a gate.
+
+Also fixed: since 0.3.13 a readiness tap in the 3–6 tier overwrote the coach's decision
+for that session with `reduced`. The app now records its own tier only when the coach has
+not decided, and the portal no longer credits `reduced` to the coach. The minimum app
+version is 0.3.14 for that reason. Extension 0.2.2. Ten new pgTAP assertions (154).

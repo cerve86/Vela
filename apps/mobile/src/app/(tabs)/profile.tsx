@@ -193,6 +193,23 @@ export default function ProfileScreen() {
 
         <ConnectionsCard />
 
+        <Card title="Your cycle">
+          <Pressable
+            onPress={() => router.push('/cycle')}
+            accessibilityRole="button"
+            accessibilityLabel="Your cycle"
+          >
+            <View style={{ paddingVertical: 4 }}>
+              <Body size={15} weight="semibold">
+                Share cycle or menopause context
+              </Body>
+              <Body size={12} color={t.textMuted} style={{ marginTop: 2 }}>
+                Optional, with its own consent. Context for your physio; it never changes a session.
+              </Body>
+            </View>
+          </Pressable>
+        </Card>
+
         <Card title="Your data">
           <Pressable
             onPress={handleExport}

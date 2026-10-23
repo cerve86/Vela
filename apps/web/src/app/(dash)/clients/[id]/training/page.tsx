@@ -2,14 +2,18 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   DISCIPLINE_LABEL,
+  getCycleContext,
+  getFreshness,
   getSessionPlan,
   getStravaLink,
   listActivities,
-  listDailyReads,
+  listSessionLoads,
   listSessions,
+  listWellness,
 } from '@vela/api';
 import { ActivitiesCard } from './ActivitiesCard';
-import { isBlocking, tide } from '@vela/shared';
+import { FreshnessCard } from './FreshnessCard';
+import { readinessBaseline, readinessGate } from '@vela/shared';
 import { Card, EmptyState, PainDot, StatusPill } from '@/components/ui';
 import { SessionResponse } from './SessionResponse';
 import { TimeSeriesPanels, type Panel } from '@/components/charts';
@@ -35,10 +39,14 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
   if (assignmentError) throw new Error(`Could not read assignment: ${assignmentError.message}`);
 
   const todayIso = new Date().toISOString().slice(0, 10);
-  const [sessions, activities, stravaLink] = await Promise.all([
+  const [sessions, activities, stravaLink, freshness, loads, wellness, cycle] = await Promise.all([
     listSessions(supabase, { clientId: id }),
     listActivities(supabase, { clientId: id, limit: 12 }),
     getStravaLink(supabase, id),
+    getFreshness(supabase, id, todayIso),
+    listSessionLoads(supabase, id, shiftIso(todayIso, -27), todayIso),
+    listWellness(supabase, id, 5),
+    getCycleContext(supabase, id),
   ]);
 
   const completed = sessions.filter((s) => s.status === 'completed');
@@ -69,26 +77,25 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
       .filter((s) => s.programDayId !== null && s.loggedVia === 'app')
       .sort((a, b) => (a.scheduledDate < b.scheduledDate ? 1 : -1))[0] ?? null;
 
-  const [reviewPlan, reviewReads] = await Promise.all([
-    review ? getSessionPlan(supabase, review.id) : Promise.resolve([]),
-    review
-      ? listDailyReads(supabase, {
-          clientId: id,
-          from: review.scheduledDate,
-          to: review.scheduledDate,
-        })
-      : Promise.resolve([]),
-  ]);
+  const reviewPlan = review ? await getSessionPlan(supabase, review.id) : [];
 
-  // What she reported on the day, which is what decided whether the app trimmed the work.
-  const blockingRead = reviewReads.find((r) => isBlocking(r.symptom)) ?? null;
-  const lowestRead = [...reviewReads].sort((a, b) => a.readiness - b.readiness)[0] ?? null;
+  // Her readiness before it, read against her own last four weeks, and what that made of
+  // the session: the app's tier, or the coach's decision when she was below 3.
+  const reviewGate = review ? readinessGate(review.readinessBefore) : null;
+  const reviewBaseline = review ? readinessBaseline(sessions, review.scheduledDate) : null;
+  // 'reduced' is the app's own 3–6 tier; the coach's choices are the others.
+  const adjusted =
+    review?.adjustedTo && review.adjustedTo !== 'as_planned' && review.adjustedTo !== 'reduced'
+      ? review.adjustedTo
+      : null;
 
   const suggestions = review
     ? [
-        blockingRead
-          ? `Good call stopping the impact work when the ${blockingRead.symptom.toLowerCase()} showed up.`
-          : 'That looked comfortable — we can add a little next week.',
+        reviewGate === 'reduced' || reviewGate === 'hold'
+          ? 'Thanks for being honest about how you felt. The lighter version was the right call.'
+          : review.sessionRpe !== null && review.sessionRpe >= 8
+            ? 'That one was hard work. Let us keep next week where it is.'
+            : 'That looked comfortable. We can add a little next week.',
         review.painAfter === null || review.painBefore === null
           ? 'No symptom scores came through for that one — how did it feel?'
           : review.painAfter > review.painBefore
@@ -203,6 +210,14 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
         )}
       </Card>
 
+      <FreshnessCard
+        freshness={freshness}
+        loads={loads}
+        wellness={wellness}
+        cycle={cycle}
+        today={todayIso}
+      />
+
       {review && (
         <Card
           title="Latest session"
@@ -228,9 +243,12 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
                   finished both read "Completed" here until the app started sending its
                   volume.
                 */}
-                {review.setsDone !== null && review.setsPlanned !== null
-                  ? `${review.setsDone} of ${review.setsPlanned} sets`
-                  : `${reviewPlan.reduce((n, i) => n + i.sets, 0)} sets prescribed`}
+                {review.completion
+                  ? `${COMPLETION_WORD[review.completion]}`
+                  : review.setsDone !== null && review.setsPlanned !== null
+                    ? `${review.setsDone} of ${review.setsPlanned} sets`
+                    : `${reviewPlan.reduce((n, i) => n + i.sets, 0)} sets prescribed`}
+                {review.sessionRpe !== null && ` · RPE ${review.sessionRpe}`}
                 {' · '}
                 {reviewPlan.length} movements
                 {review.durationSec !== null && ` · ${Math.round(review.durationSec / 60)} min`}
@@ -240,35 +258,25 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
                   : 'no symptom scores recorded'}
               </p>
             </div>
-            {blockingRead ? (
-              <StatusPill tone="warning">Symptom flagged</StatusPill>
+            {review.completion && review.completion !== 'all' ? (
+              <StatusPill tone="warning">Partly done</StatusPill>
             ) : (
               <StatusPill tone="good">Completed</StatusPill>
             )}
           </div>
 
-          {blockingRead && (
+          {review.readinessBefore !== null && (reviewGate !== 'planned' || adjusted) && (
             <div className="mt-4 rounded-[16px] p-4" style={{ background: 'var(--tint-cream)' }}>
               <div className="text-sm font-medium">
-                She reported {blockingRead.symptom.toLowerCase()} on her {blockingRead.window} read
+                Readiness {review.readinessBefore}/10 before she started
+                {reviewBaseline !== null && `, against her usual ${reviewBaseline}`}
               </div>
               <p className="mt-1 text-sm ink-2">
-                The app withdrew the impact work for that day on its own and served breath and
-                connection work instead. Readiness was{' '}
-                {tide[blockingRead.readiness]?.label.toLowerCase() ?? 'unrecorded'}. Worth
-                confirming whether it settled by the evening.
-              </p>
-            </div>
-          )}
-
-          {!blockingRead && lowestRead && lowestRead.readiness <= 1 && (
-            <div className="mt-4 rounded-[16px] p-4" style={{ background: 'var(--tint-cream)' }}>
-              <div className="text-sm font-medium">
-                Readiness was {tide[lowestRead.readiness]?.label.toLowerCase()} that day
-              </div>
-              <p className="mt-1 text-sm ink-2">
-                The session was trimmed automatically before she started it — fewer sets and no load
-                — so a full log here means she completed the trimmed version.
+                {adjusted
+                  ? `You chose ${ADJUSTED_WORD[adjusted]} for this one, and the app served that.`
+                  : reviewGate === 'hold'
+                    ? 'The app showed only the gentle movements and asked you to decide the day.'
+                    : 'The app halved the volume and dropped the load, so a full log here means she did the lighter version.'}
               </p>
             </div>
           )}
@@ -303,8 +311,8 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
                 </li>
               ))}
               <li className="pt-1 text-xs ink-3">
-                What she was prescribed. Which sets she ticked stays on her phone until set-by-set
-                logs sync — this card does not guess at a per-movement verdict.
+                What she was prescribed. She reports the session as a whole (how much, how hard), so
+                this card does not guess at a per-movement verdict.
               </li>
             </ul>
           )}
@@ -334,8 +342,7 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
           <>
             <TimeSeriesPanels xLabels={xLabels} panels={[painPanel]} />
             <p className="mt-2 text-xs ink-3">
-              Set-by-set load and session RPE join this tab when per-set logs land. How much of each
-              session she completed, and how long it took, are recorded now.
+              Session load from RPE and heart rate is in Freshness above.
             </p>
           </>
         )}
@@ -354,7 +361,7 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
                   <th className="pb-2 font-medium">Date</th>
                   <th className="pb-2 font-medium">Session</th>
                   <th className="pb-2 font-medium">Type</th>
-                  <th className="pb-2 font-medium">Ready</th>
+                  <th className="pb-2 font-medium">Ready (usual)</th>
                   <th className="pb-2 font-medium">Did</th>
                   <th className="pb-2 font-medium">RPE</th>
                   <th className="pb-2 font-medium">Pain before</th>
@@ -381,6 +388,13 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
                           dash, or their set count, rather than a zero. */}
                       <td className="tnum py-2.5 ink-2">
                         {s.readinessBefore !== null ? `${s.readinessBefore}/10` : '—'}
+                        {s.readinessBefore !== null &&
+                          (() => {
+                            const usual = readinessBaseline(sessions, s.scheduledDate);
+                            return usual !== null ? (
+                              <span className="ml-1 text-xs ink-3">({usual})</span>
+                            ) : null;
+                          })()}
                       </td>
                       <td className="py-2.5 ink-2">
                         {s.completion
@@ -447,3 +461,15 @@ const ADJUSTED_WORD: Record<string, string> = {
   strength: 'strength instead',
   as_planned: 'as planned',
 };
+
+const COMPLETION_WORD: Record<'all' | 'some' | 'none', string> = {
+  all: 'Did all of it',
+  some: 'Did some of it',
+  none: 'Did none of it',
+};
+
+function shiftIso(iso: string, by: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + by);
+  return d.toISOString().slice(0, 10);
+}

@@ -695,6 +695,32 @@ export type Database = {
           },
         ]
       }
+      cycle_context: {
+        Row: {
+          client_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cycle_context_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_reads: {
         Row: {
           client_id: string
@@ -1091,6 +1117,35 @@ export type Database = {
             columns: ["coach_id"]
             isOneToOne: false
             referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      period_starts: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          started_on: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          started_on: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          started_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "period_starts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -1548,6 +1603,19 @@ export type Database = {
           week_no: number
         }[]
       }
+      client_freshness: {
+        Args: { p_client: string; p_today?: string }
+        Returns: {
+          acute: number
+          chronic: number
+          history_days: number
+          monotony: number
+          ratio: number
+          sessions7: number
+          strain: number
+          unmeasured7: number
+        }[]
+      }
       create_client_invite: {
         Args: {
           p_breastfeeding?: boolean
@@ -1601,6 +1669,7 @@ export type Database = {
           tempo: string
         }[]
       }
+      has_cycle_consent: { Args: { p_client: string }; Returns: boolean }
       has_health_consent: { Args: { p_client: string }; Returns: boolean }
       import_health_metrics: { Args: { p_samples: Json }; Returns: number }
       is_coach_of: { Args: { target_client: string }; Returns: boolean }
@@ -1677,6 +1746,17 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      session_loads: {
+        Args: { p_client: string; p_from: string; p_to: string }
+        Returns: {
+          basis: string
+          day: string
+          intensity: number
+          load: number
+          minutes: number
+          session_id: string
+        }[]
+      }
       sync_program_sessions: { Args: { p_program_id: string }; Returns: number }
       unassign_program: {
         Args: { p_assignment_id: string }
@@ -1686,7 +1766,11 @@ export type Database = {
     Enums: {
       challenge_metric: "sessions_completed" | "fuel_days"
       client_status: "invited" | "active" | "paused" | "archived"
-      consent_type: "tos" | "privacy" | "health_data_processing"
+      consent_type:
+        | "tos"
+        | "privacy"
+        | "health_data_processing"
+        | "cycle_context"
       delivery_type:
         | "vaginal"
         | "assisted_vaginal"
@@ -1857,7 +1941,12 @@ export const Constants = {
     Enums: {
       challenge_metric: ["sessions_completed", "fuel_days"],
       client_status: ["invited", "active", "paused", "archived"],
-      consent_type: ["tos", "privacy", "health_data_processing"],
+      consent_type: [
+        "tos",
+        "privacy",
+        "health_data_processing",
+        "cycle_context",
+      ],
       delivery_type: [
         "vaginal",
         "assisted_vaginal",

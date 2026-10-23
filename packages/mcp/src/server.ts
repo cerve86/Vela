@@ -58,7 +58,7 @@ async function guarded(
 }
 
 export function buildServer(api: VelaApi): McpServer {
-  const server = new McpServer({ name: 'vela', version: '0.2.1' }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: 'vela', version: '0.2.2' }, { instructions: INSTRUCTIONS });
   const portal = api.portalUrl;
 
   server.registerTool(
@@ -159,7 +159,7 @@ export function buildServer(api: VelaApi): McpServer {
     {
       title: 'Read everything about a client',
       description:
-        'Everything the portal knows about one client, as a page: profile, programme and weekly plans, flags waiting for a decision, sessions with readiness, pain, RPE and how much was done, adherence, weekly wellness, daily reads, vitals by day, the HRV read through the decision tree, recorded activities, meals, last messages. Read this before recommending anything. Ids for list_clients.',
+        'Everything the portal knows about one client, as a page: profile, programme and weekly plans, flags waiting for a decision, sessions with readiness, pain, RPE and how much was done, adherence, freshness from session load, weekly wellness, cycle context where she shares it, daily reads, vitals by day, the HRV read through the decision tree, recorded activities, meals, last messages. Read this before recommending anything. Ids for list_clients.',
       inputSchema: {
         client_id: z.string().uuid().describe('The client, from list_clients.'),
         days: z

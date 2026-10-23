@@ -12,6 +12,7 @@ const TONE: Record<FlagKind, string> = {
   pain: palette.status.critical,
   pelvic_floor: palette.status.critical,
   readiness_low: palette.status.warning,
+  divergence: palette.status.warning,
   hold: palette.brand[600],
 };
 

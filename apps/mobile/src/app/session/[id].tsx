@@ -104,7 +104,12 @@ export default function SessionScreen() {
       painLocation: painBefore && painBefore > 0 ? painLocation : null,
       pfFlag: pfGate ? pfFlag === 'yes' : null,
       acute: isAcute ? acute : null,
-      adjustedTo: !isAcute && readinessGate(readiness) === 'reduced' ? 'reduced' : null,
+      // The app's own tier, recorded only when the coach has not already decided the day:
+      // her decision stands over the tap.
+      adjustedTo:
+        !isAcute && !meta.data?.adjustedTo && readinessGate(readiness) === 'reduced'
+          ? 'reduced'
+          : null,
     });
     setPhase(isAcute ? 'held' : 'during');
   }
