@@ -1,6 +1,6 @@
 {
   "name": "@vela/mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "An MCP server that lets Claude draft programmes into a Vela coach's account",
   "type": "module",

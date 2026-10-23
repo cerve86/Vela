@@ -71,6 +71,10 @@ export default async function CalendarPage({
     loggedVia: s.loggedVia,
     dayNotes: s.dayNotes,
     doneItemIds: s.doneItemIds,
+    readinessBefore: s.readinessBefore,
+    completion: s.completion,
+    sessionRpe: s.sessionRpe,
+    adjustedTo: s.adjustedTo,
   }));
 
   return (

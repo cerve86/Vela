@@ -12,6 +12,7 @@ import {
   type AssignedProgram,
   type ScheduledSession,
 } from './programs';
+import { listFlags, listWellness, type CoachFlag, type WellnessCheck } from './readiness';
 
 /**
  * Everything the portal knows about one client, in one read, for the coach's assistant.
@@ -50,6 +51,10 @@ export interface ClientReport {
   activities: Activity[];
   nutrition: NutritionDay[];
   messages: Message[];
+  /** The last few weekly wellness checks, newest first (1 = good, 5 = poor). */
+  wellness: WellnessCheck[];
+  /** Flags waiting for the coach's decision. */
+  openFlags: CoachFlag[];
 }
 
 const VITALS = [
@@ -85,23 +90,35 @@ export async function buildClientReport(
     .maybeSingle();
   if (!c) return null;
 
-  const [sessions, reads, metrics, activities, nutrition, messages, plans, programme] =
-    await Promise.all([
-      listSessions(supabase, { clientId, from, to: shift(to, 14) }),
-      listDailyReads(supabase, { clientId, from, to }),
-      // Vitals go back at least four weeks whatever the window: the HRV read needs three
-      // weeks of baseline before this one, or there is no range to read the week against.
-      listMetrics(supabase, {
-        clientId,
-        types: VITALS,
-        since: `${shift(to, -Math.max(days, 28) + 1)}T00:00:00Z`,
-      }),
-      listActivities(supabase, { clientId, from }),
-      nutritionDays(supabase, clientId, shift(to, -13), to),
-      listMessages(supabase, clientId, 10),
-      listClientPlans(supabase, clientId, 4),
-      getAssignedProgram(supabase, clientId),
-    ]);
+  const [
+    sessions,
+    reads,
+    metrics,
+    activities,
+    nutrition,
+    messages,
+    plans,
+    programme,
+    wellness,
+    openFlags,
+  ] = await Promise.all([
+    listSessions(supabase, { clientId, from, to: shift(to, 14) }),
+    listDailyReads(supabase, { clientId, from, to }),
+    // Vitals go back at least four weeks whatever the window: the HRV read needs three
+    // weeks of baseline before this one, or there is no range to read the week against.
+    listMetrics(supabase, {
+      clientId,
+      types: VITALS,
+      since: `${shift(to, -Math.max(days, 28) + 1)}T00:00:00Z`,
+    }),
+    listActivities(supabase, { clientId, from }),
+    nutritionDays(supabase, clientId, shift(to, -13), to),
+    listMessages(supabase, clientId, 10),
+    listClientPlans(supabase, clientId, 4),
+    getAssignedProgram(supabase, clientId),
+    listWellness(supabase, clientId, 4),
+    listFlags(supabase, { clientId, open: true }),
+  ]);
 
   // Vitals by local day, averaged: an imported row and a manual one for the same day
   // must not sum into a resting heart rate of 110.
@@ -179,6 +196,8 @@ export async function buildClientReport(
     activities,
     nutrition,
     messages: [...messages].reverse(),
+    wellness,
+    openFlags,
   };
 }
 

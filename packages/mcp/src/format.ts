@@ -151,18 +151,31 @@ export function formatReport(r: ClientReport): string {
     `\nADHERENCE: last 7 days ${r.adherence.last7.completed}/${r.adherence.last7.due} prescribed sessions done · last ${r.window.days} days ${r.adherence.last28.completed}/${r.adherence.last28.due}`,
   );
 
-  out.push('\nSESSIONS (prescribed and recorded; pain 0–10 before → after; RPE 1–10):');
+  if (r.openFlags?.length) {
+    out.push('\nOPEN FLAGS, WAITING FOR A DECISION:');
+    out.push(
+      r.openFlags.map((f) => `- ${f.createdAt.slice(0, 10)} ${f.kind}: ${f.detail}`).join('\n'),
+    );
+  }
+
+  out.push(
+    '\nSESSIONS (prescribed and recorded; readiness 0–10 before; pain 0–10 before → after; RPE 0–10):',
+  );
   out.push(
     r.sessions.length
       ? r.sessions
           .map(
             (s) =>
               `- ${s.scheduledDate} ${s.title} (${s.discipline}) — ${s.status}` +
+              (s.readinessBefore != null ? `, ready ${s.readinessBefore}/10` : '') +
+              (s.completion ? `, did ${s.completion}` : '') +
+              (s.adjustedTo ? `, adjusted to ${s.adjustedTo}` : '') +
               (s.setsDone !== null || s.setsPlanned !== null
                 ? `, sets ${s.setsDone ?? '?'}/${s.setsPlanned ?? '?'}`
                 : '') +
               (s.painBefore !== null || s.painAfter !== null
-                ? `, pain ${s.painBefore ?? '?'} → ${s.painAfter ?? '?'}`
+                ? `, pain ${s.painBefore ?? '?'} → ${s.painAfter ?? '?'}` +
+                  (s.painLocation ? ` (${s.painLocation})` : '')
                 : '') +
               (s.sessionRpe !== null ? `, RPE ${s.sessionRpe}` : '') +
               (s.durationSec ? `, ${Math.round(s.durationSec / 60)} min` : '') +
@@ -239,6 +252,20 @@ export function formatReport(r: ClientReport): string {
           .join('\n')
       : '  nothing logged',
   );
+
+  if (r.wellness) {
+    out.push('\nWELLNESS, WEEKLY (1 = good, 5 = poor):');
+    out.push(
+      r.wellness.length
+        ? r.wellness
+            .map(
+              (w) =>
+                `- week of ${w.weekStart}: sleep ${w.sleep}, fatigue ${w.fatigue}, soreness ${w.soreness}, stress ${w.stress}`,
+            )
+            .join('\n')
+        : '  not answered yet',
+    );
+  }
 
   out.push('\nLAST MESSAGES:');
   out.push(

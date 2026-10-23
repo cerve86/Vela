@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (134);
+  plan (144);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -1425,6 +1425,100 @@ select is (
   (select start_date from public.assignments where program_id = '00000000-0000-4000-8000-0000000000b1' and status = 'active'),
   date_trunc('week', current_date)::date + 7,
   'and the block is anchored on that week''s Monday'
+);
+
+
+-- Readiness, feedback and the coach's flags (24 October 2026) -----------------
+reset role;
+
+update public.clients
+set pain_thresholds = '[{"location":"shin","max":3}]'::jsonb, pf_gate = true
+where id = '00000000-0000-4000-8000-0000000000f1';
+
+insert into public.sessions (id, client_id, title, scheduled_date)
+values
+  ('00000000-0000-4000-8000-00000000fa01', '00000000-0000-4000-8000-0000000000f1', 'Run A', current_date - 1),
+  ('00000000-0000-4000-8000-00000000fa02', '00000000-0000-4000-8000-0000000000f1', 'Run B', current_date - 2),
+  ('00000000-0000-4000-8000-00000000fa03', '00000000-0000-4000-8000-0000000000f1', 'Run C', current_date - 3),
+  ('00000000-0000-4000-8000-00000000fa04', '00000000-0000-4000-8000-0000000000f1', 'Run D', current_date - 4);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+update public.sessions set readiness_before = 2 where id = '00000000-0000-4000-8000-00000000fa01';
+update public.sessions set pf_flag = true where id = '00000000-0000-4000-8000-00000000fa02';
+update public.sessions set pain_location = 'shin', pain_after = 5 where id = '00000000-0000-4000-8000-00000000fa03';
+update public.sessions set readiness_before = 4 where id in (
+  '00000000-0000-4000-8000-00000000fa02', '00000000-0000-4000-8000-00000000fa03', '00000000-0000-4000-8000-00000000fa04');
+
+select is (
+  (select count(*) from public.coach_flags),
+  0::bigint,
+  'the client cannot see a single flag about herself'
+);
+
+select throws_ok (
+  $$insert into public.coach_flags (client_id, coach_id, kind, detail)
+    values ('00000000-0000-4000-8000-0000000000f1', '00000000-0000-4000-8000-0000000000a1', 'pain', 'x')$$,
+  '42501',
+  null,
+  'nor raise one'
+);
+
+insert into public.wellness_checks (client_id, week_start, sleep, fatigue, soreness, stress)
+values ('00000000-0000-4000-8000-0000000000f1', date_trunc('week', current_date)::date, 3, 2, 4, 3);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select kind from public.coach_flags where session_id = '00000000-0000-4000-8000-00000000fa01'),
+  'hold',
+  'readiness under 3 asks the coach to decide the day'
+);
+
+select is (
+  (select count(*) from public.coach_flags where kind = 'pelvic_floor'),
+  1::bigint,
+  'a pelvic-floor yes flags the coach'
+);
+
+select is (
+  (select count(*) from public.coach_flags where kind = 'pain' and session_id = '00000000-0000-4000-8000-00000000fa03'),
+  1::bigint,
+  'shin pain 5 against a threshold of 3 flags the coach'
+);
+
+select is (
+  (select count(*) from public.coach_flags where kind = 'readiness_low' and resolved_at is null),
+  1::bigint,
+  'readiness under 5 on four of seven days raises one persistence flag'
+);
+
+select is (
+  (select count(*) from public.wellness_checks where client_id = '00000000-0000-4000-8000-0000000000f1'),
+  1::bigint,
+  'the coach reads her client''s weekly wellness'
+);
+
+select lives_ok (
+  $$update public.coach_flags set resolved_at = now(), resolution = 'monitoring'
+    where session_id = '00000000-0000-4000-8000-00000000fa03'$$,
+  'the coach resolves a flag'
+);
+
+select throws_ok (
+  $$update public.coach_flags set detail = 'rewritten' where kind = 'hold'$$,
+  '42501',
+  null,
+  'but cannot rewrite what it said'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+
+select is (
+  (select count(*) from public.coach_flags),
+  0::bigint,
+  'another coach sees none of them'
 );
 
 select * from finish ();

@@ -17,6 +17,7 @@ export function CheckInCard({
   hasWrittenPlan = false,
   allLogged,
   readGiven,
+  wellnessDue = false,
 }: {
   completed: number;
   due: number;
@@ -25,6 +26,8 @@ export function CheckInCard({
   hasWrittenPlan?: boolean;
   allLogged: boolean;
   readGiven: boolean;
+  /** This week's four wellness questions are not answered yet. */
+  wellnessDue?: boolean;
 }) {
   const t = useTheme();
   const router = useRouter();
@@ -81,6 +84,25 @@ export function CheckInCard({
           {readGiven ? 'Update my check-in →' : 'Start check-in →'}
         </Text>
       </Pressable>
+      {wellnessDue && (
+        <Pressable
+          onPress={() => router.push('/wellness')}
+          accessibilityRole="button"
+          style={({ pressed }) => ({
+            marginTop: 10,
+            borderWidth: 1.5,
+            borderColor: '#7C3AED',
+            borderRadius: t.radius.pill,
+            paddingVertical: 13,
+            alignItems: 'center',
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
+          <Text style={{ fontFamily: t.font.displaySemi, fontSize: 15, color: '#7C3AED' }}>
+            This week&apos;s four questions →
+          </Text>
+        </Pressable>
+      )}
     </Card>
   );
 }

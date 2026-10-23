@@ -662,6 +662,16 @@ export interface ScheduledSession {
   dayNotes: string | null;
   /** Prescribed items whose every set she ticked, once the session was sent. */
   doneItemIds: string[];
+  /** 0–10, 10 = fresh, tapped before the session. The gate. */
+  readinessBefore: number | null;
+  /** Her own account after the session. */
+  completion: 'all' | 'some' | 'none' | null;
+  painLocation: string | null;
+  pfFlag: boolean | null;
+  acuteSymptom: string | null;
+  /** What today became: the automatic reduced version, or the coach's answer to a hold. */
+  adjustedTo: 'reduced' | 'gentle' | 'low_impact' | 'strength' | 'as_planned' | null;
+  adjustedNote: string | null;
   /** Where the completion came from. Only prescribed sessions count towards adherence. */
   loggedVia: 'app' | 'strava' | 'calendar';
   /** How hard she said it was, 1–10, when she said. */
@@ -669,7 +679,7 @@ export interface ScheduledSession {
 }
 
 const SESSION_COLUMNS =
-  'id, client_id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe, done_item_ids, program_days(notes)';
+  'id, client_id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe, done_item_ids, readiness_before, completion, pain_location, pf_flag, acute_symptom, adjusted_to, adjusted_note, program_days(notes)';
 
 function toSession(row: {
   id: string;
@@ -687,6 +697,13 @@ function toSession(row: {
   logged_via: string;
   session_rpe: number | string | null;
   done_item_ids?: string[] | null;
+  readiness_before?: number | null;
+  completion?: string | null;
+  pain_location?: string | null;
+  pf_flag?: boolean | null;
+  acute_symptom?: string | null;
+  adjusted_to?: string | null;
+  adjusted_note?: string | null;
   program_days?: { notes: string | null } | null;
 }): ScheduledSession {
   return {
@@ -704,6 +721,13 @@ function toSession(row: {
     programDayId: row.program_day_id,
     dayNotes: row.program_days?.notes ?? null,
     doneItemIds: row.done_item_ids ?? [],
+    readinessBefore: row.readiness_before ?? null,
+    completion: (row.completion as ScheduledSession['completion']) ?? null,
+    painLocation: row.pain_location ?? null,
+    pfFlag: row.pf_flag ?? null,
+    acuteSymptom: row.acute_symptom ?? null,
+    adjustedTo: (row.adjusted_to as ScheduledSession['adjustedTo']) ?? null,
+    adjustedNote: row.adjusted_note ?? null,
     loggedVia: row.logged_via as ScheduledSession['loggedVia'],
     sessionRpe: row.session_rpe === null ? null : Number(row.session_rpe),
   };

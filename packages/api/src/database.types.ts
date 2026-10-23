@@ -501,6 +501,8 @@ export type Database = {
           id: string
           last_name_hint: string | null
           onboarded_at: string | null
+          pain_thresholds: Json
+          pf_gate: boolean
           profile_id: string | null
           sex: string | null
           started_on: string
@@ -522,6 +524,8 @@ export type Database = {
           id?: string
           last_name_hint?: string | null
           onboarded_at?: string | null
+          pain_thresholds?: Json
+          pf_gate?: boolean
           profile_id?: string | null
           sex?: string | null
           started_on?: string
@@ -543,6 +547,8 @@ export type Database = {
           id?: string
           last_name_hint?: string | null
           onboarded_at?: string | null
+          pain_thresholds?: Json
+          pf_gate?: boolean
           profile_id?: string | null
           sex?: string | null
           started_on?: string
@@ -563,6 +569,67 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_flags: {
+        Row: {
+          client_id: string
+          coach_id: string
+          created_at: string
+          detail: string
+          id: string
+          kind: string
+          notified_at: string | null
+          resolution: string | null
+          resolved_at: string | null
+          session_id: string | null
+        }
+        Insert: {
+          client_id: string
+          coach_id: string
+          created_at?: string
+          detail: string
+          id?: string
+          kind: string
+          notified_at?: string | null
+          resolution?: string | null
+          resolved_at?: string | null
+          session_id?: string | null
+        }
+        Update: {
+          client_id?: string
+          coach_id?: string
+          created_at?: string
+          detail?: string
+          id?: string
+          kind?: string
+          notified_at?: string | null
+          resolution?: string | null
+          resolved_at?: string | null
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_flags_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_flags_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_flags_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -1214,11 +1281,15 @@ export type Database = {
       }
       sessions: {
         Row: {
+          acute_symptom: string | null
+          adjusted_note: string | null
+          adjusted_to: string | null
           assignment_id: string | null
           client_id: string
           client_notes: string | null
           coach_feedback: string | null
           completed_at: string | null
+          completion: string | null
           created_at: string
           discipline: string
           done_item_ids: string[]
@@ -1227,7 +1298,10 @@ export type Database = {
           logged_via: string
           pain_after: number | null
           pain_before: number | null
+          pain_location: string | null
+          pf_flag: boolean | null
           program_day_id: string | null
+          readiness_before: number | null
           scheduled_date: string
           session_rpe: number | null
           sets_done: number | null
@@ -1238,11 +1312,15 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          acute_symptom?: string | null
+          adjusted_note?: string | null
+          adjusted_to?: string | null
           assignment_id?: string | null
           client_id: string
           client_notes?: string | null
           coach_feedback?: string | null
           completed_at?: string | null
+          completion?: string | null
           created_at?: string
           discipline?: string
           done_item_ids?: string[]
@@ -1251,7 +1329,10 @@ export type Database = {
           logged_via?: string
           pain_after?: number | null
           pain_before?: number | null
+          pain_location?: string | null
+          pf_flag?: boolean | null
           program_day_id?: string | null
+          readiness_before?: number | null
           scheduled_date: string
           session_rpe?: number | null
           sets_done?: number | null
@@ -1262,11 +1343,15 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          acute_symptom?: string | null
+          adjusted_note?: string | null
+          adjusted_to?: string | null
           assignment_id?: string | null
           client_id?: string
           client_notes?: string | null
           coach_feedback?: string | null
           completed_at?: string | null
+          completion?: string | null
           created_at?: string
           discipline?: string
           done_item_ids?: string[]
@@ -1275,7 +1360,10 @@ export type Database = {
           logged_via?: string
           pain_after?: number | null
           pain_before?: number | null
+          pain_location?: string | null
+          pf_flag?: boolean | null
           program_day_id?: string | null
+          readiness_before?: number | null
           scheduled_date?: string
           session_rpe?: number | null
           sets_done?: number | null
@@ -1379,6 +1467,47 @@ export type Database = {
           },
         ]
       }
+      wellness_checks: {
+        Row: {
+          client_id: string
+          created_at: string
+          fatigue: number
+          id: string
+          sleep: number
+          soreness: number
+          stress: number
+          week_start: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          fatigue: number
+          id?: string
+          sleep: number
+          soreness: number
+          stress: number
+          week_start: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          fatigue?: number
+          id?: string
+          sleep?: number
+          soreness?: number
+          stress?: number
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wellness_checks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1442,6 +1571,7 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: {
           block: string
+          category: string
           cues: string[]
           exercise_id: string
           exercise_name: string

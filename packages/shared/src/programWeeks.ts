@@ -130,10 +130,13 @@ export function sessionState(
     programDayId: string | null;
     setsDone?: number | null;
     setsPlanned?: number | null;
+    /** Her own account after the session; wins over the older set counts. */
+    completion?: string | null;
   },
   today: string,
 ): SessionState {
   if (s.programDayId === null) return 'logged';
+  if (s.status === 'completed' && s.completion) return s.completion === 'all' ? 'done' : 'partial';
   if (s.status === 'completed') {
     return s.setsPlanned &&
       s.setsDone !== null &&

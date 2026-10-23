@@ -179,6 +179,8 @@ export interface SessionPlanItem {
   tempo: string | null;
   restSec: number;
   notes: string | null;
+  /** Library category: 'plyometric' is impact work. */
+  category: string | null;
 }
 
 /** The prescriptions for many sessions in one call, keyed by session id. Same ownership rule. */
@@ -260,6 +262,7 @@ export async function getSessionPlan(
       tempo: (r.tempo as string) ?? null,
       restSec: r.rest_sec as number,
       notes: (r.notes as string) ?? null,
+      category: (r.category as string) ?? null,
     };
   });
 }

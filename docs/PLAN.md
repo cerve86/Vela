@@ -1018,3 +1018,25 @@ assign and unassign programmes, and create exercises; cross-training and notes-o
 are accepted; item notes are 1,000 characters everywhere; a bracketed equipment note no
 longer defeats the name matcher. The app asks to be updated when it is older than the
 oldest build that renders everything a programme can carry (`/api/app/min-version`).
+
+## 0.3.13 — Coaching layer, phase 2: readiness gates the session, the coach decides the rest (23 October 2026)
+
+Before a session the app asks for readiness (0–10), an acute symptom, pain with its
+location, and — when the coach has turned the gate on for that client — whether the
+pelvic floor felt heavy or leaked. Readiness 7 and above runs the session as written; 3 to
+6 halves the volume and drops the load; below 3 shows only the gentle movements and tells
+her the physio has been asked. An acute symptom holds the session entirely, and a
+pelvic-floor yes takes plyometric work off in any tier. The daily mood read no longer
+trims anything. After the session she gives RPE (0–10), how much she did (all, some,
+none) and pain after with location; set ticking is gone. Four weekly wellness questions
+(sleep, fatigue, soreness, stress, 1–5) appear under the check-in once a week.
+
+Flags are raised by the database, never by the app: a hold below 3, an acute symptom, a
+pelvic-floor yes, pain above the client's threshold for that location, and readiness under
+5 on four of the last seven days. Clients cannot read or write them. They appear in the
+portal as "Needs your decision" on the roster and the client page; a hold is answered with
+low impact, a strength day, the gentle version or as planned, which the app then follows.
+The coach is emailed once per batch through Resend (`RESEND_API_KEY`, `NOTIFY_FROM` in
+Vercel). The HRV guidance is now the coach's only. The client report and the extension
+(0.2.1) carry readiness, completion, open flags and wellness. Ten new pgTAP assertions
+(suite at 144).

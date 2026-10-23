@@ -3,7 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Clock } from 'lucide-react-native';
-import { SYMPTOMS, activePlan, isBlocking, painLabel, planMinutes } from '@vela/shared';
+import { activePlan, painLabel, readinessGate } from '@vela/shared';
 import {
   Body,
   Button,
@@ -13,85 +13,106 @@ import {
   PainScale,
   PlanTag,
   Screen,
-  StatTile,
 } from '@/components/kit';
-import { Rise, Tap } from '@/components/motion';
 import { Prose } from '@/components/prose';
-import { CelebrationCard, ProgressRing, RestBar, SetTickRow } from '@/components/session-kit';
+import { Rise, Tap } from '@/components/motion';
+import { CelebrationCard } from '@/components/session-kit';
+import {
+  ACUTE_OPTIONS,
+  ChoiceChips,
+  NumberScale,
+  PAIN_LOCATIONS,
+  READINESS_WORD,
+  RPE_WORD,
+} from '@/components/scales';
 import { useTheme } from '@/theme';
+import { useSession } from '@/lib/session';
 import { useSessionMeta, useSessionPlan } from '@/lib/data';
-import { useDailyRead } from '@/lib/daily';
-import { clock, setKey, useSessionLog } from '@/lib/sessionLog';
+import { clock, useSessionLog } from '@/lib/sessionLog';
 
 /**
- * Logging a session: three phases of one screen.
+ * A session: before, during, after.
  *
- * The prototype models these as separate screens driven by a single `screen` value, and
- * they stay one route here for the same reason — pre-session, the checklist and the summary
- * are one continuous piece of state, and splitting them across routes would mean threading
- * a half-finished session through navigation or hoisting it into a store that nothing else
- * reads.
+ * Before, she says how fresh she feels (0–10, the gate), anything acute, the pelvic-floor
+ * question when her physio has it on, and her symptom score. During, the movements are a
+ * sheet to read — no ticking. After, how hard it was, how much of it she did, and how it
+ * feels now. What she says before is written at once, because it decides today and raises
+ * any flag for her physio; the report goes when she sends it.
  */
-type Phase = 'pre' | 'log' | 'summary';
+type Phase = 'pre' | 'during' | 'after' | 'held';
+
+const readinessColor = (n: number) => (n <= 2 ? '#C4184A' : n <= 6 ? '#E8A200' : '#0E9F6E');
+const rpeColor = (n: number) => (n <= 3 ? '#0E9F6E' : n <= 6 ? '#E8A200' : '#C4184A');
 
 export default function SessionScreen() {
   const t = useTheme();
   const router = useRouter();
-  // Presented as a sheet, which never reaches the status bar — adding the device's
-  // top inset here just opens a dead gap under the grabber.
+  // Presented as a sheet, which never reaches the status bar.
   const insets = useSafeAreaInsets();
   const topPad = Math.min(insets.top, 12);
 
+  const { client } = useSession();
   const { id: sessionId } = useLocalSearchParams<{ id: string }>();
   const plan = useSessionPlan(sessionId ?? null);
   const meta = useSessionMeta(sessionId ?? null);
-  const daily = useDailyRead();
-
-  // The same trim Today applied. Reading it from one function is what stops the session
-  // asking for five exercises when Today promised three.
-  const active = activePlan(plan.data, daily.current, daily.read.symptom);
-  const log = useSessionLog(sessionId ?? null, active.items);
+  const log = useSessionLog(sessionId ?? null);
 
   const [phase, setPhase] = useState<Phase>('pre');
-  const [symptom, setSymptom] = useState(daily.read.symptom);
-  const [painBefore, setPainBefore] = useState<number | null>(2);
+  const [readiness, setReadiness] = useState<number | null>(null);
+  const [acute, setAcute] = useState<string>('none');
+  const [pfFlag, setPfFlag] = useState<'no' | 'yes' | null>(null);
+  const [painBefore, setPainBefore] = useState<number | null>(0);
+  const [painLocation, setPainLocation] = useState<string | null>(null);
+  const [rpe, setRpe] = useState<number | null>(null);
+  const [completion, setCompletion] = useState<'all' | 'some' | 'none' | null>(null);
   const [painAfter, setPainAfter] = useState<number | null>(null);
-  const [stopped, setStopped] = useState(false);
+  const [painAfterLocation, setPainAfterLocation] = useState<string | null>(null);
   const [nudge, setNudge] = useState<string | null>(null);
 
   const loading = plan.loading || meta.loading || !log.restored;
   const title = meta.data?.title ?? 'Session';
-  const mins = planMinutes(active.items.map((i) => ({ sets: i.sets, restSec: i.restSec })));
-  // What her physio wrote for the day. On a run or a swim it is the whole prescription;
-  // beside a list of movements it is the framing — the warm-up, the pool, the why.
   const dayNotes = meta.data?.dayNotes ?? null;
-  const written = active.items.length === 0;
+  const pfGate = client?.pfGate === true;
 
-  // Resuming lands straight in the checklist — asking for a symptom score a second time
-  // would overwrite the one the session was actually built from.
-  if (phase === 'pre' && log.started) setPhase('log');
+  // Before she starts, the plan follows what she is tapping; once started, what she sent.
+  const said = log.before;
+  const active = activePlan(plan.data, {
+    readiness: said?.readiness ?? readiness,
+    pfFlag: said ? said.pfFlag : pfFlag === 'yes',
+    acute: said?.acute ?? null,
+    adjustedTo: meta.data?.adjustedTo ?? null,
+    adjustedNote: meta.data?.adjustedNote ?? null,
+  });
 
-  function begin() {
-    log.begin(painBefore, symptom);
-    // The symptom only. `painBefore` is a 0-10 symptom score and readiness is a 0-4 step —
-    // passing one as the other would have written nonsense into the read. The before-score
-    // is carried by the session itself, which is where the coach reads it from.
-    void daily.setSymptom(symptom);
-    setPhase('log');
-  }
+  // Resuming lands where she left off.
+  if (phase === 'pre' && log.started) setPhase('during');
 
-  function finish() {
-    if (log.completed === 0 && log.total > 0) {
-      setNudge('Log at least one set first.');
+  async function start() {
+    if (readiness === null) {
+      setNudge('Tap how fresh you feel first — it sets today.');
+      return;
+    }
+    if (pfGate && pfFlag === null) {
+      setNudge('Answer the pelvic-floor question first.');
       return;
     }
     setNudge(null);
-    setPhase('summary');
+    const isAcute = acute !== 'none';
+    await log.begin({
+      readiness,
+      painBefore,
+      painLocation: painBefore && painBefore > 0 ? painLocation : null,
+      pfFlag: pfGate ? pfFlag === 'yes' : null,
+      acute: isAcute ? acute : null,
+      adjustedTo: !isAcute && readinessGate(readiness) === 'reduced' ? 'reduced' : null,
+    });
+    setPhase(isAcute ? 'held' : 'during');
   }
 
-  function stopEarly() {
-    setStopped(true);
-    setPhase('summary');
+  function finish(stopped: boolean) {
+    if (stopped && completion === null) setCompletion('some');
+    if (!stopped && completion === null) setCompletion('all');
+    setPhase('after');
   }
 
   if (loading) {
@@ -104,123 +125,150 @@ export default function SessionScreen() {
     );
   }
 
-  /* ── Before you start ─────────────────────────────────────── */
-  if (phase === 'pre') {
-    const blocked = isBlocking(symptom);
+  const pad = {
+    padding: t.space.lg,
+    paddingTop: topPad + t.space.lg,
+    paddingBottom: t.space.xxl,
+    gap: 14,
+  };
+  const label = (text: string) => (
+    <Body size={11} weight="medium" color={t.textSecondary} style={{ letterSpacing: 0.5 }}>
+      {text}
+    </Body>
+  );
 
+  /* ── Held: an acute symptom ─────────────────────────────── */
+  if (phase === 'held') {
     return (
       <Screen>
-        <ScrollView
-          contentContainerStyle={{
-            padding: t.space.lg,
-            paddingTop: topPad + t.space.lg,
-            paddingBottom: t.space.xxl,
-            gap: 14,
-          }}
-          showsVerticalScrollIndicator={false}
-        >
-          <Body size={11} weight="medium" color={t.textMuted} style={{ letterSpacing: 0.5 }}>
-            BEFORE YOU START
-          </Body>
+        <ScrollView contentContainerStyle={pad}>
+          <Display size={28}>Rest today</Display>
+          <Card style={{ borderRadius: 22 }}>
+            <Body size={15} style={{ lineHeight: 22 }}>
+              Your physio has been told and will be in touch. Nothing to do now but rest.
+            </Body>
+          </Card>
+          <Button label="Done" onPress={() => router.back()} />
+        </ScrollView>
+      </Screen>
+    );
+  }
+
+  /* ── Before you start ───────────────────────────────────── */
+  if (phase === 'pre') {
+    return (
+      <Screen>
+        <ScrollView contentContainerStyle={pad} showsVerticalScrollIndicator={false}>
+          {label('BEFORE YOU START')}
           <Display size={28}>{title}</Display>
 
           {dayNotes && (
-            <Rise>
-              <Card style={{ borderRadius: 22 }}>
-                <Body
-                  size={11}
-                  weight="medium"
-                  color={t.textSecondary}
-                  style={{ letterSpacing: 0.5 }}
-                >
-                  WHAT TO DO
-                </Body>
-                <View style={{ marginTop: 10 }}>
-                  <Prose body={dayNotes} />
-                </View>
-              </Card>
-            </Rise>
+            <Card style={{ borderRadius: 22 }}>
+              {label('WHAT TO DO')}
+              <View style={{ marginTop: 10 }}>
+                <Prose body={dayNotes} />
+              </View>
+            </Card>
           )}
 
           <Rise>
             <Card style={{ borderRadius: 22 }}>
-              <Body
-                size={11}
-                weight="medium"
-                color={t.textSecondary}
-                style={{ letterSpacing: 0.5 }}
-              >
-                ANYTHING GOING ON?
-              </Body>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 12 }}>
-                {SYMPTOMS.map((s) => {
-                  const on = symptom === s;
-                  return (
-                    <Tap
-                      key={s}
-                      onPress={() => setSymptom(s)}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: on }}
-                      style={{
-                        paddingVertical: 10,
-                        paddingHorizontal: 14,
-                        borderRadius: t.radius.pill,
-                        borderWidth: 1.5,
-                        borderColor: on ? t.brand[600] : t.border,
-                        backgroundColor: on ? t.brand[50] : t.surface,
-                      }}
-                    >
-                      <Body size={13.5} weight="medium" color={on ? t.brand[700] : t.textSecondary}>
-                        {s}
-                      </Body>
-                    </Tap>
-                  );
-                })}
+              {label('HOW FRESH DO YOU FEEL RIGHT NOW?')}
+              <View style={{ marginTop: 12 }}>
+                <NumberScale
+                  value={readiness}
+                  onChange={setReadiness}
+                  low="Empty"
+                  high="Fresh"
+                  word={READINESS_WORD}
+                  color={readinessColor}
+                  label="Readiness"
+                />
               </View>
-
-              {blocked && (
-                <View
-                  style={{
-                    marginTop: 14,
-                    padding: 14,
-                    borderRadius: t.radius.md,
-                    backgroundColor: t.dark ? 'rgba(224,72,155,0.12)' : '#FDEBF4',
-                  }}
-                >
+              {readiness !== null && acute === 'none' && (
+                <View style={{ marginTop: 14, gap: 4 }}>
+                  <PlanTag label={active.tag} tone={active.tone} />
                   <Body size={13} color={t.textSecondary} style={{ lineHeight: 19 }}>
-                    Today drops to breath and connection work. That is the session — not a lesser
-                    version of one — and your physio will see why.
+                    {active.note}
                   </Body>
                 </View>
               )}
             </Card>
           </Rise>
 
-          <Rise delay={60}>
+          <Rise delay={40}>
             <Card style={{ borderRadius: 22 }}>
-              <Body
-                size={11}
-                weight="medium"
-                color={t.textSecondary}
-                style={{ letterSpacing: 0.5 }}
-              >
-                SYMPTOM BEFORE TRAINING
-              </Body>
+              {label('ANY OF THESE TODAY?')}
               <View style={{ marginTop: 12 }}>
-                <PainScale value={painBefore} onChange={setPainBefore} />
+                <ChoiceChips
+                  options={[...ACUTE_OPTIONS]}
+                  value={acute}
+                  onChange={setAcute}
+                  tone={acute === 'none' ? undefined : t.status.critical}
+                />
               </View>
             </Card>
           </Rise>
 
-          <Button label="Start" onPress={begin} />
+          {pfGate && (
+            <Rise delay={60}>
+              <Card style={{ borderRadius: 22 }}>
+                {label('PELVIC FLOOR')}
+                <Body size={14} style={{ marginTop: 8, lineHeight: 20 }}>
+                  Any heaviness, dragging or leaking today?
+                </Body>
+                <View style={{ marginTop: 12 }}>
+                  <ChoiceChips
+                    options={[
+                      { value: 'no', label: 'No' },
+                      { value: 'yes', label: 'Yes' },
+                    ]}
+                    value={pfFlag}
+                    onChange={setPfFlag}
+                  />
+                </View>
+              </Card>
+            </Rise>
+          )}
+
+          <Rise delay={80}>
+            <Card style={{ borderRadius: 22 }}>
+              {label('SYMPTOM BEFORE TRAINING')}
+              <View style={{ marginTop: 12 }}>
+                <PainScale value={painBefore} onChange={setPainBefore} />
+              </View>
+              {painBefore !== null && painBefore > 0 && (
+                <View style={{ marginTop: 12 }}>
+                  <Body size={12.5} color={t.textSecondary} style={{ marginBottom: 8 }}>
+                    Where?
+                  </Body>
+                  <ChoiceChips
+                    options={[...PAIN_LOCATIONS]}
+                    value={painLocation}
+                    onChange={setPainLocation}
+                  />
+                </View>
+              )}
+            </Card>
+          </Rise>
+
+          {nudge && (
+            <Body size={13} color={t.status.warning} style={{ textAlign: 'center' }}>
+              {nudge}
+            </Body>
+          )}
+          <Button
+            label={acute !== 'none' ? 'Tell my physio' : 'Start'}
+            onPress={() => void start()}
+          />
           <Button label="Not now" variant="secondary" onPress={() => router.back()} />
         </ScrollView>
       </Screen>
     );
   }
 
-  /* ── The checklist ────────────────────────────────────────── */
-  if (phase === 'log') {
+  /* ── During: a sheet to read ────────────────────────────── */
+  if (phase === 'during') {
     return (
       <Screen>
         <View
@@ -236,7 +284,6 @@ export default function SessionScreen() {
             backgroundColor: t.page,
           }}
         >
-          <ProgressRing value={log.ratio} />
           <View style={{ flex: 1 }}>
             <Text
               style={{
@@ -249,73 +296,59 @@ export default function SessionScreen() {
               {title}
             </Text>
             <Body size={12.5} color={t.textSecondary}>
-              {written ? 'As your physio wrote it' : `${log.completed} of ${log.total} sets`}
+              {active.tag}
             </Body>
           </View>
-          <View style={{ alignItems: 'flex-end', gap: 3 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 5,
+              paddingVertical: 4,
+              paddingHorizontal: 9,
+              borderRadius: t.radius.pill,
+              backgroundColor: t.dark ? t.brand[900] : '#12172B',
+            }}
+          >
+            <Clock size={11} color={t.brand[300]} strokeWidth={2.8} />
             <Text
               style={{
                 fontFamily: t.font.displaySemi,
-                fontSize: 18,
-                letterSpacing: -0.5,
-                color: t.brand[600],
+                fontSize: 12.5,
+                color: '#FFFFFF',
+                fontVariant: ['tabular-nums'],
               }}
             >
-              {Math.round(log.ratio * 100)}%
+              {clock(log.elapsed)}
             </Text>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 5,
-                paddingVertical: 4,
-                paddingHorizontal: 9,
-                borderRadius: t.radius.pill,
-                backgroundColor: t.dark ? t.brand[900] : '#12172B',
-              }}
-            >
-              <Clock size={11} color={t.brand[300]} strokeWidth={2.8} />
-              <Text
-                style={{
-                  fontFamily: t.font.displaySemi,
-                  fontSize: 12.5,
-                  color: '#FFFFFF',
-                  fontVariant: ['tabular-nums'],
-                }}
-              >
-                {clock(log.elapsed)}
-              </Text>
-            </View>
           </View>
         </View>
 
         <ScrollView
-          contentContainerStyle={{
-            padding: t.space.lg,
-            paddingBottom: 160,
-            gap: 12,
-          }}
+          contentContainerStyle={{ padding: t.space.lg, paddingBottom: 80, gap: 12 }}
           showsVerticalScrollIndicator={false}
         >
-          {dayNotes && (
+          {(dayNotes || active.items.length === 0) && (
             <Card style={{ borderRadius: 22 }}>
-              <Body
-                size={11}
-                weight="medium"
-                color={t.textSecondary}
-                style={{ letterSpacing: 0.5 }}
-              >
-                WHAT TO DO
-              </Body>
+              {label('WHAT TO DO')}
               <View style={{ marginTop: 10 }}>
-                <Prose body={dayNotes} />
+                {dayNotes ? <Prose body={dayNotes} /> : null}
+                {active.items.length === 0 && (
+                  <Body
+                    size={14}
+                    color={t.textSecondary}
+                    style={{ marginTop: dayNotes ? 8 : 0, lineHeight: 20 }}
+                  >
+                    {active.note}
+                  </Body>
+                )}
               </View>
             </Card>
           )}
 
           {active.items.map((item, idx) => (
             <Rise key={item.itemId} delay={idx * 40}>
-              <Card style={{ borderRadius: 22, paddingVertical: 22 }}>
+              <Card style={{ borderRadius: 22, paddingVertical: 18 }}>
                 <View
                   style={{
                     flexDirection: 'row',
@@ -327,8 +360,8 @@ export default function SessionScreen() {
                   <Text
                     style={{
                       fontFamily: t.font.displaySemi,
-                      fontSize: 18,
-                      letterSpacing: -0.5,
+                      fontSize: 17,
+                      letterSpacing: -0.4,
                       color: t.textPrimary,
                       flex: 1,
                     }}
@@ -337,10 +370,10 @@ export default function SessionScreen() {
                   </Text>
                   <DosePill>
                     {item.sets} × {item.reps}
+                    {!active.dropLoad && item.targetLoadKg ? ` · ${item.targetLoadKg} kg` : ''}
                   </DosePill>
                 </View>
-
-                {item.cues.length > 0 && (
+                {item.cues[0] ? (
                   <Body
                     size={12.5}
                     color={t.textSecondary}
@@ -348,46 +381,22 @@ export default function SessionScreen() {
                   >
                     {item.cues[0]}
                   </Body>
-                )}
-
-                <View style={{ gap: 8, marginTop: 14 }}>
-                  {Array.from({ length: item.sets }, (_, i) => (
-                    <SetTickRow
-                      key={i}
-                      n={i + 1}
-                      load={
-                        !active.dropLoad && item.targetLoadKg
-                          ? `${item.targetLoadKg} kg`
-                          : item.reps
-                      }
-                      done={Boolean(log.done[setKey(item.itemId, i)])}
-                      onToggle={() =>
-                        log.toggle(
-                          item.itemId,
-                          i,
-                          item.restSec,
-                          i + 1 < item.sets
-                            ? `Next: set ${i + 2} of ${item.exerciseName}`
-                            : (active.items[idx + 1]?.exerciseName ?? 'Last one — then finish'),
-                        )
-                      }
-                    />
-                  ))}
-                </View>
+                ) : null}
+                {item.notes ? (
+                  <Body size={13} style={{ marginTop: 6, lineHeight: 19 }}>
+                    {item.notes}
+                  </Body>
+                ) : null}
+                <Body size={12} color={t.textMuted} style={{ marginTop: 6 }}>
+                  Rest {item.restSec}s between sets
+                </Body>
               </Card>
             </Rise>
           ))}
 
-          {nudge && (
-            <Body size={13} color={t.status.warning} style={{ textAlign: 'center' }}>
-              {nudge}
-            </Body>
-          )}
-
-          <Button label={written ? 'Done — mark it off' : 'Finish and review'} onPress={finish} />
-
+          <Button label="Done — tell my physio how it went" onPress={() => finish(false)} />
           <Tap
-            onPress={stopEarly}
+            onPress={() => finish(true)}
             style={{
               borderWidth: 1.5,
               borderColor: t.dark ? 'rgba(196,24,74,0.5)' : 'rgba(196,24,74,0.35)',
@@ -401,109 +410,89 @@ export default function SessionScreen() {
             </Body>
           </Tap>
         </ScrollView>
-
-        {log.rest && (
-          <RestBar
-            runId={log.rest.runId}
-            remaining={log.rest.remaining}
-            total={log.rest.total}
-            nextLabel={log.rest.next}
-            onSkip={log.skipRest}
-          />
-        )}
       </Screen>
     );
   }
 
-  /* ── Summary and send ─────────────────────────────────────── */
+  /* ── After: the report ──────────────────────────────────── */
   const sent = log.sendState === 'sent';
-
   return (
     <Screen>
-      <ScrollView
-        contentContainerStyle={{
-          padding: t.space.lg,
-          paddingTop: topPad + t.space.lg,
-          paddingBottom: t.space.xxl,
-          gap: 14,
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        {log.allDone && !stopped ? (
+      <ScrollView contentContainerStyle={pad} showsVerticalScrollIndicator={false}>
+        {sent ? (
           <CelebrationCard
-            title={written ? 'Done' : undefined}
-            message={
-              written
-                ? `Done, ${clock(log.elapsed)} on the clock. Your physio sees this as soon as you send it.`
-                : `${log.total} sets, ${clock(log.elapsed)} on the clock. Your physio sees this as soon as you send it.`
-            }
+            title={completion === 'none' ? 'Sent' : 'Done'}
+            message={`${clock(log.elapsed)} on the clock. Your physio sees this now.`}
           />
         ) : (
-          <Rise>
-            <Card style={{ borderRadius: 22 }}>
-              <PlanTag
-                label={stopped ? 'Stopped early' : 'Partly done'}
-                tone={stopped ? t.status.critical : t.status.warning}
-              />
-              <Display size={24} style={{ marginTop: 12 }}>
-                {log.completed} of {log.total} sets
-              </Display>
-              <Body size={13.5} color={t.textSecondary} style={{ marginTop: 4, lineHeight: 19 }}>
-                {stopped
-                  ? 'Stopping when something feels wrong is the right call. Your physio will see what you managed and why.'
-                  : 'What you did counts. Send it and your physio can adjust from there.'}
-              </Body>
-            </Card>
-          </Rise>
+          <Display size={26}>How did it go?</Display>
         )}
 
-        <Rise delay={60}>
-          <Card style={{ borderRadius: 22 }}>
-            <Body size={11} weight="medium" color={t.textSecondary} style={{ letterSpacing: 0.5 }}>
-              WHAT YOU DID
-            </Body>
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-              <StatTile label="TIME" value={clock(log.elapsed)} dark flex={1.3} />
-              {!written && <StatTile label="SETS" value={`${log.completed}`} />}
-              {!written && <StatTile label="OF" value={`${log.total}`} />}
-            </View>
-            <Body size={12.5} color={t.textSecondary} style={{ marginTop: 12 }}>
-              {written ? active.tag : `Planned ${mins} min · ${active.tag.toLowerCase()}`}
-            </Body>
-          </Card>
-        </Rise>
+        {!sent && (
+          <>
+            <Rise>
+              <Card style={{ borderRadius: 22 }}>
+                {label('HOW HARD WAS THAT, OVERALL?')}
+                <View style={{ marginTop: 12 }}>
+                  <NumberScale
+                    value={rpe}
+                    onChange={setRpe}
+                    low="Rest"
+                    high="Maximal"
+                    word={RPE_WORD}
+                    color={rpeColor}
+                    label="Effort"
+                  />
+                </View>
+              </Card>
+            </Rise>
 
-        <Rise delay={120}>
-          <Card style={{ borderRadius: 22 }}>
-            <Body size={11} weight="medium" color={t.textSecondary} style={{ letterSpacing: 0.5 }}>
-              HOW DOES IT FEEL NOW?
-            </Body>
-            <Body size={12.5} color={t.textMuted} style={{ marginTop: 4 }}>
-              Before you started: {painBefore === null ? 'not recorded' : painLabel(painBefore)}
-            </Body>
-            <View style={{ marginTop: 12 }}>
-              <PainScale value={painAfter} onChange={setPainAfter} />
-            </View>
-          </Card>
-        </Rise>
+            <Rise delay={40}>
+              <Card style={{ borderRadius: 22 }}>
+                {label('HOW MUCH OF IT DID YOU DO?')}
+                <View style={{ marginTop: 12 }}>
+                  <ChoiceChips
+                    options={[
+                      { value: 'all', label: 'All of it' },
+                      { value: 'some', label: 'Some of it' },
+                      { value: 'none', label: 'None today' },
+                    ]}
+                    value={completion}
+                    onChange={setCompletion}
+                  />
+                </View>
+              </Card>
+            </Rise>
+
+            <Rise delay={80}>
+              <Card style={{ borderRadius: 22 }}>
+                {label('HOW DOES IT FEEL NOW?')}
+                <Body size={12.5} color={t.textMuted} style={{ marginTop: 4 }}>
+                  Before you started:{' '}
+                  {said?.painBefore == null ? 'not recorded' : painLabel(said.painBefore)}
+                </Body>
+                <View style={{ marginTop: 12 }}>
+                  <PainScale value={painAfter} onChange={setPainAfter} />
+                </View>
+                {painAfter !== null && painAfter > 0 && (
+                  <View style={{ marginTop: 12 }}>
+                    <Body size={12.5} color={t.textSecondary} style={{ marginBottom: 8 }}>
+                      Where?
+                    </Body>
+                    <ChoiceChips
+                      options={[...PAIN_LOCATIONS]}
+                      value={painAfterLocation ?? said?.painLocation ?? null}
+                      onChange={setPainAfterLocation}
+                    />
+                  </View>
+                )}
+              </Card>
+            </Rise>
+          </>
+        )}
 
         {sent ? (
-          <Rise>
-            <Card
-              fill={t.dark ? 'rgba(14,159,110,0.14)' : t.tint.mint}
-              style={{ borderRadius: 22 }}
-            >
-              <Body size={15} weight="semibold">
-                Sent to your physio
-              </Body>
-              <Body size={13} color={t.textSecondary} style={{ marginTop: 4, lineHeight: 19 }}>
-                Nothing else needed today.
-              </Body>
-            </Card>
-            <View style={{ marginTop: 14 }}>
-              <Button label="Done" onPress={() => router.back()} />
-            </View>
-          </Rise>
+          <Button label="Done" onPress={() => router.back()} />
         ) : (
           <>
             {log.sendState === 'failed' && (
@@ -512,17 +501,16 @@ export default function SessionScreen() {
                   Couldn&apos;t reach Vela
                 </Body>
                 <Body size={12.5} color={t.textSecondary} style={{ marginTop: 4, lineHeight: 18 }}>
-                  Your session is saved on this phone — nothing is lost. Try again when you have
+                  Your answers are saved on this phone — nothing is lost. Try again when you have
                   signal.
                 </Body>
-                {log.sendError && (
-                  <Body size={11} color={t.textMuted} style={{ marginTop: 6 }}>
-                    {log.sendError}
-                  </Body>
-                )}
               </Card>
             )}
-
+            {nudge && (
+              <Body size={13} color={t.status.warning} style={{ textAlign: 'center' }}>
+                {nudge}
+              </Body>
+            )}
             <Button
               label={
                 log.sendState === 'sending'
@@ -532,13 +520,23 @@ export default function SessionScreen() {
                     : 'Send to your physio'
               }
               disabled={log.sendState === 'sending'}
-              onPress={() => void log.send(painAfter, stopped)}
+              onPress={() => {
+                if (rpe === null || completion === null) {
+                  setNudge('Tap how hard it was and how much you did.');
+                  return;
+                }
+                setNudge(null);
+                void log.send({
+                  rpe,
+                  completion,
+                  painAfter,
+                  painLocation:
+                    painAfter && painAfter > 0
+                      ? (painAfterLocation ?? said?.painLocation ?? null)
+                      : null,
+                });
+              }}
             />
-            {/*
-              A way to say something the scores cannot. The session travels with the message,
-              so "this one hurt more than usual" arrives attached to the day it is about and
-              the coach does not have to ask which.
-            */}
             <Button
               label="Say something about it"
               variant="secondary"

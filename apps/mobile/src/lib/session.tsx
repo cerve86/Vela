@@ -18,6 +18,8 @@ export interface ClientRecord {
   breastfeeding: boolean;
   /** Null until the welcome flow has been finished. Gates onboarding, once. */
   onboardedAt: string | null;
+  /** Her physio's pelvic-floor gate: when on, the question is asked before each session. */
+  pfGate: boolean;
 }
 
 interface SessionState {
@@ -63,6 +65,7 @@ type ClientRow = {
   delivery_type: string;
   breastfeeding: boolean;
   onboarded_at: string | null;
+  pf_gate: boolean | null;
 };
 
 // No .eq('profile_id', …) here on purpose: RLS already restricts this to the caller's
@@ -72,7 +75,7 @@ async function fetchClientRow(): Promise<ClientRow | null> {
   const { data } = await supabase
     .from('clients')
     .select(
-      'id, email, first_name_hint, last_name_hint, condition, goal, status, weeks_postpartum, delivery_type, breastfeeding, onboarded_at',
+      'id, email, first_name_hint, last_name_hint, condition, goal, status, weeks_postpartum, delivery_type, breastfeeding, onboarded_at, pf_gate',
     )
     .maybeSingle();
   return data ?? null;
@@ -140,6 +143,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           deliveryType: row.delivery_type,
           breastfeeding: row.breastfeeding,
           onboardedAt: row.onboarded_at,
+          pfGate: row.pf_gate ?? false,
         }
       : null;
 

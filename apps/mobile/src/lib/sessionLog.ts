@@ -1,53 +1,63 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { SessionPlanItem } from '@vela/api';
 import { supabase } from './supabase';
+import { notifyCoach } from './integrations';
 import { celebrate } from '@/lib/mascot';
 
 /**
- * State for one logged session: which sets are done, how long it has run, and the send.
+ * One session's life on the phone: what she said before, the clock, and the report after.
  *
- * Persisted to the device as it goes. A session is the one screen someone is guaranteed to
- * leave mid-way — a phone call, a nappy, the app swapped out for a timer — and coming back
- * to an empty checklist after twenty minutes of work is the kind of thing that stops people
- * logging at all. Nothing is sent until they finish, which is also what makes the flow
- * offline-first by construction rather than by a retry queue.
+ * No set ticking: the physio asked for feedback after, not a checklist during. What she
+ * says before the run is written at once — it is the gate, and it raises the coach's flags
+ * — and kept on the device as well, so a session started without signal still sends it
+ * with the report. Nothing about the run itself is sent until she reports.
  */
 
 export type SendState = 'idle' | 'sending' | 'sent' | 'failed';
 
-interface Stored {
-  done: Record<string, true>;
-  startedAt: number;
+export interface Before {
+  readiness: number;
   painBefore: number | null;
-  symptom: string;
+  painLocation: string | null;
+  pfFlag: boolean | null;
+  acute: string | null;
+  /** The automatic tier the readiness tap chose, when it trimmed the day. */
+  adjustedTo: 'reduced' | null;
 }
 
-const key = (sessionId: string) => `vela.session.${sessionId}`;
+export interface After {
+  rpe: number;
+  completion: 'all' | 'some' | 'none';
+  painAfter: number | null;
+  painLocation: string | null;
+}
 
-/** One set's identity. Index rather than a set id, because sets have no rows of their own. */
-export const setKey = (itemId: string, i: number) => `${itemId}:${i}`;
+interface Stored {
+  startedAt: number;
+  before: Before;
+}
 
-export function useSessionLog(sessionId: string | null, plan: SessionPlanItem[]) {
-  const [done, setDone] = useState<Record<string, true>>({});
+const key = (sessionId: string) => `vela.session.v2.${sessionId}`;
+
+function beforeColumns(b: Before) {
+  return {
+    readiness_before: b.readiness,
+    pain_before: b.painBefore,
+    pain_location: b.painLocation,
+    pf_flag: b.pfFlag,
+    acute_symptom: b.acute,
+    ...(b.adjustedTo ? { adjusted_to: b.adjustedTo } : {}),
+  };
+}
+
+export function useSessionLog(sessionId: string | null) {
   const [startedAt, setStartedAt] = useState<number | null>(null);
-  const [painBefore, setPainBefore] = useState<number | null>(null);
-  const [symptom, setSymptom] = useState('Nothing');
+  const [before, setBefore] = useState<Before | null>(null);
   const [restored, setRestored] = useState(false);
-
   const [elapsed, setElapsed] = useState(0);
-  const [rest, setRest] = useState<{
-    runId: number;
-    remaining: number;
-    total: number;
-    next: string;
-  } | null>(null);
   const [sendState, setSendState] = useState<SendState>('idle');
   const [sendError, setSendError] = useState<string | null>(null);
 
-  const runId = useRef(0);
-
-  // Restore, once, before anything can be ticked.
   useEffect(() => {
     if (!sessionId) return;
     let cancelled = false;
@@ -55,15 +65,10 @@ export function useSessionLog(sessionId: string | null, plan: SessionPlanItem[])
       .then((raw) => {
         if (cancelled || !raw) return;
         const s = JSON.parse(raw) as Stored;
-        setDone(s.done ?? {});
         setStartedAt(s.startedAt ?? null);
-        setPainBefore(s.painBefore ?? null);
-        setSymptom(s.symptom ?? 'Nothing');
+        setBefore(s.before ?? null);
       })
-      .catch(() => {
-        // An unreadable record is not worth taking the screen down for. Starting fresh
-        // loses ticks, which is bad; refusing to open the session is worse.
-      })
+      .catch(() => {})
       .finally(() => {
         if (!cancelled) setRestored(true);
       });
@@ -72,184 +77,90 @@ export function useSessionLog(sessionId: string | null, plan: SessionPlanItem[])
     };
   }, [sessionId]);
 
-  const persist = useCallback(
-    (next: Partial<Stored>) => {
-      if (!sessionId) return;
-      const payload: Stored = {
-        done,
-        startedAt: startedAt ?? Date.now(),
-        painBefore,
-        symptom,
-        ...next,
-      };
-      void AsyncStorage.setItem(key(sessionId), JSON.stringify(payload)).catch(() => {});
-    },
-    [sessionId, done, startedAt, painBefore, symptom],
-  );
-
-  /**
-   * One interval for both clocks.
-   *
-   * The elapsed timer and the rest countdown tick together because they tick at the same
-   * rate and a second interval buys nothing but drift between them.
-   */
   useEffect(() => {
     if (startedAt === null) return;
-    const id = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startedAt) / 1000));
-      setRest((r) => {
-        if (!r) return r;
-        const remaining = r.remaining - 1;
-        return remaining <= 0 ? null : { ...r, remaining };
-      });
-    }, 1000);
+    const tick = () => setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [startedAt]);
 
+  /**
+   * What she said before the run: written now, because it is the gate and it raises the
+   * coach's flags. An acute symptom holds the session instead of starting it.
+   */
   const begin = useCallback(
-    (pain: number | null, sym: string) => {
-      const now = Date.now();
-      setStartedAt(now);
-      setPainBefore(pain);
-      setSymptom(sym);
-      persist({ startedAt: now, painBefore: pain, symptom: sym });
-
-      /**
-       * Mark the row started — best effort, and deliberately not awaited.
-       *
-       * The local record above is what the session actually runs on, so a clinic with no
-       * signal must never see Start hesitate. All this write buys is a signal the local
-       * copy cannot give anybody else: until now `in_progress` was in the enum, in the
-       * types and in Today's "Resume session" branch, and was never written by anything —
-       * so a session abandoned at set four was indistinguishable from one never opened,
-       * both to the coach and to this app on a second device.
-       *
-       * Filtered on `status = 'scheduled'` so re-entering a session cannot walk a finished
-       * one backwards.
-       */
-      if (sessionId) {
-        void supabase
-          .from('sessions')
-          .update({ status: 'in_progress', started_at: new Date(now).toISOString() })
-          .eq('id', sessionId)
-          .eq('status', 'scheduled')
-          .then(() => {});
-      }
-    },
-    [persist, sessionId],
-  );
-
-  /**
-   * Ticks or un-ticks one set.
-   *
-   * The next state is computed before anything is set, rather than inside a `setDone`
-   * updater. An updater has to be pure — React is free to call it more than once for a
-   * single update, and in development under StrictMode it does — so writing to storage and
-   * starting the rest clock in there would double both: a duplicate write, and a rest timer
-   * that restarts the instant it starts.
-   */
-  const toggle = useCallback(
-    (itemId: string, i: number, restSec: number, next: string) => {
-      const k = setKey(itemId, i);
-      const wasDone = Boolean(done[k]);
-
-      const copy = { ...done };
-      if (wasDone) delete copy[k];
-      else copy[k] = true;
-
-      setDone(copy);
-      persist({ done: copy });
-
-      // Rest starts on the way in only. Un-ticking is a correction, not a completed set.
-      if (!wasDone && restSec > 0) {
-        runId.current += 1;
-        setRest({ runId: runId.current, remaining: restSec, total: restSec, next });
-      }
-    },
-    [done, persist],
-  );
-
-  const skipRest = useCallback(() => setRest(null), []);
-
-  const total = plan.reduce((n, i) => n + i.sets, 0);
-  const completed = Object.keys(done).length;
-
-  /**
-   * Writes the outcome. On failure the state is kept, untouched, so Retry sends the same
-   * thing rather than whatever is left after a partial write.
-   */
-  const send = useCallback(
-    async (painAfter: number | null, stopped: boolean) => {
+    async (b: Before): Promise<void> => {
       if (!sessionId) return;
-      setSendState('sending');
-      setSendError(null);
-
-      // The movements she finished outright — every set ticked — so the week view can
-      // mark each one rather than only the day.
-      const doneItemIds = plan
-        .filter((i) =>
-          Array.from({ length: i.sets }, (_, k) => done[setKey(i.itemId, k)]).every(Boolean),
-        )
-        .map((i) => i.itemId);
-
+      const now = Date.now();
+      setBefore(b);
+      if (!b.acute) setStartedAt(now);
+      void AsyncStorage.setItem(
+        key(sessionId),
+        JSON.stringify({ startedAt: now, before: b }),
+      ).catch(() => {});
       const { error } = await supabase
         .from('sessions')
         .update({
-          status: stopped && completed === 0 ? 'skipped' : 'completed',
-          done_item_ids: doneItemIds,
+          ...beforeColumns(b),
+          ...(b.acute
+            ? { status: 'skipped', completion: 'none' }
+            : { status: 'in_progress', started_at: new Date(now).toISOString() }),
+        })
+        .eq('id', sessionId)
+        .in('status', ['scheduled', 'in_progress']);
+      if (!error) void notifyCoach();
+    },
+    [sessionId],
+  );
+
+  /** The report: how hard, how much, how it feels now. Sent once; kept until it lands. */
+  const send = useCallback(
+    async (a: After) => {
+      if (!sessionId) return;
+      setSendState('sending');
+      setSendError(null);
+      const { error } = await supabase
+        .from('sessions')
+        .update({
+          ...(before ? beforeColumns(before) : {}),
+          status: a.completion === 'none' ? 'skipped' : 'completed',
           completed_at: new Date().toISOString(),
-          pain_before: painBefore,
-          pain_after: painAfter,
-          // The volume, which used to die with the local scratchpad. Without it "completed"
-          // meant both every set and one set, and nothing could weigh a day's work.
-          sets_planned: total,
-          sets_done: completed,
-          // Computed from the start stamp rather than read off `elapsed`: the ticking
-          // clock is a display, and its interval does not fire while the app is
-          // backgrounded — which a twenty-minute session spends most of.
+          session_rpe: a.rpe,
+          completion: a.completion,
+          pain_after: a.painAfter,
+          ...(a.painLocation ? { pain_location: a.painLocation } : {}),
           duration_sec: startedAt === null ? null : Math.round((Date.now() - startedAt) / 1000),
         })
         .eq('id', sessionId);
-
       if (error) {
         setSendState('failed');
         setSendError(error.message);
         return;
       }
-
       setSendState('sent');
-      celebrate('session');
-      // Only now is the local copy redundant.
+      if (a.completion !== 'none') celebrate('session');
+      void notifyCoach();
       void AsyncStorage.removeItem(key(sessionId)).catch(() => {});
     },
-    [sessionId, painBefore, completed, total, startedAt, plan, done],
+    [sessionId, before, startedAt],
   );
 
   return {
     restored,
-    done,
-    toggle,
-    completed,
-    total,
-    ratio: total ? completed / total : 0,
-    // A day written as a sentence has no sets to tick; doing it is finishing it.
-    allDone: completed === total,
     started: startedAt !== null,
+    before,
     begin,
     elapsed,
-    rest,
-    skipRest,
-    painBefore,
-    symptom,
+    send,
     sendState,
     sendError,
-    send,
   };
 }
 
-/** mm:ss for the header clock. */
-export function clock(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = String(seconds % 60).padStart(2, '0');
-  return `${m}:${s}`;
+/** "12:05" from seconds. */
+export function clock(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
 }

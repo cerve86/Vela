@@ -354,7 +354,9 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
                   <th className="pb-2 font-medium">Date</th>
                   <th className="pb-2 font-medium">Session</th>
                   <th className="pb-2 font-medium">Type</th>
-                  <th className="pb-2 font-medium">Sets</th>
+                  <th className="pb-2 font-medium">Ready</th>
+                  <th className="pb-2 font-medium">Did</th>
+                  <th className="pb-2 font-medium">RPE</th>
                   <th className="pb-2 font-medium">Pain before</th>
                   <th className="pb-2 font-medium">Pain after</th>
                 </tr>
@@ -374,18 +376,35 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
                       </td>
                       <td className="py-2.5 font-medium">{s.title}</td>
                       <td className="py-2.5 ink-2">{DISCIPLINE_LABEL[s.discipline]}</td>
-                      {/* Blank for sessions logged before the app sent its volume, rather
-                          than a zero that would read as "she did nothing". */}
+                      {/* Readiness before (0–10, 10 fresh), her own account of how much
+                          she did, and session RPE. Older sessions predate these and show a
+                          dash, or their set count, rather than a zero. */}
                       <td className="tnum py-2.5 ink-2">
-                        {s.setsDone !== null && s.setsPlanned !== null
-                          ? `${s.setsDone}/${s.setsPlanned}`
-                          : '—'}
+                        {s.readinessBefore !== null ? `${s.readinessBefore}/10` : '—'}
+                      </td>
+                      <td className="py-2.5 ink-2">
+                        {s.completion
+                          ? { all: 'All', some: 'Some', none: 'None' }[s.completion]
+                          : s.setsDone !== null && s.setsPlanned !== null
+                            ? `${s.setsDone}/${s.setsPlanned} sets`
+                            : '—'}
+                        {s.adjustedTo && s.adjustedTo !== 'as_planned' && (
+                          <span className="ml-1 text-xs ink-3">
+                            · {ADJUSTED_WORD[s.adjustedTo]}
+                          </span>
+                        )}
+                      </td>
+                      <td className="tnum py-2.5 ink-2">
+                        {s.sessionRpe !== null ? s.sessionRpe : '—'}
                       </td>
                       <td className="py-2.5">
                         <PainDot score={s.painBefore} />
                       </td>
                       <td className="py-2.5">
                         <PainDot score={s.painAfter} />
+                        {s.painLocation && (
+                          <span className="ml-1 text-xs ink-3">{s.painLocation}</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -420,3 +439,11 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
     </div>
   );
 }
+
+const ADJUSTED_WORD: Record<string, string> = {
+  reduced: 'reduced',
+  gentle: 'gentle',
+  low_impact: 'low impact',
+  strength: 'strength instead',
+  as_planned: 'as planned',
+};
