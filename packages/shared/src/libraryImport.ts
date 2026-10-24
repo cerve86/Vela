@@ -4,16 +4,29 @@
  * The Run&Bun workbook keeps its library on a "Library" tab (code, domain, movement,
  * type, dose, load rule, L1–L4, regression, why), its domains on "Domains", and which
  * movements each client is on, with PRIORITY marks, on "Assignment". A "Vela selection"
- * tab, when there is one, narrows the curated library to the codes it lists; without it,
- * every movement on the Library tab is selected. Columns are found by their headers, so a
- * reordered or extended sheet still reads.
+ * tab, when there is one, narrows the curated library to the codes it lists, says for
+ * each which exercise in Vela to use ("Vela name to use": her own, or a stock one) or to
+ * create it as hers, and adds movements the Library tab does not carry (ADD1…). Without
+ * it, every movement on the Library tab is selected and created as hers. Columns are
+ * found by their headers, so a reordered or extended sheet still reads.
  *
  * Pure, and free of extensionless imports, so it is tested under `node --test` directly.
  */
 
 export type Cell = string | number | boolean | Date | null | undefined;
 
-export type MovementType = 'Strength' | 'Strength — iso' | 'Stability' | 'Impact' | 'Mobility';
+export type MovementType =
+  'Strength' | 'Strength — iso' | 'Stability' | 'Impact' | 'Power' | 'Mobility' | 'Coordination';
+
+export type LibraryPhase = 'base' | 'build' | 'peak' | 'taper';
+
+/** What the selection tab says to do with a movement. */
+export interface VelaMapping {
+  /** Names to look for in Vela, the coach's own first: "Calf iso", "Seated Calf Raise". */
+  names: string[];
+  /** Use her own exercise, use a stock one, or create it as hers. */
+  use: 'custom' | 'stock' | 'create';
+}
 
 export interface SheetMovement {
   code: string;
@@ -31,9 +44,13 @@ export interface SheetMovement {
   why: string | null;
   watchFor: string | null;
   equipment: string | null;
-  phases: string[];
+  phases: LibraryPhase[];
   /** Gates the sheet itself names, from its "GATE" wording. */
   gates: ('pelvic_floor' | 'shin')[];
+  /** Her own clip to film, or a stock clip; null when the sheet does not say. */
+  videoSource: 'own' | 'stock' | null;
+  /** From the selection tab; null when the workbook has none or does not list it. */
+  vela: VelaMapping | null;
 }
 
 export interface SheetDomain {
@@ -110,10 +127,12 @@ function readType(
   if (t.startsWith('strength') && /iso/.test(t)) return 'Strength — iso';
   if (t.startsWith('strength')) return 'Strength';
   if (t.startsWith('stabil')) return 'Stability';
-  if (t.startsWith('impact') || t.startsWith('plyo') || t.startsWith('power')) return 'Impact';
+  if (t.startsWith('impact') || t.startsWith('plyo')) return 'Impact';
+  if (t.startsWith('power')) return 'Power';
   if (t.startsWith('mobility')) return 'Mobility';
+  if (t.startsWith('coordination')) return 'Coordination';
   warnings.push(
-    `${code}: type "${raw}" is not one Vela knows (Strength, Stability, Impact, Mobility).`,
+    `${code}: type "${raw}" is not one Vela knows (Strength, Stability, Impact, Power, Mobility, Coordination).`,
   );
   return null;
 }
@@ -132,7 +151,68 @@ function gatesFrom(...cells: (string | null)[]): SheetMovement['gates'] {
 }
 
 const categoryOf = (t: MovementType | null): SheetMovement['category'] =>
-  t === 'Impact' ? 'plyometric' : t === 'Mobility' ? 'mobility' : 'strength';
+  t === 'Impact' || t === 'Power'
+    ? 'plyometric'
+    : t === 'Mobility' || t === 'Coordination'
+      ? 'mobility'
+      : 'strength';
+
+const ALL_PHASES: LibraryPhase[] = ['base', 'build', 'peak', 'taper'];
+
+/**
+ * The phases a movement is developed in, from the sheet's "Phase emphasis": the part
+ * before "·" names them ("Base + Taper · present Build/Peak" is base and taper), "All"
+ * means all four, and "(+ late Build)" adds build. "Base gate → opens all phases" is a
+ * base movement.
+ */
+export function parsePhases(raw: string | null): LibraryPhase[] {
+  if (!raw) return [];
+  const head = raw.split(/[·→]/)[0]!.toLowerCase();
+  if (/\ball\b/.test(head)) return [...ALL_PHASES];
+  const found = ALL_PHASES.filter((p) => new RegExp(`\\b${p}\\b`).test(head));
+  if (/\(\s*\+\s*late build/i.test(raw) && !found.includes('build')) found.push('build');
+  return ALL_PHASES.filter((p) => found.includes(p));
+}
+
+/** "Vela stock clip" is stock; "Film — yours" is her own clip to make. */
+function videoFrom(raw: string | null): SheetMovement['videoSource'] {
+  if (!raw) return null;
+  if (/stock/i.test(raw)) return 'stock';
+  if (/film|yours|own|custom/i.test(raw)) return 'own';
+  return null;
+}
+
+/**
+ * The names a "Vela name to use" cell offers, her own first: "Seated calf (mine) [or
+ * stock: Seated Calf Raise]" gives "Seated calf" then "Seated Calf Raise". A dash or an
+ * empty cell gives none.
+ */
+export function velaNames(raw: string | null): string[] {
+  if (!raw || /^[—–-]+$/.test(raw.trim())) return [];
+  return raw
+    .replace(/[—–]\s*confirm.*$/i, '')
+    .replace(/\[(stock|interim)\]/gi, '')
+    .replace(/\(mine\)/gi, '')
+    .split(/\[|\]|\s+or\s+|\s+[—–]\s+|\s\/\s/)
+    .map((p) =>
+      p
+        .replace(/^\s*or\s+/i, '')
+        .replace(/^\s*(stock:|add\s+)/i, '')
+        .replace(/^['"‘’“”\s]+|['"‘’“”\s]+$/g, '')
+        .trim(),
+    )
+    .filter((p) => p.length > 2 && !/^(a|an)\s+band version$/i.test(p));
+}
+
+function useFrom(status: string | null): VelaMapping['use'] {
+  const s = (status ?? '').toLowerCase();
+  // Blank: use hers when there is one by that name, otherwise create it.
+  if (!s) return 'custom';
+  if (s.includes('your custom')) return 'custom';
+  if (s.includes('create')) return 'create';
+  if (s.includes('stock')) return 'stock';
+  return 'create';
+}
 
 export function parseLibraryWorkbook(sheets: Record<string, Cell[][]>): LibraryWorkbook {
   const warnings: string[] = [];
@@ -162,6 +242,7 @@ export function parseLibraryWorkbook(sheets: Record<string, Cell[][]>): LibraryW
     watch: column(lh, 'watch'),
     equipment: column(lh, 'equipment', 'kit'),
     phase: column(lh, 'phase'),
+    video: column(lh, 'video'),
     ladder: ['l1', 'l2', 'l3', 'l4'].map((l) => lh.findIndex((h) => norm(h) === l)),
   };
   if (c.code < 0 || c.name < 0) {
@@ -211,14 +292,10 @@ export function parseLibraryWorkbook(sheets: Record<string, Cell[][]>): LibraryW
       why,
       watchFor,
       equipment: c.equipment >= 0 ? text(r[c.equipment]) : null,
-      phases:
-        c.phase >= 0
-          ? (text(r[c.phase]) ?? '')
-              .split(/[,;/·]/)
-              .map((p) => p.trim().toLowerCase())
-              .filter(Boolean)
-          : [],
+      phases: c.phase >= 0 ? parsePhases(text(r[c.phase])) : [],
       gates: gatesFrom(why, loadRule, watchFor),
+      videoSource: c.video >= 0 ? videoFrom(text(r[c.video])) : null,
+      vela: null,
     });
   }
 
@@ -276,17 +353,59 @@ export function parseLibraryWorkbook(sheets: Record<string, Cell[][]>): LibraryW
 
   let selection: string[] | null = null;
   const createAsCustom: string[] = [];
-  const ssheet = findSheet(sheets, 'vela selection', 'selection');
+  const ssheet = findSheet(sheets, 'vela selection', 'vela_selection', 'selection');
   if (ssheet && ssheet.length > 1) {
     const [sh = [], ...srows] = ssheet;
-    const codeAt = column(sh, 'code');
-    const customAt = column(sh, 'custom', 'create');
+    const sc = {
+      code: column(sh, 'code'),
+      name: column(sh, 'movement'),
+      domain: column(sh, 'domain'),
+      type: column(sh, 'type'),
+      phase: column(sh, 'phase'),
+      vela: column(sh, 'vela name', 'name to use'),
+      status: column(sh, 'status', 'custom', 'create'),
+      video: column(sh, 'video'),
+    };
+    const at = (r: Cell[], i: number) => (i >= 0 ? text(r[i]) : null);
     selection = [];
     for (const r of srows) {
-      const code = text(r[codeAt])?.toUpperCase();
+      const code = at(r, sc.code)?.toUpperCase();
       if (!code || !CODE.test(code)) continue;
       selection.push(code);
-      if (customAt >= 0 && norm(r[customAt])) createAsCustom.push(code);
+      const status = at(r, sc.status);
+      const vela: VelaMapping = { names: velaNames(at(r, sc.vela)), use: useFrom(status) };
+      if (vela.use === 'create') createAsCustom.push(code);
+      const m = movements.find((x) => x.code === code);
+      if (m) {
+        m.vela = vela;
+        if (!m.phases.length) m.phases = parsePhases(at(r, sc.phase));
+        if (!m.videoSource) m.videoSource = videoFrom(at(r, sc.video));
+        continue;
+      }
+      // On the selection tab only (ADD1…): a movement in its own right.
+      const name = at(r, sc.name);
+      if (!name) continue;
+      const type = readType(at(r, sc.type), code, warnings, symbolTypes);
+      const domain = at(r, sc.domain);
+      movements.push({
+        code,
+        domainCode: domains.find((d) => d.name === domain)?.code ?? code.replace(/\d+$/, ''),
+        domain,
+        name,
+        type,
+        category: categoryOf(type),
+        dose: null,
+        loadRule: null,
+        ladder: [],
+        regression: null,
+        why: null,
+        watchFor: null,
+        equipment: null,
+        phases: parsePhases(at(r, sc.phase)),
+        gates: [],
+        videoSource: videoFrom(at(r, sc.video)),
+        vela,
+      });
     }
   }
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { parseLibraryWorkbook, type Cell } from './libraryImport.ts';
+import { parseLibraryWorkbook, parsePhases, velaNames, type Cell } from './libraryImport.ts';
 
 const libraryTab: Cell[][] = [
   [
@@ -155,6 +155,110 @@ describe('parseLibraryWorkbook', () => {
     });
     assert.equal(w.movements[0]!.type, null);
     assert.match(w.warnings[0]!, /UP4: no type/);
+  });
+
+  it('reads phase emphasis as the phases named before the dot', () => {
+    assert.deepEqual(parsePhases('Base + Taper · present Build/Peak'), ['base', 'taper']);
+    assert.deepEqual(parsePhases('Build + Peak · low in Base/Taper'), ['build', 'peak']);
+    assert.deepEqual(parsePhases('All phases (prep, not a slot)'), [
+      'base',
+      'build',
+      'peak',
+      'taper',
+    ]);
+    assert.deepEqual(parsePhases('Peak (+ late Build)'), ['build', 'peak']);
+    assert.deepEqual(parsePhases('Base gate → opens all phases'), ['base']);
+    assert.deepEqual(parsePhases(null), []);
+  });
+
+  it('reads the names to use in Vela, hers first', () => {
+    assert.deepEqual(velaNames('Calf iso (mine) — confirm this is it'), ['Calf iso']);
+    assert.deepEqual(velaNames('Seated calf (mine)  [or stock: Seated Calf Raise]'), [
+      'Seated calf',
+      'Seated Calf Raise',
+    ]);
+    assert.deepEqual(velaNames('Dead Bug [stock] or Dead bug contralateral reach (mine)'), [
+      'Dead Bug',
+      'Dead bug contralateral reach',
+    ]);
+    assert.deepEqual(velaNames('Stiff-Legged Dumbbell Deadlift [or Romanian Deadlift]'), [
+      'Stiff-Legged Dumbbell Deadlift',
+      'Romanian Deadlift',
+    ]);
+    assert.deepEqual(velaNames('—'), []);
+  });
+
+  it('maps v5 selection rows to her exercises, and adds the ones only the selection lists', () => {
+    const w = parseLibraryWorkbook({
+      Library: libraryTab,
+      Vela_selection: [
+        [
+          '#',
+          'Code',
+          'Movement',
+          'Domain',
+          'Type',
+          'Phase emphasis',
+          'Vela name to use',
+          'Status',
+          'Video',
+        ],
+        [
+          1,
+          'FA2',
+          'Bent-knee calf raise',
+          'Foot & ankle',
+          '^ Strength',
+          'Base + Build',
+          'Seated calf (mine)',
+          'Your custom',
+          null,
+        ],
+        [
+          2,
+          'TP3',
+          'Low pogo hops',
+          'Trunk',
+          '* Impact',
+          'Build + Peak',
+          'Pogo Hops',
+          'Stock',
+          'Vela stock clip',
+        ],
+        [
+          3,
+          'ADD2',
+          'Split squat (knee-dominant)',
+          'Hip & posterior chain',
+          '^ Strength',
+          'Base + Build',
+          'Split Squat (Dumbbell)',
+          'Stock',
+          null,
+        ],
+        [
+          4,
+          'ADD7',
+          'Tibialis posterior',
+          'Foot & ankle',
+          '^ Strength',
+          'Base + Build',
+          '—',
+          'CREATE AS CUSTOM',
+          'Film — yours',
+        ],
+      ],
+    });
+    const by = (c: string) => w.movements.find((m) => m.code === c)!;
+    assert.deepEqual(by('FA2').vela, { names: ['Seated calf'], use: 'custom' });
+    assert.deepEqual(by('FA2').phases, ['base', 'build']);
+    assert.equal(by('TP3').vela?.use, 'stock');
+    assert.equal(by('TP3').videoSource, 'stock');
+    assert.equal(by('ADD2').name, 'Split squat (knee-dominant)');
+    assert.deepEqual(by('ADD2').vela, { names: ['Split Squat (Dumbbell)'], use: 'stock' });
+    assert.equal(by('ADD7').vela?.use, 'create');
+    assert.equal(by('ADD7').videoSource, 'own');
+    assert.deepEqual(w.createAsCustom, ['ADD7']);
   });
 
   it('says so when there is no Library tab', () => {

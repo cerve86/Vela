@@ -150,6 +150,10 @@ export async function saveCircuit(
 export interface LibraryImportSummary {
   created: string[];
   updated: string[];
+  /** Codes put on an exercise she already had, as the selection tab says: "FA1 → Calf iso". */
+  merged: string[];
+  /** Copies from an earlier import folded into her own exercise, archived (not deleted). */
+  archived: string[];
   selected: number;
   domains: number;
   priorities: number;
@@ -158,12 +162,24 @@ export interface LibraryImportSummary {
   warnings: string[];
 }
 
+const STOPWORDS = /\b(the|a|an)\b/g;
+/** Names compared without case, punctuation or articles: "between the knees" = "between knees". */
+const looseName = (n: string) =>
+  normaliseExerciseName(n).replace(STOPWORDS, ' ').replace(/\s+/g, ' ').trim();
+
 /**
- * Applies a parsed library sheet to the coach's library. A movement is found by its code
- * among her own, then by name among her own; otherwise it is created as hers. Shipped
- * exercises are never edited. Priorities replace what each named client had for the
- * movements on the sheet. With `dryRun`, nothing is written and the summary says what
- * would be.
+ * Applies a parsed library sheet to the coach's library.
+ *
+ * Where the selection tab names an exercise she already has ("Vela name to use: Calf iso
+ * (mine)"), that exercise takes the code and the card — her name, her programmes, her
+ * clients' history stay on it — and a coded copy left by an earlier import is folded in:
+ * anything pointing at the copy moves to hers, and the copy is archived. Where it names a
+ * stock exercise, she keeps a card of her own, noting the stock name, because a shipped
+ * exercise cannot carry her fields. "Create as custom" makes the movement hers, reusing
+ * one of hers by the same name. Without a selection tab, a movement is matched by code,
+ * then by name, among hers. Shipped exercises are never edited. Priorities replace what
+ * each named client had for the movements on the sheet. With `dryRun`, nothing is written
+ * and the summary says what would be.
  */
 export async function applyLibraryWorkbook(
   supabase: VelaClient,
@@ -173,17 +189,61 @@ export async function applyLibraryWorkbook(
 ): Promise<LibraryImportSummary> {
   const library = await listExercises(supabase, coachId);
   const mine = library.filter((e) => e.isMine);
+  const shipped = library.filter((e) => !e.isMine);
   const byCode = new Map(mine.filter((e) => e.code).map((e) => [e.code!, e]));
-  const byName = new Map(mine.map((e) => [normaliseExerciseName(e.name), e]));
+  const mineByName = new Map<string, LibraryExercise>();
+  // Her uncoded exercises win a name over coded copies: they are the ones she made.
+  for (const e of [...mine].sort((a, b) => Number(!!a.code) - Number(!!b.code)))
+    if (!mineByName.has(looseName(e.name))) mineByName.set(looseName(e.name), e);
+  const stockByName = new Map(shipped.map((e) => [looseName(e.name), e]));
   const selection = w.selection ? new Set(w.selection) : null;
+  const sheetCodes = new Set(w.movements.map((m) => m.code));
 
   const created: string[] = [];
   const updated: string[] = [];
+  const merged: string[] = [];
+  const archived: string[] = [];
+  const warnings = [...w.warnings];
   const ids = new Map<string, string>();
+  const claimed = new Set<string>();
 
   for (const m of w.movements) {
-    const existing: LibraryExercise | undefined =
-      byCode.get(m.code) ?? byName.get(normaliseExerciseName(m.name));
+    const dup = byCode.get(m.code);
+    let target: LibraryExercise | null = null;
+    let stockName: string | null = null;
+    const names = m.vela?.names ?? [];
+    // The first name the sheet gives that exists decides: hers, or stock. A code already
+    // on the exercise she named is that same decision, made by an earlier import.
+    let alreadyHers = false;
+    for (const n of names) {
+      const t = mineByName.get(looseName(n));
+      if (t && t.id === dup?.id) {
+        alreadyHers = true;
+        break;
+      }
+      if (t && (!t.code || !sheetCodes.has(t.code) || t.code === m.code)) {
+        target = t;
+        break;
+      }
+      const st = stockByName.get(looseName(n));
+      if (st) {
+        stockName = st.name;
+        break;
+      }
+    }
+    if (m.vela?.use === 'stock') target = null;
+    if (m.vela?.use === 'create' || !m.vela) {
+      const t = mineByName.get(looseName(m.name));
+      target = t && t.id !== dup?.id && (!t.code || t.code === m.code) ? t : null;
+    }
+    if (target && claimed.has(target.id)) {
+      warnings.push(
+        `${m.code}: "${target.name}" already carries another code from this sheet; ${m.code} keeps its own card.`,
+      );
+      target = null;
+    }
+    if (target) claimed.add(target.id);
+
     const curation = curationColumns({
       code: m.code,
       domain: m.domain,
@@ -194,28 +254,59 @@ export async function applyLibraryWorkbook(
       regression: m.regression,
       why: m.why,
       ...(m.watchFor ? { watchFor: m.watchFor } : {}),
-      ...(m.phases.length ? { phases: m.phases } : {}),
+      phases: m.phases,
       ...(m.gates.length ? { gates: m.gates } : {}),
+      ...(m.videoSource ? { videoSource: m.videoSource } : {}),
       selected: selection ? selection.has(m.code) : true,
     });
-    if (existing) {
+    const stockNote = stockName && !alreadyHers ? `Stock exercise in Vela: ${stockName}` : null;
+    // No code to find it by yet, but one of hers already has the sheet's name: that one.
+    const same = !target && !dup ? mineByName.get(looseName(m.name)) : undefined;
+    const existing =
+      dup ??
+      (same && (!same.code || same.code === m.code) && !claimed.has(same.id) ? same : undefined);
+    if (existing) claimed.add(existing.id);
+
+    if (target) {
+      merged.push(`${m.code} → ${target.name}`);
+      ids.set(m.code, target.id);
+      if (dup) archived.push(`${m.code} ${dup.name}`);
+      if (!opts.dryRun) {
+        if (dup) {
+          await supabase
+            .from('program_items')
+            .update({ exercise_id: target.id })
+            .eq('exercise_id', dup.id);
+          await supabase.from('client_exercise_priority').delete().eq('exercise_id', dup.id);
+          await supabase
+            .from('exercises')
+            .update({ archived_at: new Date().toISOString(), code: null, selected: false })
+            .eq('id', dup.id);
+        }
+        await supabase
+          .from('exercises')
+          .update({ updated_at: new Date().toISOString(), ...curation })
+          .eq('id', target.id);
+      }
+    } else if (existing) {
       updated.push(`${m.code} ${m.name}`);
       ids.set(m.code, existing.id);
       if (!opts.dryRun) {
         await supabase
           .from('exercises')
           .update({
-            name: m.name,
+            // Never renamed: her exercise keeps her name, and a copy already has the sheet's.
             ...(m.type ? { category: m.category } : {}),
             ...(m.equipment ? { equipment: m.equipment } : {}),
+            ...(stockNote && !existing.notes ? { notes: stockNote } : {}),
             ...curation,
           })
           .eq('id', existing.id);
       }
     } else {
-      created.push(`${m.code} ${m.name}`);
-      if (!opts.dryRun) {
-        const { data } = await supabase
+      if (opts.dryRun) created.push(`${m.code} ${m.name}`);
+      else {
+        const { data, error } = await supabase
           .from('exercises')
           .insert({
             coach_id: coachId,
@@ -224,11 +315,16 @@ export async function applyLibraryWorkbook(
             cues: [],
             muscle_groups: [],
             equipment: m.equipment ?? 'Bodyweight',
+            notes: stockNote,
             ...curation,
           })
           .select('id')
           .single();
-        if (data) ids.set(m.code, data.id);
+        if (data) {
+          ids.set(m.code, data.id);
+          created.push(`${m.code} ${m.name}`);
+        } else
+          warnings.push(`${m.code}: could not be created (${error?.message ?? 'unknown error'}).`);
       }
     }
   }
@@ -247,13 +343,13 @@ export async function applyLibraryWorkbook(
   }
 
   // Clients named on the Assignment tab, by first name among hers.
-  const names = [...new Set(w.priorities.map((p) => p.clientName))];
+  const clientNames = [...new Set(w.priorities.map((p) => p.clientName))];
   const { data: clients } = await supabase
     .from('clients')
     .select('id, first_name_hint, status')
     .neq('status', 'archived');
   const clientId = new Map<string, string>();
-  for (const n of names) {
+  for (const n of clientNames) {
     const hits = (clients ?? []).filter(
       (c) => (c.first_name_hint ?? '').trim().toLowerCase() === n.trim().toLowerCase(),
     );
@@ -279,11 +375,13 @@ export async function applyLibraryWorkbook(
   return {
     created,
     updated,
+    merged,
+    archived,
     selected: w.movements.filter((m) => (selection ? selection.has(m.code) : true)).length,
     domains: w.domains.length,
     priorities,
     clientsMatched: [...clientId.keys()],
-    clientsUnmatched: names.filter((n) => !clientId.has(n)),
-    warnings: w.warnings,
+    clientsUnmatched: clientNames.filter((n) => !clientId.has(n)),
+    warnings,
   };
 }
