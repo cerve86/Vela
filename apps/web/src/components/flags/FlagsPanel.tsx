@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { FLAG_LABEL, type CoachFlag, type FlagKind } from '@vela/api';
 import { palette } from '@vela/shared/tokens';
 import { resolveFlagAction } from '@/app/(dash)/clients/[id]/actions';
+import { decideMoveAction } from '@/app/(dash)/calendar/actions';
 
 const TONE: Record<FlagKind, string> = {
   acute: palette.status.critical,
@@ -14,13 +15,14 @@ const TONE: Record<FlagKind, string> = {
   readiness_low: palette.status.warning,
   divergence: palette.status.warning,
   hold: palette.brand[600],
+  move_request: palette.brand[600],
 };
 
 /**
  * Flags awaiting the coach, each with what she can do about it.
  *
  * A hold is a question about today — she answers with what the session becomes, and the
- * client sees that answer. Everything else is information she acknowledges once she has
+ * client sees that answer. A move request is answered by moving the session or keeping it. Everything else is information she acknowledges once she has
  * acted on it, by message or in person. Nothing here reaches the client by itself.
  */
 export function FlagsPanel({
@@ -42,7 +44,7 @@ export function FlagsPanel({
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="display-face text-[17px] font-bold">Needs your decision</h2>
         <span className="text-xs ink-3 tnum">
-          {flags.length} open · the client sees none of these
+          {flags.length} open · nothing reaches her until you decide
         </span>
       </div>
       <ul className="mt-3 grid gap-2">
@@ -64,6 +66,16 @@ function FlagRow({ flag, name, compact }: { flag: CoachFlag; name?: string; comp
     startTransition(async () => {
       setError(null);
       const res = await resolveFlagAction(flag.id, input);
+      if (!res.ok) setError(res.error ?? 'Could not save.');
+      else router.refresh();
+    });
+
+  const decideMove = (accept: boolean) =>
+    startTransition(async () => {
+      setError(null);
+      const res = flag.sessionId
+        ? await decideMoveAction(flag.sessionId, accept)
+        : { ok: false, error: 'That request has no session.' };
       if (!res.ok) setError(res.error ?? 'Could not save.');
       else router.refresh();
     });
@@ -149,6 +161,34 @@ function FlagRow({ flag, name, compact }: { flag: CoachFlag; name?: string; comp
                   As planned
                 </button>
               </div>
+            </div>
+          ) : flag.kind === 'move_request' ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={pending}
+                className={btn}
+                style={{ background: palette.brand[600], color: '#fff' }}
+                onClick={() => decideMove(true)}
+              >
+                Move it
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                className={btn}
+                style={{ background: 'var(--surface)' }}
+                onClick={() => decideMove(false)}
+              >
+                Keep the day
+              </button>
+              <Link
+                href={`/messages?client=${flag.clientId}`}
+                className={btn}
+                style={{ background: 'var(--surface)' }}
+              >
+                Message her
+              </Link>
             </div>
           ) : (
             <div className="mt-2 flex flex-wrap gap-2">

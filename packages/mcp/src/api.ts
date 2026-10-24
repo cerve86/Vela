@@ -434,6 +434,22 @@ export class VelaApi {
     throw new VelaApiError(status, body, explain(status, body));
   }
 
+  /** Moves a planned session, alone or with the rest of its block behind it. */
+  async moveSession(input: {
+    sessionId: string;
+    to: string;
+    ripple: boolean;
+  }): Promise<{ moved: number; session: { title: string; from: string; to: string } }> {
+    const { status, body } = await this.request(
+      'POST',
+      `/api/sessions/${encodeURIComponent(input.sessionId)}/move`,
+      { to: input.to, ripple: input.ripple },
+    );
+    if (status === 200)
+      return body as { moved: number; session: { title: string; from: string; to: string } };
+    throw new VelaApiError(status, body, explain(status, body));
+  }
+
   /** A new movement in the coach's own library. 409 names the one that already exists. */
   async createExercise(input: {
     name: string;

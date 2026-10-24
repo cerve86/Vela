@@ -17,6 +17,7 @@ import {
 import { Prose } from '@/components/prose';
 import { Rise, Tap } from '@/components/motion';
 import { CelebrationCard } from '@/components/session-kit';
+import { MoveRequestCard } from '@/components/moveRequest';
 import {
   ACUTE_OPTIONS,
   ChoiceChips,
@@ -267,6 +268,7 @@ export default function SessionScreen() {
             onPress={() => void start()}
           />
           <Button label="Not now" variant="secondary" onPress={() => router.back()} />
+          {meta.data && <MoveRequestCard session={meta.data} />}
         </ScrollView>
       </Screen>
     );

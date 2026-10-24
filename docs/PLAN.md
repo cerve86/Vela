@@ -1066,3 +1066,28 @@ Also fixed: since 0.3.13 a readiness tap in the 3–6 tier overwrote the coach's
 for that session with `reduced`. The app now records its own tier only when the coach has
 not decided, and the portal no longer credits `reduced` to the coach. The minimum app
 version is 0.3.14 for that reason. Extension 0.2.2. Ten new pgTAP assertions (154).
+
+## 0.3.15 — Coaching layer, phase 4: a calendar you can move (26 October 2026)
+
+A planned session can be moved in the portal calendar: dragged to another day in the
+week grid or in the client panel, or given a date from the session's detail. The coach
+chooses this session only, or this one and every planned session after it in the block
+(`move_session`, with `ripple`). Only a session still planned, today or later, moves, and
+never into the past; completed records stay on their day. A moved session keeps its
+programmed date (`original_date`) and is marked as moved, so `sync_program_sessions`
+renames it with its day but leaves it where the coach put it; moved back onto that date,
+it is ordinary again. The calendar line says "moved from Mon 26". The ICS feed follows
+without change.
+
+Every block stays visible. A block replaced by a new assignment is now `replaced`, not
+`cancelled` (which keeps meaning "taken off"), and `block_progress` reads each block's
+planned, done and moved sessions. The list is in the calendar panel and, once a client has
+had more than one block, on her Training tab.
+
+In the app a client can ask to move a session ("Can't do this day?"), picking a day in the
+next week and adding a note. `request_session_move` records it and raises a
+`move_request` flag, so it reaches the coach in "Needs your decision" and by email like
+any other decision; she grants it (the session moves to that day) or keeps the day. The
+client can take a pending request back. Requests are read-only tables written only by
+those functions. The API (`POST /api/sessions/{id}/move`) and the extension (0.2.3,
+`move_session`) can move sessions too. Fourteen new pgTAP assertions (168).
