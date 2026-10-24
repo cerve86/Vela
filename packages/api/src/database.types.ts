@@ -183,6 +183,7 @@ export type Database = {
           coach_id: string
           created_at: string
           first_day: string | null
+          gate_overrides: string[]
           id: string
           program_id: string
           start_date: string
@@ -193,6 +194,7 @@ export type Database = {
           coach_id: string
           created_at?: string
           first_day?: string | null
+          gate_overrides?: string[]
           id?: string
           program_id: string
           start_date: string
@@ -203,6 +205,7 @@ export type Database = {
           coach_id?: string
           created_at?: string
           first_day?: string | null
+          gate_overrides?: string[]
           id?: string
           program_id?: string
           start_date?: string
@@ -384,6 +387,39 @@ export type Database = {
           },
         ]
       }
+      client_exercise_priority: {
+        Row: {
+          client_id: string
+          exercise_id: string
+          level: string
+        }
+        Insert: {
+          client_id: string
+          exercise_id: string
+          level: string
+        }
+        Update: {
+          client_id?: string
+          exercise_id?: string
+          level?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_exercise_priority_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_exercise_priority_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_invites: {
         Row: {
           accepted_at: string | null
@@ -489,6 +525,7 @@ export type Database = {
       clients: {
         Row: {
           breastfeeding: boolean
+          cleared_gates: string[]
           coach_id: string
           condition: string | null
           created_at: string
@@ -512,6 +549,7 @@ export type Database = {
         }
         Insert: {
           breastfeeding?: boolean
+          cleared_gates?: string[]
           coach_id: string
           condition?: string | null
           created_at?: string
@@ -535,6 +573,7 @@ export type Database = {
         }
         Update: {
           breastfeeding?: boolean
+          cleared_gates?: string[]
           coach_id?: string
           condition?: string | null
           created_at?: string
@@ -759,48 +798,128 @@ export type Database = {
           },
         ]
       }
+      exercise_domains: {
+        Row: {
+          coach_id: string
+          code: string
+          name: string
+          purpose: string | null
+          sort: number
+        }
+        Insert: {
+          coach_id: string
+          code: string
+          name: string
+          purpose?: string | null
+          sort?: number
+        }
+        Update: {
+          coach_id?: string
+          code?: string
+          name?: string
+          purpose?: string | null
+          sort?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_domains_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exercises: {
         Row: {
           archived_at: string | null
+          block_items: Json
           category: Database["public"]["Enums"]["exercise_category"]
           coach_id: string | null
+          code: string | null
           created_at: string
           cues: string[]
+          domain: string | null
+          dose: string | null
           equipment: string
+          gates: string[]
           id: string
+          kind: string
+          ladder: string[]
+          load_rule: string | null
+          movement_type: string | null
           muscle_groups: string[]
           name: string
           notes: string | null
+          phases: string[]
+          regression: string | null
+          selected: boolean
           updated_at: string
           video_path: string | null
+          video_source: string | null
+          video_url: string | null
+          watch_for: string | null
+          why: string | null
         }
         Insert: {
           archived_at?: string | null
+          block_items?: Json
           category?: Database["public"]["Enums"]["exercise_category"]
           coach_id?: string | null
+          code?: string | null
           created_at?: string
           cues?: string[]
+          domain?: string | null
+          dose?: string | null
           equipment?: string
+          gates?: string[]
           id?: string
+          kind?: string
+          ladder?: string[]
+          load_rule?: string | null
+          movement_type?: string | null
           muscle_groups?: string[]
           name: string
           notes?: string | null
+          phases?: string[]
+          regression?: string | null
+          selected?: boolean
           updated_at?: string
           video_path?: string | null
+          video_source?: string | null
+          video_url?: string | null
+          watch_for?: string | null
+          why?: string | null
         }
         Update: {
           archived_at?: string | null
+          block_items?: Json
           category?: Database["public"]["Enums"]["exercise_category"]
           coach_id?: string | null
+          code?: string | null
           created_at?: string
           cues?: string[]
+          domain?: string | null
+          dose?: string | null
           equipment?: string
+          gates?: string[]
           id?: string
+          kind?: string
+          ladder?: string[]
+          load_rule?: string | null
+          movement_type?: string | null
           muscle_groups?: string[]
           name?: string
           notes?: string | null
+          phases?: string[]
+          regression?: string | null
+          selected?: boolean
           updated_at?: string
           video_path?: string | null
+          video_source?: string | null
+          video_url?: string | null
+          watch_for?: string | null
+          why?: string | null
         }
         Relationships: [
           {
@@ -1241,6 +1360,7 @@ export type Database = {
         Row: {
           day_no: number
           discipline: string
+          heat_finish: boolean
           id: string
           notes: string | null
           program_id: string
@@ -1250,6 +1370,7 @@ export type Database = {
         Insert: {
           day_no: number
           discipline?: string
+          heat_finish?: boolean
           id?: string
           notes?: string | null
           program_id: string
@@ -1259,6 +1380,7 @@ export type Database = {
         Update: {
           day_no?: number
           discipline?: string
+          heat_finish?: boolean
           id?: string
           notes?: string | null
           program_id?: string
@@ -1739,18 +1861,27 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: {
           block: string
+          block_items: Json
           category: string
           cues: string[]
           exercise_id: string
           exercise_name: string
+          gate_open: boolean
+          gates: string[]
           item_id: string
+          kind: string
+          ladder: string[]
           notes: string
+          regression: string
           reps: string
           rest_sec: number
           sets: number
           target_load_kg: number
           target_rpe: number
           tempo: string
+          video_url: string
+          watch_for: string
+          why: string
         }[]
       }
       get_session_plans: {
@@ -1864,6 +1995,10 @@ export type Database = {
           minutes: number
           session_id: string
         }[]
+      }
+      set_gate_override: {
+        Args: { p_assignment: string; p_gate: string; p_on: boolean }
+        Returns: undefined
       }
       shift_sessions: {
         Args: { p_ripple: boolean; p_session: string; p_to: string }

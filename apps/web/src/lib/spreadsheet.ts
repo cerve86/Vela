@@ -2,7 +2,7 @@ import 'server-only';
 
 // `readSheet`, not the default export: in v9 the default returns every sheet in the
 // workbook, and the format is one flat table on the first sheet by design.
-import { readSheet } from 'read-excel-file/node';
+import readXlsxFile, { readSheet } from 'read-excel-file/node';
 import { parseCsv, type SpreadsheetCell } from '@vela/shared';
 
 /** Anything larger is not a training programme. */
@@ -51,4 +51,16 @@ export async function readSpreadsheet(
     throw new Error(`More than ${MAX_ROWS} rows — split the programme.`);
   const [headers = [], ...rows] = table;
   return { headers, rows };
+}
+
+/**
+ * Every sheet of an uploaded .xlsx, by name. For workbooks whose tabs mean different
+ * things by design — the library sheet keeps movements, domains and assignments apart.
+ */
+export async function readWorkbook(file: File): Promise<Record<string, SpreadsheetCell[][]>> {
+  if (file.size === 0) throw new Error('The file is empty.');
+  if (file.size > MAX_UPLOAD_BYTES) throw new Error('The file is larger than 5 MB.');
+  if (!file.name.toLowerCase().endsWith('.xlsx')) throw new Error('Upload the .xlsx workbook.');
+  const sheets = await readXlsxFile<number>(Buffer.from(await file.arrayBuffer()));
+  return Object.fromEntries(sheets.map((s) => [s.sheet, s.data as SpreadsheetCell[][]]));
 }

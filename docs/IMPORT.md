@@ -74,6 +74,30 @@ note. The sentence stays in the notes as written either way. Coaching with no do
   one of her clients. Her current programme ends there and she gets the usual message.
   The programme name defaults to "First name — Phase".
 
+## Library workbooks
+
+A coach's library sheet is imported from **Exercise library → Import library sheet**, not
+from the programme import: it describes movements, not sessions. The workbook's tabs are
+read by name and their columns by header, so a reordered or extended sheet still reads.
+
+- **Library** (required): `Code` (like `FA1`), `Domain`, `Movement`, `Type`, `Dose`,
+  `Load rule`, `L1`–`L4`, `Regression`, and a `Cue / why` column. Optional `Watch for`,
+  `Equipment` and `Phase` columns are read when present. Types follow the sheet's own
+  legend: `^` strength, `=` stability, `~` mobility, `*` impact. Excel shows `=Stability`
+  as an error, so in a sheet that uses symbol types an empty type reads as Stability,
+  with a warning to check. A row that says **GATE** in its why or load rule marks the
+  gates it names: leakage, heaviness or dragging for the pelvic floor, shin pain for the
+  shin. Nothing else is guessed.
+- **Domains**: `Code`, `Domain`, and what the domain buys in running.
+- **Assignment**: one column per client by first name, `PRIORITY` or `x` per movement.
+  A name that matches no single client of hers is skipped and named in the preview.
+- **Vela selection** (optional): the codes for her curated library, with an optional
+  "create as custom" column. Without it, every Library row is selected.
+
+Movements are matched by code among her own, then by name; anything new is created as
+hers. Shipped exercises are never edited. The preview names what would be created,
+updated and selected, and every warning, before anything is written.
+
 ## The API
 
 ```

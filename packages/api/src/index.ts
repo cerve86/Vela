@@ -20,4 +20,5 @@ export * from './errors';
 export * from './audit';
 export * from './freshness';
 export * from './moves';
+export * from './library';
 export * from './readiness';

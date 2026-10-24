@@ -181,6 +181,18 @@ export interface SessionPlanItem {
   notes: string | null;
   /** Library category: 'plyometric' is impact work. */
   category: string | null;
+  /** Gates the movement sits behind, and whether this client is past them for this block. */
+  gates: string[];
+  gateOpen: boolean;
+  why: string | null;
+  watchFor: string | null;
+  regression: string | null;
+  /** L1–L4, as the coach wrote them. */
+  ladder: string[];
+  videoUrl: string | null;
+  /** A session block (a named circuit) carries its movements. */
+  kind: 'movement' | 'block';
+  blockItems: { name: string; dose: string | null; cue: string | null }[];
 }
 
 /** The prescriptions for many sessions in one call, keyed by session id. Same ownership rule. */
@@ -263,6 +275,15 @@ export async function getSessionPlan(
       restSec: r.rest_sec as number,
       notes: (r.notes as string) ?? null,
       category: (r.category as string) ?? null,
+      gates: (r.gates as string[]) ?? [],
+      gateOpen: r.gate_open !== false,
+      why: (r.why as string) ?? null,
+      watchFor: (r.watch_for as string) ?? null,
+      regression: (r.regression as string) ?? null,
+      ladder: (r.ladder as string[]) ?? [],
+      videoUrl: (r.video_url as string) ?? null,
+      kind: r.kind === 'block' ? 'block' : 'movement',
+      blockItems: (r.block_items as SessionPlanItem['blockItems']) ?? [],
     };
   });
 }

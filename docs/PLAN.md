@@ -1091,3 +1091,34 @@ any other decision; she grants it (the session moves to that day) or keeps the d
 client can take a pending request back. Requests are read-only tables written only by
 those functions. The API (`POST /api/sessions/{id}/move`) and the extension (0.2.3,
 `move_session`) can move sessions too. Fourteen new pgTAP assertions (168).
+
+## 0.3.16 — Coaching layer, phase 5: her library, not a catalogue (27 October 2026)
+
+Built on the Run&Bun library v4, since the v5 sheet with its "Vela selection" tab has not
+arrived; v5 goes through the same importer. A movement now carries what her sheet says:
+code, domain, type, phases, dose and load rule, the L1–L4 ladder, regression, why, watch
+for, gates, video source and link, and whether it is in her curated library. Her domains
+and each client's priorities (from the Assignment tab) are stored too. The importer
+(Exercise library → Import library sheet) previews before it writes; on v4 it gives 33
+movements in six domains with priorities for five clients. Nine type cells read
+`=Stability`, which Excel shows as an error, so they are read as Stability by the sheet's
+own symbol legend and flagged. The landing ladder's "GATE every step" line marks it
+behind the pelvic-floor and shin gates.
+
+The library opens on **Her library**: the selected movements by domain, as lean cards
+(code, type, gates, cue, watch for, dose with load rule, the ladder, and the why and
+regression behind a tap), filterable by domain, type, phase and one client's movements;
+**Everything** keeps the wider catalogue. A **circuit** (a session block such as "Bun
+Burner 20") is a named set of movements with doses, prescribed as one item.
+
+Gates are enforced. The coach records which gates a client has cleared, and can override
+a gate for one block from the client page, which also lists what in the current block is
+waiting. `get_session_plan` marks each item open or waiting; the app leaves a waiting
+movement out in every tier and says so. A run or cross-training day can carry a **heat
+finish** (sauna or a 40 °C bath, 20–30 minutes, within 10 minutes), shown after the
+session's movements. Because the gate is applied on the phone, the minimum app version is
+0.3.16. The extension (0.2.4) lists codes, doses and gates. Eight new pgTAP assertions
+(176).
+
+Still to come with the v5 sheet: the 49-movement allowlist and its "create as custom"
+marks, phases, mom-kit equipment, the watch-for lines and video sources.

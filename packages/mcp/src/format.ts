@@ -19,12 +19,17 @@ export function formatExercises(rows: Exercise[]): string {
   for (const [category, list] of byCategory) {
     const lines = list.map((e) => {
       const extras = [
+        e.code ?? '',
+        e.kind === 'block' ? 'circuit' : '',
         e.equipment && e.equipment !== 'Bodyweight' ? e.equipment : '',
         e.isMine ? 'mine' : '',
+        e.selected ? 'in her library' : '',
+        e.gates?.length ? `gated: ${e.gates.join(', ')}` : '',
       ]
         .filter(Boolean)
         .join(', ');
-      return `- ${e.name}${extras ? ` (${extras})` : ''}`;
+      const dose = [e.dose, e.loadRule].filter(Boolean).join(' · ');
+      return `- ${e.name}${extras ? ` (${extras})` : ''}${dose ? ` — ${dose}` : ''}`;
     });
     sections.push(`${category}:\n${lines.join('\n')}`);
   }

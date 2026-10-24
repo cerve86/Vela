@@ -199,6 +199,27 @@ export function Builder({
                 <StatusPill tone={DISCIPLINE_TONE[day.discipline]}>
                   {DISCIPLINES.find((d) => d.value === day.discipline)?.label ?? day.discipline}
                 </StatusPill>
+                {(day.discipline === 'run' || day.discipline === 'cross') && (
+                  <label
+                    className="inline-flex items-center gap-1.5 text-xs ink-2"
+                    title="Sauna or a 40 °C bath, 20–30 minutes, within 10 minutes of finishing"
+                  >
+                    <input
+                      type="checkbox"
+                      disabled={pending}
+                      checked={day.heatFinish}
+                      onChange={(e) =>
+                        run(
+                          () =>
+                            updateDayAction(program.id, day.id, { heatFinish: e.target.checked }),
+                          e.target.checked ? 'Heat finish added.' : 'Heat finish removed.',
+                        )
+                      }
+                      style={{ accentColor: 'var(--series-1)' }}
+                    />
+                    Heat finish
+                  </label>
+                )}
                 <button
                   type="button"
                   disabled={pending}
@@ -335,7 +356,18 @@ function ItemRow({
           aria-label="Block"
         />
       </td>
-      <td className="py-2 pr-2 font-medium">{item.exerciseName}</td>
+      <td className="py-2 pr-2 font-medium">
+        {item.exerciseName}
+        {item.gates.length > 0 && (
+          <span
+            className="ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+            style={{ background: 'rgba(196,24,74,0.10)', color: 'var(--status-critical, #C4184A)' }}
+            title="Served only past a cleared gate, or with your override on the block"
+          >
+            {item.gates.map((g) => (g === 'pelvic_floor' ? 'PF gate' : 'Shin gate')).join(' · ')}
+          </span>
+        )}
+      </td>
       <td className="py-2 pr-2">
         <input
           value={sets}

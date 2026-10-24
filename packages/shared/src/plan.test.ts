@@ -67,4 +67,22 @@ describe('activePlan', () => {
     assert.ok(!p.items.some((i) => i.category === 'plyometric'));
     assert.match(p.note, /Impact work is off today/);
   });
+
+  it('leaves a gated movement out until the coach clears or overrides its gate', () => {
+    const withGate = [
+      ...items,
+      {
+        exerciseName: 'Depth drop',
+        sets: 2,
+        reps: '4',
+        targetLoadKg: null,
+        category: 'plyometric',
+        gateOpen: false,
+      },
+    ];
+    const p = activePlan(withGate, { readiness: 8 });
+    assert.equal(p.items.length, 4);
+    assert.ok(!p.items.some((i) => i.exerciseName === 'Depth drop'));
+    assert.match(p.note, /One movement waits for your physio's go-ahead/);
+  });
 });

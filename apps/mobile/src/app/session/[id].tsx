@@ -18,6 +18,7 @@ import { Prose } from '@/components/prose';
 import { Rise, Tap } from '@/components/motion';
 import { CelebrationCard } from '@/components/session-kit';
 import { MoveRequestCard } from '@/components/moveRequest';
+import { LeanExtras } from '@/components/leanItem';
 import {
   ACUTE_OPTIONS,
   ChoiceChips,
@@ -84,6 +85,9 @@ export default function SessionScreen() {
     adjustedTo: meta.data?.adjustedTo ?? null,
     adjustedNote: meta.data?.adjustedNote ?? null,
   });
+
+  // Movements behind a gate her physio has not cleared her through, left out until then.
+  const waiting = plan.data.filter((i) => i.gateOpen === false).length;
 
   // Resuming lands where she left off.
   if (phase === 'pre' && log.started) setPhase('during');
@@ -397,9 +401,27 @@ export default function SessionScreen() {
                 <Body size={12} color={t.textMuted} style={{ marginTop: 6 }}>
                   Rest {item.restSec}s between sets
                 </Body>
+                <LeanExtras item={item} />
               </Card>
             </Rise>
           ))}
+
+          {waiting > 0 && (
+            <Body size={12.5} color={t.textSecondary} style={{ textAlign: 'center' }}>
+              {waiting === 1 ? 'One movement waits' : `${waiting} movements wait`} for your
+              physio&apos;s go-ahead.
+            </Body>
+          )}
+
+          {meta.data?.heatFinish && (
+            <Card style={{ borderRadius: 22 }}>
+              {label('HEAT FINISH')}
+              <Body size={14} style={{ marginTop: 8, lineHeight: 20 }}>
+                Within 10 minutes of finishing: a sauna, or a bath at about 40 °C, for 20 to 30
+                minutes.
+              </Body>
+            </Card>
+          )}
 
           <Button label="Done — tell my physio how it went" onPress={() => finish(false)} />
           <Tap

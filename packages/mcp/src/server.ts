@@ -58,7 +58,7 @@ async function guarded(
 }
 
 export function buildServer(api: VelaApi): McpServer {
-  const server = new McpServer({ name: 'vela', version: '0.2.3' }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: 'vela', version: '0.2.4' }, { instructions: INSTRUCTIONS });
   const portal = api.portalUrl;
 
   server.registerTool(
