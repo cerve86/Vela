@@ -69,7 +69,7 @@ describe('configFromEnv', () => {
 });
 
 describe('tools', () => {
-  it('publishes the twenty tools with the programme schema described field by field', async () => {
+  it('publishes the twenty-one tools with the programme schema described field by field', async () => {
     const client = await connect(fakePortal({}).fetchImpl);
     const { tools } = await client.listTools();
     assert.deepEqual(tools.map((t) => t.name).sort(), [
@@ -85,6 +85,7 @@ describe('tools', () => {
       'list_clients',
       'list_exercises',
       'list_programs',
+      'move_session',
       'preview_program',
       'remove_program_day',
       'remove_program_item',
@@ -137,6 +138,33 @@ describe('tools', () => {
       firstText(res),
       /Week 1 starts Monday 2026-10-26; her first session is from 2026-10-28/,
     );
+  });
+
+  it('moves a session with the rest of its block and says how many followed', async () => {
+    let sent: unknown = null;
+    const portal = fakePortal({
+      '/api/sessions/00000000-0000-4000-8000-000000000003/move': (init) => {
+        sent = JSON.parse(String(init?.body));
+        return {
+          status: 200,
+          body: {
+            moved: 3,
+            session: { id: 's1', title: 'Long run', from: '2026-10-29', to: '2026-10-31' },
+          },
+        };
+      },
+    });
+    const client = await connect(portal.fetchImpl);
+    const res = await client.callTool({
+      name: 'move_session',
+      arguments: {
+        session_id: '00000000-0000-4000-8000-000000000003',
+        to: '2026-10-31',
+        ripple: true,
+      },
+    });
+    assert.deepEqual(sent, { to: '2026-10-31', ripple: true });
+    assert.match(firstText(res), /from 2026-10-29 to 2026-10-31, and 2 later sessions/);
   });
 
   it('sends the key as a Bearer header and reports who it is', async () => {

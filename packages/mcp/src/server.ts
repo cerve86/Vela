@@ -24,7 +24,7 @@ How to work:
 2. A programme is weeks of days. weekNo is 1–52; dayNo is the weekday, 1 = Monday … 7 = Sunday, because every block is assigned from the Monday of its first week. Each day has a title, a discipline (strength, run, mobility, rehab, cross — cross is bike, swim or walk) and either movements or notes, or both. A day that is a duration or an RPE target with no exercises (a bike ladder, a long run described in words) is a day with notes and no items. Items: exercise, block letter (items sharing a letter are a superset), sets, reps as free text ("8-10", "AMRAP", "30s each side"), and optionally loadKg, rpe, tempo, restSec and notes (up to 1,000 characters).
 3. Call preview_program first and show the coach the result. Only call create_program once she has agreed to the draft.
 4. To change a programme already made, use get_program for the day and item ids, then add_program_day, update_program_day (rename, change discipline, notes, or move it), remove_program_day, and add_program_item, update_program_item, remove_program_item. Every client on that programme sees the change: upcoming sessions are added, renamed, moved or removed to match; completed sessions never change.
-5. assign_program puts a programme on one client's calendar from the Monday of the week of the start date; it replaces what she was on, and she is told. Call it only when the coach has named the client, the programme and the start date and asked you to assign. unassign_program takes her current programme off.
+5. move_session moves a planned session (or, with ripple, the rest of its block) when the coach asks; records never move. assign_program puts a programme on one client's calendar from the Monday of the week of the start date; it replaces what she was on, and she is told. Call it only when the coach has named the client, the programme and the start date and asked you to assign. unassign_program takes her current programme off.
 6. The week's plan for one client — what to do this week, in the coach's words — is send_weekly_plan: call list_clients for the client's id, then send the text as she wrote or approved it. It lands on her phone at once with a message saying it is there. Use this for the weekly note; use a programme for a block that runs for weeks.
 7. To reason about a client, call get_client_report: her profile, programme and weekly plans, every session with pain and RPE, adherence, her daily reads, vitals by day, the week's HRV read through the training decision tree, recorded activities, meals and the last messages. Read it before recommending anything, and change nothing the coach has not agreed to.
 8. When the coach wants to send instructions as prose, use create_descriptive_program with the text as she wrote or approved it. Do not turn prose into a structured programme, or the other way round, unless she asks.
@@ -58,7 +58,7 @@ async function guarded(
 }
 
 export function buildServer(api: VelaApi): McpServer {
-  const server = new McpServer({ name: 'vela', version: '0.2.2' }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: 'vela', version: '0.2.3' }, { instructions: INSTRUCTIONS });
   const portal = api.portalUrl;
 
   server.registerTool(
@@ -510,6 +510,36 @@ export function buildServer(api: VelaApi): McpServer {
           `Assigned "${a.programName}". Week 1 starts Monday ${a.weekOneMonday}` +
             (a.firstDay !== a.weekOneMonday ? `; her first session is from ${a.firstDay}.` : '.') +
             ' She has a message saying so.',
+        );
+      }),
+  );
+
+  server.registerTool(
+    'move_session',
+    {
+      title: 'Move a planned session',
+      description:
+        'Moves one planned session to another day, or with ripple, that session and every planned session after it in the same block by the same number of days. Only sessions still planned, today or later, move, and never into the past; completed records never move. A moved session keeps its new day when the programme changes. Session ids are in get_client_report. Only when the coach asked.',
+      inputSchema: {
+        session_id: z.string().uuid().describe('From get_client_report.'),
+        to: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .describe('The new day, YYYY-MM-DD.'),
+        ripple: z
+          .boolean()
+          .default(false)
+          .describe('Move the rest of the block after it by the same number of days.'),
+      },
+      annotations: { ...writeAnnotations, destructiveHint: false, idempotentHint: false },
+    },
+    ({ session_id, to, ripple }) =>
+      guarded(async () => {
+        const r = await api.moveSession({ sessionId: session_id, to, ripple });
+        return text(
+          `Moved "${r.session.title}" from ${r.session.from} to ${r.session.to}` +
+            (r.moved > 1 ? `, and ${r.moved - 1} later sessions of the block with it.` : '.') +
+            ' She sees the new day in the app and her calendar feed.',
         );
       }),
   );

@@ -676,10 +676,14 @@ export interface ScheduledSession {
   loggedVia: 'app' | 'strava' | 'calendar';
   /** How hard she said it was, 1–10, when she said. */
   sessionRpe: number | null;
+  /** The block it belongs to; null for a session filed for a recorded activity. */
+  assignmentId: string | null;
+  /** The programmed date, when the coach moved it; null when it sits where it was put. */
+  originalDate: string | null;
 }
 
 const SESSION_COLUMNS =
-  'id, client_id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe, done_item_ids, readiness_before, completion, pain_location, pf_flag, acute_symptom, adjusted_to, adjusted_note, program_days(notes)';
+  'id, client_id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe, done_item_ids, readiness_before, completion, pain_location, pf_flag, acute_symptom, adjusted_to, adjusted_note, assignment_id, original_date, program_days(notes)';
 
 function toSession(row: {
   id: string;
@@ -704,6 +708,8 @@ function toSession(row: {
   acute_symptom?: string | null;
   adjusted_to?: string | null;
   adjusted_note?: string | null;
+  assignment_id?: string | null;
+  original_date?: string | null;
   program_days?: { notes: string | null } | null;
 }): ScheduledSession {
   return {
@@ -730,6 +736,8 @@ function toSession(row: {
     adjustedNote: row.adjusted_note ?? null,
     loggedVia: row.logged_via as ScheduledSession['loggedVia'],
     sessionRpe: row.session_rpe === null ? null : Number(row.session_rpe),
+    assignmentId: row.assignment_id ?? null,
+    originalDate: row.original_date ?? null,
   };
 }
 

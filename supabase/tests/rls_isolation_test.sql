@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (154);
+  plan (168);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -1632,9 +1632,149 @@ where client_id = '00000000-0000-4000-8000-0000000000f1' and type = 'cycle_conte
 reset role;
 
 select is (
-  (select count(*) from public.cycle_context) + (select count(*) from public.period_starts),
+  (select count(*) from public.cycle_context where client_id = '00000000-0000-4000-8000-0000000000f1')
+    + (select count(*) from public.period_starts where client_id = '00000000-0000-4000-8000-0000000000f1'),
   0::bigint,
   'withdrawing the consent deletes what it covered'
+);
+
+-- A calendar you can move (26 October 2026) ----------------------------------
+-- A two-week block from next Monday: Monday and Wednesday of week 1, Monday of week 2.
+insert into public.programs (id, coach_id, name, duration_weeks)
+values ('00000000-0000-4000-8000-0000000000b2', '00000000-0000-4000-8000-0000000000a1', 'Moves', 2);
+
+insert into public.program_days (id, program_id, week_no, day_no, title)
+values
+  ('00000000-0000-4000-8000-0000000000e1', '00000000-0000-4000-8000-0000000000b2', 1, 1, 'Mon one'),
+  ('00000000-0000-4000-8000-0000000000e2', '00000000-0000-4000-8000-0000000000b2', 1, 3, 'Wed one'),
+  ('00000000-0000-4000-8000-0000000000e3', '00000000-0000-4000-8000-0000000000b2', 2, 1, 'Mon two');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select public.assign_program('00000000-0000-4000-8000-0000000000b2', '00000000-0000-4000-8000-0000000000f1', date_trunc('week', current_date)::date + 7);
+
+select is (
+  (select array_agg(distinct status) from public.block_progress
+   where client_id = '00000000-0000-4000-8000-0000000000f1' and program_id = '00000000-0000-4000-8000-0000000000b1'),
+  array['replaced'],
+  'a block replaced by a new one stays listed, as replaced'
+);
+
+select is (
+  public.move_session((select id from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000e1'),
+    date_trunc('week', current_date)::date + 8),
+  1,
+  'the coach moves one session'
+);
+
+select is (
+  (select original_date from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000e1' and moved_at is not null),
+  date_trunc('week', current_date)::date + 7,
+  'and it remembers the day the programme gave it'
+);
+
+select is (
+  public.move_session((select id from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000e2'),
+    date_trunc('week', current_date)::date + 11, true),
+  2,
+  'moving with the rest of the block shifts every planned session after it'
+);
+
+select is (
+  (select scheduled_date from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000e3'),
+  date_trunc('week', current_date)::date + 16,
+  'by the same number of days'
+);
+
+update public.program_days set title = 'Mon one, renamed' where id = '00000000-0000-4000-8000-0000000000e1';
+select public.sync_program_sessions('00000000-0000-4000-8000-0000000000b2');
+
+select is (
+  (select title || ' ' || (scheduled_date - date_trunc('week', current_date)::date) from public.sessions
+   where program_day_id = '00000000-0000-4000-8000-0000000000e1'),
+  'Mon one, renamed 8',
+  'the reflow renames a moved session but leaves it on its new day'
+);
+
+select public.move_session((select id from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000e1'),
+  date_trunc('week', current_date)::date + 7);
+
+select is (
+  (select count(*)::integer from public.sessions
+   where program_day_id = '00000000-0000-4000-8000-0000000000e1' and (moved_at is not null or original_date is not null)),
+  0,
+  'moved back onto its programmed day, it is no longer marked as moved'
+);
+
+reset role;
+update public.sessions set status = 'completed' where program_day_id = '00000000-0000-4000-8000-0000000000e3';
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select throws_ok (
+  format('select public.move_session(%L, %L)',
+    (select id from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000e3'),
+    date_trunc('week', current_date)::date + 20),
+  '22023',
+  null,
+  'a completed session never moves'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select throws_ok (
+  format('select public.move_session(%L, %L)',
+    (select id from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000e1'),
+    date_trunc('week', current_date)::date + 12),
+  'P0002',
+  null,
+  'the client cannot move a session herself'
+);
+
+select throws_ok (
+  format($$insert into public.move_requests (client_id, session_id, from_date, to_date) values (%L, %L, current_date, current_date + 1)$$,
+    '00000000-0000-4000-8000-0000000000f1',
+    (select id from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000e1')),
+  '42501',
+  null,
+  'nor write a request except through the app''s request'
+);
+
+select lives_ok (
+  format($$select public.request_session_move(%L, %L, 'Work trip')$$,
+    (select id from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000e1'),
+    date_trunc('week', current_date)::date + 12),
+  'she asks to move it'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+
+select throws_ok (
+  format('select public.decide_move_request(%L, true)',
+    (select id from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000e1')),
+  'P0002',
+  null,
+  'another coach cannot answer it'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select count(*) from public.coach_flags where kind = 'move_request' and resolved_at is null),
+  1::bigint,
+  'her coach sees the request as a decision to make'
+);
+
+select public.decide_move_request((select id from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000e1'), true);
+
+select is (
+  (select (scheduled_date - date_trunc('week', current_date)::date) || ' ' ||
+     (select status from public.move_requests where session_id = s.id) || ' ' ||
+     (select count(*) from public.coach_flags where kind = 'move_request' and resolved_at is null)
+   from public.sessions s where program_day_id = '00000000-0000-4000-8000-0000000000e1'),
+  '12 accepted 0',
+  'granting it moves the session, closes the request and resolves the flag'
 );
 
 select * from finish ();

@@ -1,4 +1,4 @@
-import { listActiveAssignments, listSessions } from '@vela/api';
+import { listActiveAssignments, listBlocks, listMoveRequests, listSessions } from '@vela/api';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { CalendarView, type CalendarClient, type CalendarSession, type View } from './CalendarView';
 import { addDays, monthEnd, monthStart, mondayOf } from './dates';
@@ -27,14 +27,17 @@ export default async function CalendarPage({
   const from = addDays(mondayOf(monthStart(date)), -7);
   const to = addDays(monthEnd(date), 14);
 
-  const [{ data: clientRows }, assignments, sessions] = await Promise.all([
+  const [{ data: clientRows }, assignments, sessions, blocks, requests] = await Promise.all([
     supabase
       .from('clients')
       .select('id, email, first_name_hint, last_name_hint, status')
       .order('first_name_hint', { ascending: true }),
     listActiveAssignments(supabase),
     listSessions(supabase, { from, to }),
+    listBlocks(supabase),
+    listMoveRequests(supabase, { pending: true }),
   ]);
+  const requestedTo = new Map(requests.map((r) => [r.sessionId, r.toDate]));
 
   const byClient = new Map(assignments.map((a) => [a.clientId, a]));
   const clients: CalendarClient[] = (clientRows ?? []).map((c) => {
@@ -75,6 +78,9 @@ export default async function CalendarPage({
     completion: s.completion,
     sessionRpe: s.sessionRpe,
     adjustedTo: s.adjustedTo,
+    assignmentId: s.assignmentId,
+    originalDate: s.originalDate,
+    requestedTo: requestedTo.get(s.id) ?? null,
   }));
 
   return (
@@ -87,6 +93,7 @@ export default async function CalendarPage({
         date={date}
         openClientId={params.client ?? null}
         loaded={{ from, to }}
+        blocks={blocks}
       />
     </div>
   );

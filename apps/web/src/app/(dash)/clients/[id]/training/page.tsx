@@ -7,12 +7,14 @@ import {
   getSessionPlan,
   getStravaLink,
   listActivities,
+  listBlocks,
   listSessionLoads,
   listSessions,
   listWellness,
 } from '@vela/api';
 import { ActivitiesCard } from './ActivitiesCard';
 import { FreshnessCard } from './FreshnessCard';
+import { BlocksList } from '@/components/BlocksList';
 import { readinessBaseline, readinessGate } from '@vela/shared';
 import { Card, EmptyState, PainDot, StatusPill } from '@/components/ui';
 import { SessionResponse } from './SessionResponse';
@@ -39,15 +41,17 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
   if (assignmentError) throw new Error(`Could not read assignment: ${assignmentError.message}`);
 
   const todayIso = new Date().toISOString().slice(0, 10);
-  const [sessions, activities, stravaLink, freshness, loads, wellness, cycle] = await Promise.all([
-    listSessions(supabase, { clientId: id }),
-    listActivities(supabase, { clientId: id, limit: 12 }),
-    getStravaLink(supabase, id),
-    getFreshness(supabase, id, todayIso),
-    listSessionLoads(supabase, id, shiftIso(todayIso, -27), todayIso),
-    listWellness(supabase, id, 5),
-    getCycleContext(supabase, id),
-  ]);
+  const [sessions, activities, stravaLink, freshness, loads, wellness, cycle, blocks] =
+    await Promise.all([
+      listSessions(supabase, { clientId: id }),
+      listActivities(supabase, { clientId: id, limit: 12 }),
+      getStravaLink(supabase, id),
+      getFreshness(supabase, id, todayIso),
+      listSessionLoads(supabase, id, shiftIso(todayIso, -27), todayIso),
+      listWellness(supabase, id, 5),
+      getCycleContext(supabase, id),
+      listBlocks(supabase, id),
+    ]);
 
   const completed = sessions.filter((s) => s.status === 'completed');
 
@@ -209,6 +213,12 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
           </p>
         )}
       </Card>
+
+      {blocks.length > 1 && (
+        <Card title="Every block" action={<span className="text-xs ink-3">Newest first</span>}>
+          <BlocksList blocks={blocks} today={todayIso} />
+        </Card>
+      )}
 
       <FreshnessCard
         freshness={freshness}

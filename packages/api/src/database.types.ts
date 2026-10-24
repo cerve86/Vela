@@ -1067,6 +1067,57 @@ export type Database = {
           },
         ]
       }
+      move_requests: {
+        Row: {
+          client_id: string
+          created_at: string
+          decided_at: string | null
+          from_date: string
+          id: string
+          note: string | null
+          session_id: string
+          status: string
+          to_date: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          decided_at?: string | null
+          from_date: string
+          id?: string
+          note?: string | null
+          session_id: string
+          status?: string
+          to_date: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          decided_at?: string | null
+          from_date?: string
+          id?: string
+          note?: string | null
+          session_id?: string
+          status?: string
+          to_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "move_requests_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "move_requests_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nutrition_targets: {
         Row: {
           carbs_g: number
@@ -1351,6 +1402,8 @@ export type Database = {
           duration_sec: number | null
           id: string
           logged_via: string
+          moved_at: string | null
+          original_date: string | null
           pain_after: number | null
           pain_before: number | null
           pain_location: string | null
@@ -1382,6 +1435,8 @@ export type Database = {
           duration_sec?: number | null
           id?: string
           logged_via?: string
+          moved_at?: string | null
+          original_date?: string | null
           pain_after?: number | null
           pain_before?: number | null
           pain_location?: string | null
@@ -1413,6 +1468,8 @@ export type Database = {
           duration_sec?: number | null
           id?: string
           logged_via?: string
+          moved_at?: string | null
+          original_date?: string | null
           pain_after?: number | null
           pain_before?: number | null
           pain_location?: string | null
@@ -1435,6 +1492,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "assignments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "block_progress"
+            referencedColumns: ["assignment_id"]
           },
           {
             foreignKeyName: "sessions_client_id_fkey"
@@ -1565,7 +1629,39 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      block_progress: {
+        Row: {
+          assignment_id: string | null
+          client_id: string | null
+          created_at: string | null
+          done: number | null
+          duration_weeks: number | null
+          first_day: string | null
+          moved: number | null
+          planned: number | null
+          program_id: string | null
+          program_kind: string | null
+          program_name: string | null
+          start_date: string | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       accept_my_invite: { Args: { p_move?: boolean }; Returns: string }
@@ -1633,6 +1729,10 @@ export type Database = {
           token: string
         }[]
       }
+      decide_move_request: {
+        Args: { p_accept: boolean; p_session: string; p_to?: string }
+        Returns: undefined
+      }
       delete_my_account: { Args: never; Returns: undefined }
       ensure_calendar_token: { Args: { p_rotate?: boolean }; Returns: string }
       get_session_plan: {
@@ -1676,6 +1776,10 @@ export type Database = {
       is_the_client: { Args: { target_client: string }; Returns: boolean }
       join_words: { Args: { p: string[] }; Returns: string }
       mark_onboarded: { Args: never; Returns: string }
+      move_session: {
+        Args: { p_ripple?: boolean; p_session: string; p_to: string }
+        Returns: number
+      }
       nutrition_days: {
         Args: { p_client: string; p_from: string; p_to: string }
         Returns: {
@@ -1717,6 +1821,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      request_session_move: {
+        Args: { p_note?: string; p_session: string; p_to: string }
+        Returns: string
+      }
       search_foods: {
         Args: { p_limit?: number; p_query: string }
         Returns: {
@@ -1757,11 +1865,16 @@ export type Database = {
           session_id: string
         }[]
       }
+      shift_sessions: {
+        Args: { p_ripple: boolean; p_session: string; p_to: string }
+        Returns: number
+      }
       sync_program_sessions: { Args: { p_program_id: string }; Returns: number }
       unassign_program: {
         Args: { p_assignment_id: string }
         Returns: undefined
       }
+      withdraw_move_request: { Args: { p_session: string }; Returns: undefined }
     }
     Enums: {
       challenge_metric: "sessions_completed" | "fuel_days"

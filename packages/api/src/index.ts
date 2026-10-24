@@ -19,4 +19,5 @@ export * from './notify';
 export * from './errors';
 export * from './audit';
 export * from './freshness';
+export * from './moves';
 export * from './readiness';

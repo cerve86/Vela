@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { DISCIPLINE_LABEL, type Discipline, type SessionPlanItem } from '@vela/api';
+import { DISCIPLINE_LABEL, type Block, type Discipline, type SessionPlanItem } from '@vela/api';
 import { palette } from '@vela/shared/tokens';
 import { Avatar } from '@/components/ui';
+import { BlocksList } from '@/components/BlocksList';
 import { loadSessionPlanAction } from './actions';
+import { MoveDialog, type PendingMove } from './MoveDialog';
 import {
   addDays,
   addMonths,
@@ -57,7 +59,19 @@ export interface CalendarSession {
   completion: 'all' | 'some' | 'none' | null;
   sessionRpe: number | null;
   adjustedTo: string | null;
+  assignmentId: string | null;
+  /** The programmed date of a session the coach moved. */
+  originalDate: string | null;
+  /** The day she has asked to move it to, while the coach has not answered. */
+  requestedTo: string | null;
 }
+
+/** Only a session still planned, today or later, can move. */
+const movable = (s: CalendarSession, today: string) => s.status === 'scheduled' && s.date >= today;
+
+const DRAG_TYPE = 'text/vela-session';
+
+const shortDay = (iso: string) => `${weekdayShort(iso)} ${dayOfMonth(iso)}`;
 
 /**
  * Five states, one language, everywhere on this page.
@@ -144,6 +158,8 @@ function meta(s: CalendarSession, state: State): string {
     parts.push(s.loggedVia === 'strava' ? 'recorded on Strava' : 'logged');
     if (s.durationSec) parts.push(`${Math.round(s.durationSec / 60)} min`);
   }
+  if (s.originalDate) parts.push(`moved from ${shortDay(s.originalDate)}`);
+  if (s.requestedTo) parts.push(`she asks for ${shortDay(s.requestedTo)}`);
   return parts.join(' · ');
 }
 
@@ -168,6 +184,7 @@ export function CalendarView({
   date,
   openClientId,
   loaded,
+  blocks,
 }: {
   clients: CalendarClient[];
   sessions: CalendarSession[];
@@ -176,8 +193,31 @@ export function CalendarView({
   date: string;
   openClientId: string | null;
   loaded: { from: string; to: string };
+  blocks: Block[];
 }) {
   const router = useRouter();
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
+
+  // A drop, or a date picked in the panel, asks before it moves anything.
+  const askMove = (s: CalendarSession, to: string) => {
+    if (!movable(s, today) || to < today || to === s.date) return;
+    setPendingMove({
+      sessionId: s.id,
+      title: s.title,
+      from: s.date,
+      to,
+      inBlock: s.assignmentId !== null,
+      after: s.assignmentId
+        ? sessions.filter(
+            (x) =>
+              x.id !== s.id &&
+              x.assignmentId === s.assignmentId &&
+              x.status === 'scheduled' &&
+              x.date >= s.date,
+          ).length
+        : 0,
+    });
+  };
 
   const go = (next: { view?: View; date?: string; client?: string | null }) => {
     const v = next.view ?? view;
@@ -226,7 +266,8 @@ export function CalendarView({
         <div>
           <h1 className="text-[30px] font-extrabold">Calendar</h1>
           <p className="mt-0.5 text-sm ink-2">
-            Everyone&rsquo;s training. Click a client or a session to open her own calendar.
+            Everyone&rsquo;s training. Click a client or a session to open her own calendar; drag a
+            planned session to another day to move it.
           </p>
         </div>
         <Link href="/clients" className="text-sm underline ink-2">
@@ -275,6 +316,7 @@ export function CalendarView({
             from={span.from}
             today={today}
             onClient={(id, d) => go({ client: id, date: d })}
+            onMove={askMove}
           />
         )}
         {view === 'day' && (
@@ -316,8 +358,12 @@ export function CalendarView({
           onDate={(d) => go({ date: d })}
           onDayView={(d) => go({ view: 'day', date: d })}
           onClose={() => go({ client: null })}
+          onMove={askMove}
+          blocks={blocks.filter((b) => b.clientId === open.id)}
         />
       )}
+
+      {pendingMove && <MoveDialog move={pendingMove} onClose={() => setPendingMove(null)} />}
     </>
   );
 }
@@ -436,12 +482,14 @@ function WeekRoster({
   from,
   today,
   onClient,
+  onMove,
 }: {
   clients: CalendarClient[];
   sessions: CalendarSession[];
   from: string;
   today: string;
   onClient: (id: string, date: string) => void;
+  onMove: (s: CalendarSession, to: string) => void;
 }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(from, i));
   const cell = 'border-t px-1 py-1.5 min-h-[58px] flex flex-col justify-center gap-1';
@@ -478,6 +526,7 @@ function WeekRoster({
             from={from}
             cell={cell}
             onClient={onClient}
+            onMove={onMove}
           />
         ))}
       </div>
@@ -493,6 +542,7 @@ function ClientRow({
   from,
   cell,
   onClient,
+  onMove,
 }: {
   client: CalendarClient;
   days: string[];
@@ -501,7 +551,9 @@ function ClientRow({
   from: string;
   cell: string;
   onClient: (id: string, date: string) => void;
+  onMove: (s: CalendarSession, to: string) => void;
 }) {
+  const [over, setOver] = useState<string | null>(null);
   return (
     <>
       <button
@@ -525,10 +577,25 @@ function ClientRow({
         return (
           <div
             key={d}
-            className={`${cell} ${d === today ? 'rounded-lg' : ''}`}
+            className={`${cell} ${d === today || over === d ? 'rounded-lg' : ''}`}
             style={{
-              borderColor: d === today ? 'transparent' : 'var(--border)',
-              background: d === today ? 'var(--tint-peach)' : undefined,
+              borderColor: d === today || over === d ? 'transparent' : 'var(--border)',
+              background:
+                over === d ? 'var(--tint-cream)' : d === today ? 'var(--tint-peach)' : undefined,
+              outline: over === d ? `1.5px dashed ${palette.brand[600]}` : undefined,
+            }}
+            onDragOver={(e) => {
+              if (d < today || !e.dataTransfer.types.includes(DRAG_TYPE)) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              if (over !== d) setOver(d);
+            }}
+            onDragLeave={() => setOver((o) => (o === d ? null : o))}
+            onDrop={(e) => {
+              e.preventDefault();
+              setOver(null);
+              const moving = sessions.find((x) => x.id === e.dataTransfer.getData(DRAG_TYPE));
+              if (moving) onMove(moving, d);
             }}
           >
             {shown.length === 0 ? (
@@ -544,13 +611,18 @@ function ClientRow({
                     key={s.id}
                     type="button"
                     onClick={() => onClient(client.id, d)}
-                    className="w-full rounded-lg px-1.5 py-1 text-left text-[11px] font-semibold leading-tight transition-transform hover:-translate-y-px"
+                    draggable={movable(s, today)}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData(DRAG_TYPE, s.id);
+                      e.dataTransfer.effectAllowed = 'move';
+                    }}
+                    className={`w-full rounded-lg px-1.5 py-1 text-left text-[11px] font-semibold leading-tight transition-transform hover:-translate-y-px ${movable(s, today) ? 'cursor-grab active:cursor-grabbing' : ''}`}
                     style={{
                       background: style.background,
                       borderLeft: `3px solid ${style.edge}`,
                       color: style.color ?? 'var(--ink-primary)',
                     }}
-                    title={`${s.title} — ${STATE_LABEL[st]}`}
+                    title={`${s.title} — ${STATE_LABEL[st]}${movable(s, today) ? ' · drag to move' : ''}`}
                   >
                     <span className="block truncate">{s.title}</span>
                     <span className="block truncate text-[10px] font-medium ink-2">
@@ -725,6 +797,8 @@ function ClientPanel({
   onDate,
   onDayView,
   onClose,
+  onMove,
+  blocks,
 }: {
   client: CalendarClient;
   sessions: CalendarSession[];
@@ -735,7 +809,10 @@ function ClientPanel({
   onDate: (d: string) => void;
   onDayView: (d: string) => void;
   onClose: () => void;
+  onMove: (s: CalendarSession, to: string) => void;
+  blocks: Block[];
 }) {
+  const [over, setOver] = useState<string | null>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -875,12 +952,31 @@ function ClientPanel({
                   key={d}
                   type="button"
                   onClick={() => onDate_(d)}
+                  draggable={s ? movable(s, today) : false}
+                  onDragStart={(e) => {
+                    if (!s) return;
+                    e.dataTransfer.setData(DRAG_TYPE, s.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragOver={(e) => {
+                    if (d < today || !e.dataTransfer.types.includes(DRAG_TYPE)) return;
+                    e.preventDefault();
+                    if (over !== d) setOver(d);
+                  }}
+                  onDragLeave={() => setOver((o) => (o === d ? null : o))}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setOver(null);
+                    const moving = sessions.find((x) => x.id === e.dataTransfer.getData(DRAG_TYPE));
+                    if (moving) onMove(moving, d);
+                  }}
                   className="grid w-full items-center gap-2.5 border-t py-2 text-left"
                   style={{
                     gridTemplateColumns: '40px 1fr auto',
-                    borderColor: on ? 'transparent' : 'var(--border)',
-                    background: on ? 'var(--tint-cream)' : undefined,
-                    borderRadius: on ? 10 : 0,
+                    borderColor: on || over === d ? 'transparent' : 'var(--border)',
+                    background: on || over === d ? 'var(--tint-cream)' : undefined,
+                    outline: over === d ? `1.5px dashed ${palette.brand[600]}` : undefined,
+                    borderRadius: on || over === d ? 10 : 0,
                     paddingInline: on ? 8 : 0,
                     marginInline: on ? -8 : 0,
                   }}
@@ -929,8 +1025,16 @@ function ClientPanel({
             date={date}
             today={today}
             extra={shownOn(date).slice(1)}
+            onMove={onMove}
           />
         )}
+
+        <div className="mt-5 border-t border-dashed pt-4" style={{ borderColor: 'var(--border)' }}>
+          <div className="mb-2 text-[10.5px] font-medium uppercase tracking-wider ink-3">
+            Every block
+          </div>
+          <BlocksList blocks={blocks} today={today} />
+        </div>
 
         <div className="mt-auto flex flex-wrap gap-2 pt-5">
           <Link
@@ -986,14 +1090,17 @@ function SessionDetail({
   date,
   today,
   extra,
+  onMove,
 }: {
   client: CalendarClient;
   session: CalendarSession | null;
   date: string;
   today: string;
   extra: CalendarSession[];
+  onMove: (s: CalendarSession, to: string) => void;
 }) {
   const [plans, setPlans] = useState<Record<string, SessionPlanItem[]>>({});
+  const [moveTo, setMoveTo] = useState('');
   const [pending, startTransition] = useTransition();
   const id = session?.prescribed ? session.id : null;
 
@@ -1035,6 +1142,31 @@ function SessionDetail({
         )}
       </div>
       <div className="display-face mt-2 text-lg font-bold">{session.title}</div>
+      {movable(session, today) && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+          <label htmlFor="move-to" className="ink-2">
+            Move to
+          </label>
+          <input
+            id="move-to"
+            type="date"
+            min={today}
+            value={moveTo}
+            onChange={(e) => setMoveTo(e.target.value)}
+            className="rounded-[8px] border px-2 py-1"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+          />
+          <button
+            type="button"
+            disabled={!moveTo || moveTo === session.date}
+            onClick={() => onMove(session, moveTo)}
+            className="rounded-full px-3 py-1 font-semibold disabled:opacity-40"
+            style={{ background: 'var(--ghost)' }}
+          >
+            Move…
+          </button>
+        </div>
+      )}
       {session.dayNotes && (
         <p className="mt-1.5 whitespace-pre-line text-[13px] leading-relaxed">{session.dayNotes}</p>
       )}
