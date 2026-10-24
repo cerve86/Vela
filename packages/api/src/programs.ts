@@ -360,8 +360,21 @@ export async function addDay(
         ? `Week ${input.weekNo} already has a ${weekdayOfDay(input.dayNo)} (day ${input.dayNo}).`
         : error.message,
     };
+  await coverWeek(supabase, programId, input.weekNo);
   const sync = await syncProgramSessions(supabase, programId);
   return { id: data?.id ?? null, error: sync.error };
+}
+
+/**
+ * A day placed past the programme's last week makes the programme that long, so the
+ * builder shows that week and her block runs to its last session.
+ */
+async function coverWeek(supabase: VelaClient, programId: string, weekNo: number) {
+  await supabase
+    .from('programs')
+    .update({ duration_weeks: weekNo })
+    .eq('id', programId)
+    .lt('duration_weeks', weekNo);
 }
 
 /**
@@ -431,6 +444,7 @@ export async function updateDay(
     };
   const programId = data?.[0]?.program_id;
   if (!programId) return { error: 'No such day.' };
+  if (patch.weekNo !== undefined) await coverWeek(supabase, programId, patch.weekNo);
   return { error: (await syncProgramSessions(supabase, programId)).error };
 }
 
