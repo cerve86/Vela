@@ -176,7 +176,12 @@ export async function addDayAction(
 export async function updateDayAction(
   programId: string,
   dayId: string,
-  patch: { title?: string; discipline?: Discipline; heatFinish?: boolean },
+  patch: {
+    title?: string;
+    discipline?: Discipline;
+    heatFinish?: boolean;
+    fuelType?: 'long' | 'quality' | 'easy' | 'strength' | null;
+  },
 ): Promise<Result> {
   const { supabase } = await ctx();
   const { error } = await updateDay(supabase, dayId, patch);

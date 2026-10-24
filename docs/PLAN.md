@@ -1122,3 +1122,27 @@ session's movements. Because the gate is applied on the phone, the minimum app v
 
 Still to come with the v5 sheet: the 49-movement allowlist and its "create as custom"
 marks, phases, mom-kit equipment, the watch-for lines and video sources.
+
+## 0.3.17 — Coaching layer, phase 6: fuel for today (28 October 2026)
+
+Built from the build spec's fuelling framework, since Francesca's booklet and supplements
+doc have not arrived; every card is hers to rewrite in the portal (**Fuelling**), and
+supplement cards stay drafts until she publishes them.
+
+A session's fuelling type — long, quality, easy or strength — is read from the day
+(strength days; long when it says so or runs past 75 minutes; walk and walk-run as easy;
+interval, tempo, hill and Run&Bun titles as quality) unless the coach sets it per day in
+the builder. "Fuel for today" sits on the session screen and is the Fuel tab: one plain
+line each for before, during and after, with amounts and the why behind a tap. Easy days
+get the plate reminder (protein and fat, then fibre, then starch, sized to the day)
+instead of a fuelling card; long runs add the heat and hydration cue and the pre-dawn
+variant. No numbers are allowed on the face of a card (the portal refuses them).
+
+Per client, on her page: a restrictive-pattern flag takes every amount off her cards and
+keeps the calorie diary hidden, and calorie tracking is now the coach's switch, off by
+default as round one asked. Off, the Fuel tab shows Fuel for today and the supplement
+cards she has published, and Today's calorie ring becomes a Fuel dial; nothing logged is
+deleted, and the food log downloads as CSV from her page (and is in her own data export).
+The client view of a movement no longer shows the clinical why — glanceable by spec: the
+cue, the watch-for, the easier version and the clip. Minimum app version 0.3.17, so a
+flagged client never sees the diary on an older build. Five new pgTAP assertions (181).

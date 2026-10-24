@@ -6,13 +6,13 @@ import { useTheme } from '@/theme';
 
 /**
  * What her physio's library card adds to a movement on the phone: what to watch for, a
- * circuit's movements, and — behind a tap — why this one, the easier version, and the
- * clip. The dose and the cue stay on the face of the card; this is the second look.
+ * circuit's movements, the easier version behind a tap, and the clip. The client's view
+ * is glanceable by design: the clinical why and the evidence stay on the coach's card.
  */
 export function LeanExtras({ item }: { item: SessionPlanItem }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
-  const more = !!(item.why || item.regression);
+  const more = !!item.regression;
   return (
     <>
       {item.kind === 'block' && item.blockItems.length > 0 && (
@@ -46,7 +46,7 @@ export function LeanExtras({ item }: { item: SessionPlanItem }) {
               hitSlop={8}
             >
               <Body size={12.5} weight="medium" color={t.brand[600]}>
-                {open ? 'Less' : 'Why this one'}
+                {open ? 'Less' : 'Too much?'}
               </Body>
             </Pressable>
           )}
@@ -65,11 +65,6 @@ export function LeanExtras({ item }: { item: SessionPlanItem }) {
       )}
       {open && (
         <View style={{ marginTop: 6, gap: 4 }}>
-          {item.why ? (
-            <Body size={13} style={{ lineHeight: 19 }}>
-              {item.why}
-            </Body>
-          ) : null}
           {item.regression ? (
             <Body size={12.5} color={t.textSecondary}>
               If it is too much: {item.regression}

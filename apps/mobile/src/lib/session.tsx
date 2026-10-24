@@ -20,6 +20,10 @@ export interface ClientRecord {
   onboardedAt: string | null;
   /** Her physio's pelvic-floor gate: when on, the question is asked before each session. */
   pfGate: boolean;
+  /** No amounts on her fuelling cards, and no calorie diary. */
+  restrictivePattern: boolean;
+  /** The food diary, scanner and calorie ring; off, she sees Fuel for today. */
+  calorieTracking: boolean;
 }
 
 interface SessionState {
@@ -66,6 +70,8 @@ type ClientRow = {
   breastfeeding: boolean;
   onboarded_at: string | null;
   pf_gate: boolean | null;
+  restrictive_pattern: boolean | null;
+  calorie_tracking: boolean | null;
 };
 
 // No .eq('profile_id', …) here on purpose: RLS already restricts this to the caller's
@@ -75,7 +81,7 @@ async function fetchClientRow(): Promise<ClientRow | null> {
   const { data } = await supabase
     .from('clients')
     .select(
-      'id, email, first_name_hint, last_name_hint, condition, goal, status, weeks_postpartum, delivery_type, breastfeeding, onboarded_at, pf_gate',
+      'id, email, first_name_hint, last_name_hint, condition, goal, status, weeks_postpartum, delivery_type, breastfeeding, onboarded_at, pf_gate, restrictive_pattern, calorie_tracking',
     )
     .maybeSingle();
   return data ?? null;
@@ -144,6 +150,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           breastfeeding: row.breastfeeding,
           onboardedAt: row.onboarded_at,
           pfGate: row.pf_gate ?? false,
+          restrictivePattern: row.restrictive_pattern ?? false,
+          calorieTracking: row.calorie_tracking ?? false,
         }
       : null;
 

@@ -3,7 +3,14 @@ import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { ChevronRight, Frown, Laugh, Meh, Smile, SmilePlus, Utensils } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { activePlan, planMinutes, stateCounts, type RecoveryBand } from '@vela/shared';
+import {
+  activePlan,
+  FUEL_TYPE_LABEL,
+  fuelTypeFor,
+  planMinutes,
+  stateCounts,
+  type RecoveryBand,
+} from '@vela/shared';
 import { VelaIcon as VelaGlyph } from '@/components/brand';
 import {
   Body,
@@ -171,6 +178,8 @@ export default function TodayScreen() {
   // rolled-up day rather than summing entries here keeps one definition of a daily total.
   const dayTotals = nutrition.data.days.find((d) => d.day === todayIso);
   const kcal = Math.round(dayTotals?.kcal ?? 0);
+  // Counting is her physio's choice, off unless turned on, and never with a restrictive flag.
+  const counting = client?.calorieTracking === true && client.restrictivePattern !== true;
   const target = nutrition.data.target?.kcal ?? null;
 
   // `meal` on a log entry is already the four-slot enum the redesign asks for, so the strip
@@ -301,21 +310,46 @@ export default function TodayScreen() {
                 }
                 addLabel="Open today's session"
               />
-              <RingStat
-                value={target ? Math.min(1, kcal / target) : kcal > 0 ? 1 : 0}
-                color="#9A6BFF"
-                icon={<Utensils size={22} color="#9A6BFF" strokeWidth={2.2} />}
-                label={
-                  target
-                    ? `${Math.max(0, target - kcal).toLocaleString('en-GB')} kcal left`
-                    : kcal
-                      ? `${kcal.toLocaleString('en-GB')} kcal`
-                      : 'No meals yet'
-                }
-                onPress={() => router.push('/(tabs)/nutrition')}
-                onAdd={() => router.push('/food/add')}
-                addLabel="Log a meal"
-              />
+              {counting ? (
+                <RingStat
+                  value={target ? Math.min(1, kcal / target) : kcal > 0 ? 1 : 0}
+                  color="#9A6BFF"
+                  icon={<Utensils size={22} color="#9A6BFF" strokeWidth={2.2} />}
+                  label={
+                    target
+                      ? `${Math.max(0, target - kcal).toLocaleString('en-GB')} kcal left`
+                      : kcal
+                        ? `${kcal.toLocaleString('en-GB')} kcal`
+                        : 'No meals yet'
+                  }
+                  onPress={() => router.push('/(tabs)/nutrition')}
+                  onAdd={() => router.push('/food/add')}
+                  addLabel="Log a meal"
+                />
+              ) : (
+                <RingStat
+                  value={week.todaySession ? 1 : null}
+                  color="#9A6BFF"
+                  icon={<Utensils size={22} color="#9A6BFF" strokeWidth={2.2} />}
+                  label={
+                    week.todaySession
+                      ? `${
+                          FUEL_TYPE_LABEL[
+                            fuelTypeFor({
+                              discipline: week.todaySession.discipline,
+                              title: week.todaySession.title,
+                              notes: week.todaySession.dayNotes,
+                              override: week.todaySession.fuelType,
+                            })
+                          ]
+                        } fuel`
+                      : 'Build the plate'
+                  }
+                  onPress={() => router.push('/(tabs)/nutrition')}
+                  onAdd={() => router.push('/(tabs)/nutrition')}
+                  addLabel="Fuel for today"
+                />
+              )}
               <RingStat
                 value={daily.current === null ? null : (daily.current + 1) / 5}
                 color={daily.current === null ? t.textMuted : t.tide[daily.current]!.tone}

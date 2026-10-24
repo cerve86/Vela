@@ -19,6 +19,7 @@ import {
 import { Illustration } from '@/components/Illustration';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
+import { FuelGuide } from '@/components/fuelGuide';
 import { today, useNutrition } from '@/lib/data';
 import { useDailyRead } from '@/lib/daily';
 import { supabase } from '@/lib/supabase';
@@ -34,7 +35,17 @@ import { supabase } from '@/lib/supabase';
  * breastfeeding population, which is the group most harmed by a nutrition screen that
  * reads as a deficit to hit.
  */
-export default function FuelScreen() {
+/**
+ * The Fuel tab. Calorie tracking is her physio's choice and off unless turned on, and
+ * never on for a client flagged for restrictive patterns; without it, Fuel for today.
+ */
+export default function FuelTab() {
+  const { client } = useSession();
+  if (!client?.calorieTracking || client.restrictivePattern) return <FuelGuide />;
+  return <CalorieDiary />;
+}
+
+function CalorieDiary() {
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -197,7 +208,9 @@ export default function FuelScreen() {
           <>
             <Rise>
               <Card style={{ borderRadius: 22 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                <View
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}
+                >
                   <View
                     style={{
                       width: 32,
@@ -233,9 +246,13 @@ export default function FuelScreen() {
                 </View>
 
                 {noTarget ? (
-                  <Body size={12.5} color={t.textSecondary} style={{ marginTop: 12, lineHeight: 18 }}>
-                    Your physio has not set targets yet. Logging still works — the bars appear
-                    once she does.
+                  <Body
+                    size={12.5}
+                    color={t.textSecondary}
+                    style={{ marginTop: 12, lineHeight: 18 }}
+                  >
+                    Your physio has not set targets yet. Logging still works — the bars appear once
+                    she does.
                   </Body>
                 ) : (
                   <View style={{ gap: 13, marginTop: 18 }}>
@@ -356,8 +373,8 @@ export default function FuelScreen() {
                   <View style={{ alignItems: 'center', gap: 10, paddingVertical: 8 }}>
                     <Illustration name="plate" width={150} />
                     <Body size={13} color={t.textSecondary} style={{ textAlign: 'center' }}>
-                      Nothing logged today. Start with whichever meal already happened — there is
-                      no order to keep to.
+                      Nothing logged today. Start with whichever meal already happened — there is no
+                      order to keep to.
                     </Body>
                   </View>
                 </Card>

@@ -21,6 +21,8 @@ import {
   listWellness,
   type WellnessCheck,
 } from '@vela/api';
+import { listFuelCards } from '@vela/api';
+import { mergeFuelCards, type FuelCard } from '@vela/shared';
 import { supabase } from './supabase';
 import { useSession } from './session';
 
@@ -156,6 +158,15 @@ export function useAssignedProgram() {
 }
 
 /** This week's plan from the physiotherapist, or the most recent one. Null until she writes one. */
+/** Her coach's published fuelling and supplement cards, over the shipped defaults. */
+export function useFuelCards() {
+  return useAsync<FuelCard[]>(
+    async () => mergeFuelCards(await listFuelCards(supabase)),
+    mergeFuelCards([]),
+    [],
+  );
+}
+
 export function useWeeklyPlan() {
   const { client } = useSession();
   const todayIso = today();

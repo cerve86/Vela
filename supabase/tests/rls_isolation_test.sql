@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (176);
+  plan (181);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -1871,6 +1871,57 @@ select is (
    where exercise_id = '00000000-0000-4000-8000-0000000000c3'),
   true,
   'and so does clearing her through the gate'
+);
+
+-- Fuel for today (28 October 2026) ---------------------------------------------
+reset role;
+
+insert into public.fuel_cards (coach_id, key, kind, title, face, published)
+values
+  ('00000000-0000-4000-8000-0000000000a1', 'long', 'session', 'Long run', '{"before": "Her words."}', true),
+  ('00000000-0000-4000-8000-0000000000a1', 'supplement:iron', 'supplement', 'Iron', '{"cue": "Test first."}', false);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select string_agg(key, ',') from public.fuel_cards),
+  'long',
+  'a client reads her coach''s published cards and none of the drafts'
+);
+
+select throws_ok (
+  $$insert into public.fuel_cards (coach_id, key, kind, title) values ('00000000-0000-4000-8000-0000000000a1', 'x', 'cue', 'x')$$,
+  '42501',
+  null,
+  'and cannot write one'
+);
+
+update public.clients set calorie_tracking = true, restrictive_pattern = false
+where id = '00000000-0000-4000-8000-0000000000f1';
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c2';
+
+select is (
+  (select count(*) from public.fuel_cards),
+  0::bigint,
+  'another practice''s client reads none of them'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+
+select is (
+  (select count(*) from public.fuel_cards),
+  0::bigint,
+  'nor does another coach'
+);
+
+reset role;
+
+select is (
+  (select calorie_tracking from public.clients where id = '00000000-0000-4000-8000-0000000000f1'),
+  false,
+  'calorie tracking is her coach''s switch, not hers'
 );
 
 select * from finish ();

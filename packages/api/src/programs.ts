@@ -44,6 +44,8 @@ export interface ProgramDay {
   notes: string | null;
   /** A sauna or 40 °C bath after it, on a run or cross-training day. */
   heatFinish: boolean;
+  /** Long, quality, easy or strength fuelling; null to read it from the day. */
+  fuelType: 'long' | 'quality' | 'easy' | 'strength' | null;
   items: ProgramItem[];
 }
 
@@ -108,7 +110,7 @@ export async function getProgram(supabase: VelaClient, id: string): Promise<Prog
     .select(
       `id, name, description, duration_weeks, is_template, kind, body,
        program_days (
-         id, week_no, day_no, title, discipline, notes, heat_finish,
+         id, week_no, day_no, title, discipline, notes, heat_finish, fuel_type,
          program_items (
            id, exercise_id, order_index, block, sets, reps,
            target_load_kg, target_rpe, tempo, rest_sec, notes,
@@ -131,6 +133,7 @@ export async function getProgram(supabase: VelaClient, id: string): Promise<Prog
         discipline: Discipline;
         notes: string | null;
         heat_finish?: boolean | null;
+        fuel_type?: string | null;
         program_items: unknown[];
       };
       const items = (d.program_items ?? [])
@@ -175,6 +178,7 @@ export async function getProgram(supabase: VelaClient, id: string): Promise<Prog
         discipline: d.discipline,
         notes: d.notes,
         heatFinish: d.heat_finish === true,
+        fuelType: (d.fuel_type as ProgramDay['fuelType']) ?? null,
         items,
       };
     })
@@ -386,6 +390,7 @@ export async function updateDay(
     weekNo?: number;
     dayNo?: number;
     heatFinish?: boolean;
+    fuelType?: ProgramDay['fuelType'];
   },
 ): Promise<{ error: string | null }> {
   const row: {
@@ -395,7 +400,9 @@ export async function updateDay(
     week_no?: number;
     day_no?: number;
     heat_finish?: boolean;
+    fuel_type?: string | null;
   } = {};
+  if (patch.fuelType !== undefined) row.fuel_type = patch.fuelType;
   if (patch.heatFinish !== undefined) row.heat_finish = patch.heatFinish;
   if (patch.title !== undefined) row.title = patch.title.trim() || 'Session';
   if (patch.discipline !== undefined) row.discipline = patch.discipline;
@@ -692,10 +699,12 @@ export interface ScheduledSession {
   originalDate: string | null;
   /** Sauna or a 40 °C bath after it, when the coach asked for one. */
   heatFinish: boolean;
+  /** The fuelling type the coach set on the day; null to read it from the day. */
+  fuelType: 'long' | 'quality' | 'easy' | 'strength' | null;
 }
 
 const SESSION_COLUMNS =
-  'id, client_id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe, done_item_ids, readiness_before, completion, pain_location, pf_flag, acute_symptom, adjusted_to, adjusted_note, assignment_id, original_date, program_days(notes, heat_finish)';
+  'id, client_id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe, done_item_ids, readiness_before, completion, pain_location, pf_flag, acute_symptom, adjusted_to, adjusted_note, assignment_id, original_date, program_days(notes, heat_finish, fuel_type)';
 
 function toSession(row: {
   id: string;
@@ -722,7 +731,11 @@ function toSession(row: {
   adjusted_note?: string | null;
   assignment_id?: string | null;
   original_date?: string | null;
-  program_days?: { notes: string | null; heat_finish?: boolean | null } | null;
+  program_days?: {
+    notes: string | null;
+    heat_finish?: boolean | null;
+    fuel_type?: string | null;
+  } | null;
 }): ScheduledSession {
   return {
     id: row.id,
@@ -751,6 +764,7 @@ function toSession(row: {
     assignmentId: row.assignment_id ?? null,
     originalDate: row.original_date ?? null,
     heatFinish: row.program_days?.heat_finish === true,
+    fuelType: (row.program_days?.fuel_type as ScheduledSession['fuelType']) ?? null,
   };
 }
 
