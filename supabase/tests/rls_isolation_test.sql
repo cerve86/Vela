@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (181);
+  plan (192);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -1922,6 +1922,112 @@ select is (
   (select calorie_tracking from public.clients where id = '00000000-0000-4000-8000-0000000000f1'),
   false,
   'calorie tracking is her coach''s switch, not hers'
+);
+
+-- Power, periodisation and the evidence (29 October 2026) ---------------------
+reset role;
+update public.clients set cleared_gates = '{shin}', power_level = null
+where id = '00000000-0000-4000-8000-0000000000f1';
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select lives_ok (
+  $$select public.set_power_level('00000000-0000-4000-8000-0000000000f1', 1::smallint, 'Landings clean')$$,
+  'the coach starts her on L1'
+);
+
+select throws_ok (
+  $$select public.set_power_level('00000000-0000-4000-8000-0000000000f1', 3::smallint)$$,
+  '22023',
+  null,
+  'the ladder is climbed one level at a time'
+);
+
+select throws_ok (
+  $$select public.set_power_level('00000000-0000-4000-8000-0000000000f1', 2::smallint)$$,
+  '22023',
+  null,
+  'and not above L1 before both gates are cleared'
+);
+
+update public.clients set cleared_gates = '{pelvic_floor,shin}' where id = '00000000-0000-4000-8000-0000000000f1';
+
+select lives_ok (
+  $$select public.set_power_level('00000000-0000-4000-8000-0000000000f1', 2::smallint, 'Gate clean')$$,
+  'past both gates, the coach moves her to L2'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select throws_ok (
+  $$select public.set_power_level('00000000-0000-4000-8000-0000000000f1', 3::smallint)$$,
+  'P0002',
+  null,
+  'a client cannot move herself up'
+);
+
+select is (
+  (select count(*) from public.power_level_log),
+  2::bigint,
+  'and reads her own ladder history'
+);
+
+-- A block whose second week is a deload, assigned from last Monday, its load week not done.
+reset role;
+insert into public.programs (id, coach_id, name, duration_weeks, deload_weeks, phase)
+values ('00000000-0000-4000-8000-0000000000b3', '00000000-0000-4000-8000-0000000000a1', 'Build', 2, '{2}', 'build');
+insert into public.program_days (program_id, week_no, day_no, title)
+values
+  ('00000000-0000-4000-8000-0000000000b3', 1, 1, 'Load Monday'),
+  ('00000000-0000-4000-8000-0000000000b3', 1, 3, 'Load Wednesday'),
+  ('00000000-0000-4000-8000-0000000000b3', 2, 7, 'Deload Sunday');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select public.assign_program('00000000-0000-4000-8000-0000000000b3', '00000000-0000-4000-8000-0000000000f1', date_trunc('week', current_date)::date - 7);
+
+select is (
+  public.raise_deload_checks(),
+  1,
+  'a deload week after load weeks not done asks the coach'
+);
+
+select is (
+  public.raise_deload_checks(),
+  0,
+  'once'
+);
+
+select public.decide_deload(
+  (select id from public.assignments where program_id = '00000000-0000-4000-8000-0000000000b3' and status = 'active'), 2, 'repeat');
+
+select is (
+  (select scheduled_date - date_trunc('week', current_date)::date from public.sessions where title = 'Deload Sunday'),
+  13,
+  'repeating the load week moves the deload a week later'
+);
+
+select is (
+  (select (deload_decisions ->> '2') from public.assignments where program_id = '00000000-0000-4000-8000-0000000000b3' and status = 'active')
+    || ' ' || public.raise_deload_checks()
+    || ' ' || (select count(*) from public.coach_flags where kind = 'deload_check' and resolved_at is null),
+  'repeat 0 0',
+  'and her answer is recorded, the flag resolved, and never asked again'
+);
+
+reset role;
+insert into public.evidence_refs (coach_id, topic, title)
+values ('00000000-0000-4000-8000-0000000000a1', 'Freshness', 'Session RPE');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+
+select is (
+  (select count(*) from public.evidence_refs),
+  0::bigint,
+  'her evidence list is hers alone'
 );
 
 select * from finish ();

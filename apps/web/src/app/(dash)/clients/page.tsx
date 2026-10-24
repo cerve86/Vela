@@ -7,7 +7,7 @@ import {
   type RosterRollup,
 } from '@vela/shared';
 import { palette } from '@vela/shared/tokens';
-import { listFlags } from '@vela/api';
+import { listFlags, raiseDeloadChecks } from '@vela/api';
 import { FlagsPanel } from '@/components/flags/FlagsPanel';
 import { Meter } from '@/components/charts';
 import { Avatar, Card, EmptyState, StatTile, StatusPill } from '@/components/ui';
@@ -121,6 +121,8 @@ export default async function ClientsPage() {
   );
 
   // Flags awaiting a decision, across every client: the first thing on the page.
+  // A deload her clients are about to reach without the load weeks done asks her first.
+  await raiseDeloadChecks(supabase);
   const openFlags = await listFlags(supabase, { open: true });
   const names = Object.fromEntries(rows.map((c) => [c.id, c.name]));
 

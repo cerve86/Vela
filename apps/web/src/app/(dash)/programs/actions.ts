@@ -28,6 +28,9 @@ import {
   updateProgramBody,
   createBundledProgram,
   type Discipline,
+  createStarterTemplates,
+  setDeloadWeeks,
+  setProgramPhase,
 } from '@vela/api';
 import {
   PROGRESSION_MODELS,
@@ -35,6 +38,7 @@ import {
   type BundleMovement,
   type ProgressionModel,
 } from '@vela/shared';
+import type { Phase } from '@vela/shared';
 import { createServerSupabase } from '@/lib/supabase/server';
 
 export interface Result {
@@ -368,4 +372,33 @@ export async function createBundleAction(formData: FormData): Promise<Result> {
   revalidatePath('/programs');
   revalidatePath('/clients');
   return { ok: true, id };
+}
+
+/** Tags a programme or template with its phase: base, build, peak or taper. */
+export async function setPhaseAction(programId: string, phase: Phase | null): Promise<Result> {
+  const { supabase } = await ctx();
+  const { error } = await setProgramPhase(supabase, programId, phase);
+  if (error) return { ok: false, error: friendlyError(error) };
+  revalidatePath(`/programs/${programId}`);
+  revalidatePath('/programs');
+  return { ok: true };
+}
+
+/** Marks or unmarks a week as a deload; it only runs if the load weeks before it were done. */
+export async function setDeloadWeeksAction(programId: string, weeks: number[]): Promise<Result> {
+  const { supabase } = await ctx();
+  const { error } = await setDeloadWeeks(supabase, programId, weeks);
+  if (error) return { ok: false, error: friendlyError(error) };
+  revalidatePath(`/programs/${programId}`);
+  return { ok: true };
+}
+
+/** The spec's three starter templates, made once and never assigned. */
+export async function createStarterTemplatesAction(): Promise<Result & { created?: string[] }> {
+  const { supabase, userId } = await ctx();
+  if (!userId) return { ok: false, error: 'Not signed in.' };
+  const { created, error } = await createStarterTemplates(supabase, userId);
+  if (error) return { ok: false, error: friendlyError(error) };
+  revalidatePath('/programs');
+  return { ok: true, created };
 }

@@ -95,7 +95,14 @@ export async function saveClientGates(
 }
 
 export type FlagKind =
-  'readiness_low' | 'acute' | 'pain' | 'pelvic_floor' | 'hold' | 'divergence' | 'move_request';
+  | 'readiness_low'
+  | 'acute'
+  | 'pain'
+  | 'pelvic_floor'
+  | 'hold'
+  | 'divergence'
+  | 'move_request'
+  | 'deload_check';
 
 export const FLAG_LABEL: Record<FlagKind, string> = {
   readiness_low: 'Low readiness, persisting',
@@ -105,6 +112,7 @@ export const FLAG_LABEL: Record<FlagKind, string> = {
   hold: 'Today needs your decision',
   divergence: 'Load and wellness disagree',
   move_request: 'Asks to move a session',
+  deload_check: 'Deload week, load not done',
 };
 
 export interface CoachFlag {

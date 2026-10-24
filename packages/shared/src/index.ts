@@ -9,6 +9,7 @@ export * from './plan';
 export * from './context';
 export * from './libraryImport';
 export * from './fuel';
+export * from './periodisation';
 export * from './progression';
 export * from './programImport';
 export * from './programWeeks';

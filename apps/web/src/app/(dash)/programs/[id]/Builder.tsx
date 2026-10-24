@@ -1,6 +1,6 @@
 'use client';
 
-import { FUEL_TYPE_LABEL, fuelTypeFor } from '@vela/shared';
+import { FUEL_TYPE_LABEL, fuelTypeFor, PHASES, type Phase } from '@vela/shared';
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -23,6 +23,8 @@ import {
   deleteItemAction,
   unassignAction,
   updateDayAction,
+  setDeloadWeeksAction,
+  setPhaseAction,
   updateItemAction,
   updateDayNotesAction,
 } from '../actions';
@@ -142,10 +144,41 @@ export function Builder({
         }
       />
 
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <label className="inline-flex items-center gap-2">
+          <span className="ink-2">Phase</span>
+          <select
+            value={program.phase ?? ''}
+            disabled={pending}
+            onChange={(e) =>
+              run(
+                () => setPhaseAction(program.id, (e.target.value || null) as Phase | null),
+                'Phase saved.',
+              )
+            }
+            className="rounded-full px-3 py-1.5 text-sm outline-none"
+            style={{ background: 'var(--ghost)' }}
+          >
+            <option value="">Not tagged</option>
+            {PHASES.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {program.phase && (
+          <span className="text-xs ink-3">
+            {PHASES.find((p) => p.value === program.phase)?.emphasis}
+          </span>
+        )}
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
         {weeks.map((w) => {
           const count = program.days.filter((d) => d.weekNo === w).length;
           const active = w === week;
+          const deload = program.deloadWeeks.includes(w);
           return (
             <button
               key={w}
@@ -158,10 +191,39 @@ export function Builder({
               }}
             >
               Week {w}
+              {deload && <span className="ml-1.5 text-[11px] uppercase opacity-80">deload</span>}
               <span className="ml-1.5 opacity-70">{count}</span>
             </button>
           );
         })}
+        {week > 1 && (
+          <label
+            className="ml-2 inline-flex items-center gap-1.5 text-xs ink-2"
+            title="Runs only if the load weeks before it were done; otherwise you are asked to deload anyway or repeat the last load week."
+          >
+            <input
+              type="checkbox"
+              disabled={pending}
+              checked={program.deloadWeeks.includes(week)}
+              onChange={(e) =>
+                run(
+                  () =>
+                    setDeloadWeeksAction(
+                      program.id,
+                      e.target.checked
+                        ? [...program.deloadWeeks, week]
+                        : program.deloadWeeks.filter((w) => w !== week),
+                    ),
+                  e.target.checked
+                    ? `Week ${week} is a deload — conditional on the load weeks before it.`
+                    : `Week ${week} is a load week again.`,
+                )
+              }
+              style={{ accentColor: palette.brand[600] }}
+            />
+            Week {week} is a deload
+          </label>
+        )}
         {week > 1 && (
           <button
             type="button"

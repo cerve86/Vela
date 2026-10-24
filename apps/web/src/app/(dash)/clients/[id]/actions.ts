@@ -13,6 +13,7 @@ import {
   saveClientGates,
   sendMessage,
   setGateOverride,
+  setPowerLevel,
   upsertClientPlan,
   type ClientGates,
   type ExerciseGate,
@@ -180,6 +181,19 @@ export async function saveFuelSettingsAction(
 ): Promise<Result> {
   const supabase = await createServerSupabase();
   const { error } = await saveFuelSettings(supabase, clientId, settings);
+  if (error) return { ok: false, error: friendlyError(error) };
+  revalidatePath(`/clients/${clientId}`);
+  return { ok: true };
+}
+
+/** Moves her on the power ladder. The database refuses a jump or an uncleared gate. */
+export async function setPowerLevelAction(
+  clientId: string,
+  level: number,
+  note: string,
+): Promise<Result> {
+  const supabase = await createServerSupabase();
+  const { error } = await setPowerLevel(supabase, clientId, level, note);
   if (error) return { ok: false, error: friendlyError(error) };
   revalidatePath(`/clients/${clientId}`);
   return { ok: true };

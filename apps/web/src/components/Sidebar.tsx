@@ -4,6 +4,7 @@ import type { ComponentType } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  BookOpen,
   CalendarDays,
   Dumbbell,
   MessageSquare,
@@ -34,6 +35,7 @@ const NAV: NavItem[] = [
   { href: '/challenges', label: 'Challenges', Icon: Trophy },
   { href: '/library', label: 'Exercise library', Icon: Dumbbell },
   { href: '/fuel', label: 'Fuelling', Icon: Utensils },
+  { href: '/evidence', label: 'Evidence', Icon: BookOpen },
   { href: '/messages', label: 'Messages', Icon: MessageSquare },
   { href: '/preview', label: 'Design preview', Icon: Sparkles },
   { href: '/settings', label: 'Settings', Icon: Settings },

@@ -182,6 +182,7 @@ export type Database = {
           client_id: string
           coach_id: string
           created_at: string
+          deload_decisions: Json
           first_day: string | null
           gate_overrides: string[]
           id: string
@@ -193,6 +194,7 @@ export type Database = {
           client_id: string
           coach_id: string
           created_at?: string
+          deload_decisions?: Json
           first_day?: string | null
           gate_overrides?: string[]
           id?: string
@@ -204,6 +206,7 @@ export type Database = {
           client_id?: string
           coach_id?: string
           created_at?: string
+          deload_decisions?: Json
           first_day?: string | null
           gate_overrides?: string[]
           id?: string
@@ -541,6 +544,7 @@ export type Database = {
           onboarded_at: string | null
           pain_thresholds: Json
           pf_gate: boolean
+          power_level: number | null
           profile_id: string | null
           restrictive_pattern: boolean
           sex: string | null
@@ -567,6 +571,7 @@ export type Database = {
           onboarded_at?: string | null
           pain_thresholds?: Json
           pf_gate?: boolean
+          power_level?: number | null
           profile_id?: string | null
           restrictive_pattern?: boolean
           sex?: string | null
@@ -593,6 +598,7 @@ export type Database = {
           onboarded_at?: string | null
           pain_thresholds?: Json
           pf_gate?: boolean
+          power_level?: number | null
           profile_id?: string | null
           restrictive_pattern?: boolean
           sex?: string | null
@@ -800,6 +806,53 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evidence_refs: {
+        Row: {
+          authors: string | null
+          coach_id: string
+          created_at: string
+          id: string
+          note: string | null
+          source: string | null
+          title: string
+          topic: string
+          url: string | null
+          year: number | null
+        }
+        Insert: {
+          authors?: string | null
+          coach_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          source?: string | null
+          title: string
+          topic: string
+          url?: string | null
+          year?: number | null
+        }
+        Update: {
+          authors?: string | null
+          coach_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          source?: string | null
+          title?: string
+          topic?: string
+          url?: string | null
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_refs_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
             referencedColumns: ["id"]
           },
         ]
@@ -1379,6 +1432,41 @@ export type Database = {
           },
         ]
       }
+      power_level_log: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          level: number
+          note: string | null
+          set_by: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          level: number
+          note?: string | null
+          set_by: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          level?: number
+          note?: string | null
+          set_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "power_level_log_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_path: string | null
@@ -1525,12 +1613,14 @@ export type Database = {
           body: string | null
           coach_id: string
           created_at: string
+          deload_weeks: number[]
           description: string | null
           duration_weeks: number
           id: string
           is_template: boolean
           kind: string
           name: string
+          phase: string | null
           updated_at: string
         }
         Insert: {
@@ -1538,12 +1628,14 @@ export type Database = {
           body?: string | null
           coach_id: string
           created_at?: string
+          deload_weeks?: number[]
           description?: string | null
           duration_weeks?: number
           id?: string
           is_template?: boolean
           kind?: string
           name: string
+          phase?: string | null
           updated_at?: string
         }
         Update: {
@@ -1551,12 +1643,14 @@ export type Database = {
           body?: string | null
           coach_id?: string
           created_at?: string
+          deload_weeks?: number[]
           description?: string | null
           duration_weeks?: number
           id?: string
           is_template?: boolean
           kind?: string
           name?: string
+          phase?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1913,6 +2007,10 @@ export type Database = {
           token: string
         }[]
       }
+      decide_deload: {
+        Args: { p_assignment: string; p_choice: string; p_week: number }
+        Returns: number
+      }
       decide_move_request: {
         Args: { p_accept: boolean; p_session: string; p_to?: string }
         Returns: undefined
@@ -2007,6 +2105,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      raise_deload_checks: { Args: never; Returns: number }
       record_consent: {
         Args: {
           p_types: Database["public"]["Enums"]["consent_type"][]
@@ -2060,6 +2159,10 @@ export type Database = {
       }
       set_gate_override: {
         Args: { p_assignment: string; p_gate: string; p_on: boolean }
+        Returns: undefined
+      }
+      set_power_level: {
+        Args: { p_client: string; p_level: number; p_note?: string }
         Returns: undefined
       }
       shift_sessions: {
