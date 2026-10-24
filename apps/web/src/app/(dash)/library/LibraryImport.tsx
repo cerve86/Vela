@@ -35,10 +35,9 @@ export function LibraryImport({ onClose }: { onClose: () => void }) {
       if (!res.ok || !res.summary) setError(res.error ?? 'Could not read that file.');
       else {
         setSummary(res.summary);
-        if (!dryRun) {
-          setDone(true);
-          router.refresh();
-        }
+        // A preview after an import is a preview again: it says "This will", not "Imported".
+        setDone(!dryRun);
+        if (!dryRun) router.refresh();
       }
     });
   };
