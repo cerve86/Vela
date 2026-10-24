@@ -56,6 +56,14 @@ export interface Exercise {
   muscleGroups: string[];
   cues: string[];
   isMine: boolean;
+  // Absent from a portal older than the curated library.
+  code?: string | null;
+  domain?: string | null;
+  dose?: string | null;
+  loadRule?: string | null;
+  gates?: string[];
+  selected?: boolean;
+  kind?: 'movement' | 'block';
 }
 
 /** A prescription's fields, all optional for a change, sets and reps required for a new one. */

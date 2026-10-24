@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "vela",
   "display_name": "Vela",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Draft training programmes straight into your Vela coaching account.",
   "long_description": "Lets Claude read your exercise library, check a programme draft against it, and create the programme in your Vela account. It never assigns a programme to a client — that stays a deliberate step you take in the portal.\n\nYou need a personal API key: in Vela, open Settings → API keys, create one, and paste it here.",
   "author": { "name": "Vela" },

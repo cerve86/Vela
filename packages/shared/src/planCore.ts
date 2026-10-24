@@ -12,6 +12,8 @@ export interface PlanItemLike {
   targetLoadKg: number | null;
   /** The library category; 'plyometric' is impact work, held when the pelvic-floor gate says so. */
   category?: string | null;
+  /** False when the movement sits behind a gate she has not been cleared through. */
+  gateOpen?: boolean;
 }
 
 export interface PlanCore<T extends PlanItemLike> {
@@ -60,8 +62,9 @@ function done<T extends PlanItemLike>(base: Omit<PlanCore<T>, 'setCount'>): Plan
  * In order: an acute symptom holds the day; the coach's answer to a hold is what the day
  * became; otherwise readiness before the run picks the tier — 7 or more as planned, 3 to
  * 6 the reduced version, under 3 the gentle version while the coach decides. A pelvic-
- * floor yes takes impact work out of whatever is left. The trim is always subtractive:
- * her physio's session, cut down, never a stand-in of ours.
+ * floor yes takes impact work out of whatever is left, and a movement behind a gate she
+ * has not been cleared through waits for her physio in every tier. The trim is always
+ * subtractive: her physio's session, cut down, never a stand-in of ours.
  */
 export function planFor<T extends PlanItemLike>(
   items: T[],
@@ -74,8 +77,13 @@ export function planFor<T extends PlanItemLike>(
   },
 ): PlanCore<T> {
   const pf = input.pfFlag === true;
-  const pool = pf ? items.filter((i) => !isImpact(i)) : items;
-  const pfNote = pf ? ' Impact work is off today.' : '';
+  const gated = items.filter((i) => i.gateOpen === false).length;
+  const pool = items.filter((i) => i.gateOpen !== false && !(pf && isImpact(i)));
+  const pfNote =
+    (pf ? ' Impact work is off today.' : '') +
+    (gated
+      ? ` ${gated === 1 ? 'One movement waits' : `${gated} movements wait`} for your physio's go-ahead.`
+      : '');
 
   if (input.acute) {
     return done<T>({

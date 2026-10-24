@@ -45,6 +45,13 @@ export async function GET(req: Request) {
       muscleGroups: e.muscleGroups,
       cues: e.cues,
       isMine: e.isMine,
+      code: e.code,
+      domain: e.domain,
+      dose: e.dose,
+      loadRule: e.loadRule,
+      gates: e.gates,
+      selected: e.selected,
+      kind: e.kind,
     })),
   });
 }

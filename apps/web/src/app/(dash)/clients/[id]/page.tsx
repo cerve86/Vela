@@ -12,6 +12,7 @@ import {
   listClientPlans,
   listFlags,
   listWellness,
+  gatedInBlock,
   getClientGates,
   mondayOf,
 } from '@vela/api';
@@ -31,6 +32,7 @@ import { dateWindow } from '@/lib/series';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { WeeklyPlanCard } from './WeeklyPlanCard';
 import { GatesCard } from './GatesCard';
+import { MovementGatesCard } from './MovementGatesCard';
 import { FlagsPanel } from '@/components/flags/FlagsPanel';
 
 const VITALS: MetricType[] = ['weight_kg', 'resting_hr', 'hrv_ms', 'steps'];
@@ -78,21 +80,23 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
   const todayIso = new Date().toISOString().slice(0, 10);
   const since28 = daysBack(27);
 
-  const [sessions, metrics, reads, activities, plans, flags, gates, wellness] = await Promise.all([
-    listSessions(supabase, { clientId: id, from: since28 }),
-    listMetrics(supabase, {
-      clientId: id,
-      // Cardio load is not a vital on the page; it is the training load the HRV read needs.
-      types: [...VITALS, 'cardio_load'],
-      since: sinceTimestamp(28),
-    }),
-    listDailyReads(supabase, { clientId: id, from: daysBack(6) }),
-    listActivities(supabase, { clientId: id, from: since28 }),
-    listClientPlans(supabase, id),
-    listFlags(supabase, { clientId: id, open: true }),
-    getClientGates(supabase, id),
-    listWellness(supabase, id, 4),
-  ]);
+  const [sessions, metrics, reads, activities, plans, flags, gates, wellness, gated] =
+    await Promise.all([
+      listSessions(supabase, { clientId: id, from: since28 }),
+      listMetrics(supabase, {
+        clientId: id,
+        // Cardio load is not a vital on the page; it is the training load the HRV read needs.
+        types: [...VITALS, 'cardio_load'],
+        since: sinceTimestamp(28),
+      }),
+      listDailyReads(supabase, { clientId: id, from: daysBack(6) }),
+      listActivities(supabase, { clientId: id, from: since28 }),
+      listClientPlans(supabase, id),
+      listFlags(supabase, { clientId: id, open: true }),
+      getClientGates(supabase, id),
+      listWellness(supabase, id, 4),
+      gatedInBlock(supabase, id),
+    ]);
   const firstName = client.first_name_hint?.trim() || client.email.split('@')[0] || 'her';
 
   const week = adherenceOver(sessions, daysBack(6), todayIso);
@@ -405,6 +409,13 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <GatesCard clientId={id} gates={gates} />
+        <MovementGatesCard
+          clientId={id}
+          assignmentId={gated.assignmentId}
+          cleared={gated.cleared}
+          overrides={gated.overrides}
+          waiting={gated.waiting}
+        />
         <Card title="Wellness, weekly">
           {wellness.length === 0 ? (
             <p className="text-sm ink-2">

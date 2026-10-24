@@ -8,10 +8,13 @@ import {
   logAudit,
   mondayOf,
   resolveFlag,
+  saveClearedGates,
   saveClientGates,
   sendMessage,
+  setGateOverride,
   upsertClientPlan,
   type ClientGates,
+  type ExerciseGate,
 } from '@vela/api';
 import { createServerSupabase } from '@/lib/supabase/server';
 
@@ -133,6 +136,36 @@ export async function saveGatesAction(clientId: string, gates: ClientGates): Pro
       })),
   };
   const { error } = await saveClientGates(supabase, clientId, clean);
+  if (error) return { ok: false, error: friendlyError(error) };
+  revalidatePath(`/clients/${clientId}`);
+  return { ok: true };
+}
+
+/** The movement gates the coach has cleared this client through. */
+export async function saveClearedGatesAction(
+  clientId: string,
+  gates: ExerciseGate[],
+): Promise<Result> {
+  const supabase = await createServerSupabase();
+  const { error } = await saveClearedGates(
+    supabase,
+    clientId,
+    gates.filter((g) => g === 'pelvic_floor' || g === 'shin'),
+  );
+  if (error) return { ok: false, error: friendlyError(error) };
+  revalidatePath(`/clients/${clientId}`);
+  return { ok: true };
+}
+
+/** Lets gated movements of one block through before the gate is cleared, or stops them. */
+export async function setGateOverrideAction(
+  clientId: string,
+  assignmentId: string,
+  gate: ExerciseGate,
+  on: boolean,
+): Promise<Result> {
+  const supabase = await createServerSupabase();
+  const { error } = await setGateOverride(supabase, assignmentId, gate, on);
   if (error) return { ok: false, error: friendlyError(error) };
   revalidatePath(`/clients/${clientId}`);
   return { ok: true };

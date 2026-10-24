@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (168);
+  plan (176);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -1775,6 +1775,102 @@ select is (
    from public.sessions s where program_day_id = '00000000-0000-4000-8000-0000000000e1'),
   '12 accepted 0',
   'granting it moves the session, closes the request and resolves the flag'
+);
+
+-- Her library, not a catalogue (27 October 2026) ------------------------------
+-- A gated movement and a circuit on the Monday of the moved block, for client one.
+reset role;
+
+insert into public.exercises (id, coach_id, name, category, gates)
+values ('00000000-0000-4000-8000-0000000000c3', '00000000-0000-4000-8000-0000000000a1', 'Depth drop', 'plyometric', '{shin}');
+insert into public.exercises (id, coach_id, name, category)
+values ('00000000-0000-4000-8000-0000000000c4', '00000000-0000-4000-8000-0000000000a1', 'Calf raise, bent knee', 'strength');
+insert into public.exercises (id, coach_id, name, category, kind, block_items)
+values ('00000000-0000-4000-8000-0000000000c5', '00000000-0000-4000-8000-0000000000a1', 'Bun Burner 20', 'strength', 'block',
+  '[{"exercise_id": "00000000-0000-4000-8000-0000000000c4", "dose": "40 s on"}]');
+insert into public.program_items (program_day_id, exercise_id, order_index)
+values
+  ('00000000-0000-4000-8000-0000000000e1', '00000000-0000-4000-8000-0000000000c3', 1),
+  ('00000000-0000-4000-8000-0000000000e1', '00000000-0000-4000-8000-0000000000c5', 2);
+insert into public.exercise_domains (coach_id, code, name)
+values ('00000000-0000-4000-8000-0000000000a1', 'FA', 'Foot & ankle');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select gate_open from public.get_session_plan((select id from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000e1'))
+   where exercise_id = '00000000-0000-4000-8000-0000000000c3'),
+  false,
+  'a movement behind a gate she has not cleared waits'
+);
+
+select is (
+  (select block_items -> 0 ->> 'name' from public.get_session_plan((select id from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000e1'))
+   where exercise_id = '00000000-0000-4000-8000-0000000000c5'),
+  'Calf raise, bent knee',
+  'a circuit arrives with its movements spelled out'
+);
+
+select throws_ok (
+  $$insert into public.client_exercise_priority (client_id, exercise_id, level)
+    values ('00000000-0000-4000-8000-0000000000f1', '00000000-0000-4000-8000-0000000000c4', 'priority')$$,
+  '42501',
+  null,
+  'a client cannot set her own priorities'
+);
+
+update public.clients set cleared_gates = '{shin}' where id = '00000000-0000-4000-8000-0000000000f1';
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+
+select throws_ok (
+  format('select public.set_gate_override(%L, %L, true)',
+    (select id from public.assignments where program_id = '00000000-0000-4000-8000-0000000000b2' and status = 'active'), 'shin'),
+  'P0002',
+  null,
+  'another coach cannot override a gate'
+);
+
+select is (
+  (select count(*) from public.exercise_domains),
+  0::bigint,
+  'nor see her domains'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select cleared_gates from public.clients where id = '00000000-0000-4000-8000-0000000000f1'),
+  '{}'::text[],
+  'the client could not clear her own gate'
+);
+
+select public.set_gate_override(
+  (select id from public.assignments where program_id = '00000000-0000-4000-8000-0000000000b2' and status = 'active'), 'shin', true);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select gate_open from public.get_session_plan((select id from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000e1'))
+   where exercise_id = '00000000-0000-4000-8000-0000000000c3'),
+  true,
+  'the coach''s override for the block lets it through'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select public.set_gate_override(
+  (select id from public.assignments where program_id = '00000000-0000-4000-8000-0000000000b2' and status = 'active'), 'shin', false);
+update public.clients set cleared_gates = '{shin}' where id = '00000000-0000-4000-8000-0000000000f1';
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select gate_open from public.get_session_plan((select id from public.sessions where program_day_id = '00000000-0000-4000-8000-0000000000e1'))
+   where exercise_id = '00000000-0000-4000-8000-0000000000c3'),
+  true,
+  'and so does clearing her through the gate'
 );
 
 select * from finish ();

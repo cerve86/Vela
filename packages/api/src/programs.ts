@@ -31,6 +31,8 @@ export interface ProgramItem {
   tempo: string | null;
   restSec: number;
   notes: string | null;
+  /** Gates the movement sits behind, shown as markers in the builder. */
+  gates: string[];
 }
 
 export interface ProgramDay {
@@ -40,6 +42,8 @@ export interface ProgramDay {
   title: string;
   discipline: Discipline;
   notes: string | null;
+  /** A sauna or 40 °C bath after it, on a run or cross-training day. */
+  heatFinish: boolean;
   items: ProgramItem[];
 }
 
@@ -104,11 +108,11 @@ export async function getProgram(supabase: VelaClient, id: string): Promise<Prog
     .select(
       `id, name, description, duration_weeks, is_template, kind, body,
        program_days (
-         id, week_no, day_no, title, discipline, notes,
+         id, week_no, day_no, title, discipline, notes, heat_finish,
          program_items (
            id, exercise_id, order_index, block, sets, reps,
            target_load_kg, target_rpe, tempo, rest_sec, notes,
-           exercises ( name )
+           exercises ( name, gates )
          )
        )`,
     )
@@ -126,6 +130,7 @@ export async function getProgram(supabase: VelaClient, id: string): Promise<Prog
         title: string;
         discipline: Discipline;
         notes: string | null;
+        heat_finish?: boolean | null;
         program_items: unknown[];
       };
       const items = (d.program_items ?? [])
@@ -142,7 +147,7 @@ export async function getProgram(supabase: VelaClient, id: string): Promise<Prog
             tempo: string | null;
             rest_sec: number;
             notes: string | null;
-            exercises: { name: string } | null;
+            exercises: { name: string; gates?: string[] | null } | null;
           };
           return {
             id: i.id,
@@ -157,6 +162,7 @@ export async function getProgram(supabase: VelaClient, id: string): Promise<Prog
             tempo: i.tempo,
             restSec: i.rest_sec,
             notes: i.notes,
+            gates: i.exercises?.gates ?? [],
           };
         })
         .sort((a, b) => a.orderIndex - b.orderIndex || a.block.localeCompare(b.block));
@@ -168,6 +174,7 @@ export async function getProgram(supabase: VelaClient, id: string): Promise<Prog
         title: d.title,
         discipline: d.discipline,
         notes: d.notes,
+        heatFinish: d.heat_finish === true,
         items,
       };
     })
@@ -378,6 +385,7 @@ export async function updateDay(
     notes?: string | null;
     weekNo?: number;
     dayNo?: number;
+    heatFinish?: boolean;
   },
 ): Promise<{ error: string | null }> {
   const row: {
@@ -386,7 +394,9 @@ export async function updateDay(
     notes?: string | null;
     week_no?: number;
     day_no?: number;
+    heat_finish?: boolean;
   } = {};
+  if (patch.heatFinish !== undefined) row.heat_finish = patch.heatFinish;
   if (patch.title !== undefined) row.title = patch.title.trim() || 'Session';
   if (patch.discipline !== undefined) row.discipline = patch.discipline;
   if (patch.notes !== undefined) row.notes = patch.notes?.trim() || null;
@@ -680,10 +690,12 @@ export interface ScheduledSession {
   assignmentId: string | null;
   /** The programmed date, when the coach moved it; null when it sits where it was put. */
   originalDate: string | null;
+  /** Sauna or a 40 °C bath after it, when the coach asked for one. */
+  heatFinish: boolean;
 }
 
 const SESSION_COLUMNS =
-  'id, client_id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe, done_item_ids, readiness_before, completion, pain_location, pf_flag, acute_symptom, adjusted_to, adjusted_note, assignment_id, original_date, program_days(notes)';
+  'id, client_id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe, done_item_ids, readiness_before, completion, pain_location, pf_flag, acute_symptom, adjusted_to, adjusted_note, assignment_id, original_date, program_days(notes, heat_finish)';
 
 function toSession(row: {
   id: string;
@@ -710,7 +722,7 @@ function toSession(row: {
   adjusted_note?: string | null;
   assignment_id?: string | null;
   original_date?: string | null;
-  program_days?: { notes: string | null } | null;
+  program_days?: { notes: string | null; heat_finish?: boolean | null } | null;
 }): ScheduledSession {
   return {
     id: row.id,
@@ -738,6 +750,7 @@ function toSession(row: {
     sessionRpe: row.session_rpe === null ? null : Number(row.session_rpe),
     assignmentId: row.assignment_id ?? null,
     originalDate: row.original_date ?? null,
+    heatFinish: row.program_days?.heat_finish === true,
   };
 }
 
