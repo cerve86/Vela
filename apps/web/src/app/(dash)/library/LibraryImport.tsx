@@ -100,9 +100,20 @@ export function LibraryImport({ onClose }: { onClose: () => void }) {
         <div className="mt-3 space-y-2 text-sm">
           <p className="font-semibold">
             {done ? 'Imported.' : 'This will:'} {summary.created.length} new ·{' '}
-            {summary.updated.length} updated · {summary.selected} in her library · {summary.domains}{' '}
-            domains · {summary.priorities} client priorities
+            {summary.updated.length} updated · {summary.merged.length} onto her own exercises ·{' '}
+            {summary.selected} in her library · {summary.domains} domains · {summary.priorities}{' '}
+            client priorities
           </p>
+          {summary.merged.length > 0 && (
+            <details className="text-xs ink-2">
+              <summary className="cursor-pointer">
+                Onto her own exercises ({summary.merged.length})
+                {summary.archived.length > 0 &&
+                  ` · ${summary.archived.length} earlier copies archived`}
+              </summary>
+              <p className="mt-1">{summary.merged.join(' · ')}</p>
+            </details>
+          )}
           {summary.clientsMatched.length > 0 && (
             <p className="ink-2">Priorities for {summary.clientsMatched.join(', ')}.</p>
           )}

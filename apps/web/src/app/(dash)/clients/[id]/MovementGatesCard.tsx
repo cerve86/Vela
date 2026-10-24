@@ -30,6 +30,9 @@ export function MovementGatesCard({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Held locally so two quick ticks build on each other instead of the second
+  // overwriting the first from props that have not refreshed yet.
+  const [mine, setMine] = useState<ExerciseGate[]>(cleared);
 
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
     startTransition(async () => {
@@ -50,15 +53,12 @@ export function MovementGatesCard({
             <input
               type="checkbox"
               disabled={pending}
-              checked={cleared.includes(g)}
-              onChange={(e) =>
-                run(() =>
-                  saveClearedGatesAction(
-                    clientId,
-                    e.target.checked ? [...cleared, g] : cleared.filter((x) => x !== g),
-                  ),
-                )
-              }
+              checked={mine.includes(g)}
+              onChange={(e) => {
+                const next = e.target.checked ? [...mine, g] : mine.filter((x) => x !== g);
+                setMine(next);
+                run(() => saveClearedGatesAction(clientId, next));
+              }}
               style={{ accentColor: palette.brand[600] }}
             />
             {GATE_LABEL[g]}

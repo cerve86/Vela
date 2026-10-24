@@ -91,11 +91,21 @@ read by name and their columns by header, so a reordered or extended sheet still
 - **Domains**: `Code`, `Domain`, and what the domain buys in running.
 - **Assignment**: one column per client by first name, `PRIORITY` or `x` per movement.
   A name that matches no single client of hers is skipped and named in the preview.
-- **Vela selection** (optional): the codes for her curated library, with an optional
-  "create as custom" column. Without it, every Library row is selected.
+- **Vela selection** (optional; `Vela_selection` in v5): the codes for her curated
+  library. For each, **Vela name to use** names the exercise already in Vela — her own
+  ("Calf iso (mine)") or a stock one — and **Status** says which: _Your custom_, _Stock_,
+  or _CREATE AS CUSTOM_. The first name that exists decides. Her own exercise takes the
+  code and the card (keeping her name, her programmes and her clients' history), and a
+  coded copy left by an earlier import is folded into it and archived. A stock exercise
+  cannot carry her fields, so she keeps a card of her own noting the stock name. Rows that
+  are only on this tab (ADD1…) are created. **Phase emphasis** is read as the phases named
+  before the "·" ("Base + Taper · present Build/Peak" is base and taper), and **Video**
+  as her own clip to film or a stock clip. Without this tab, every Library row is selected
+  and matched by code, then by name, among hers.
 
-Movements are matched by code among her own, then by name; anything new is created as
-hers. Shipped exercises are never edited. The preview names what would be created,
+An import is safe to repeat: a second run finds every movement by its code and changes
+only what the sheet changed. It never renames her exercises, and shipped exercises are
+never edited. The preview names what would be created,
 updated and selected, and every warning, before anything is written.
 
 ## The API
