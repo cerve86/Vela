@@ -9,12 +9,14 @@ import {
   mondayOf,
   resolveFlag,
   saveClearedGates,
+  saveFuelSettings,
   saveClientGates,
   sendMessage,
   setGateOverride,
   upsertClientPlan,
   type ClientGates,
   type ExerciseGate,
+  type FuelSettings,
 } from '@vela/api';
 import { createServerSupabase } from '@/lib/supabase/server';
 
@@ -166,6 +168,18 @@ export async function setGateOverrideAction(
 ): Promise<Result> {
   const supabase = await createServerSupabase();
   const { error } = await setGateOverride(supabase, assignmentId, gate, on);
+  if (error) return { ok: false, error: friendlyError(error) };
+  revalidatePath(`/clients/${clientId}`);
+  return { ok: true };
+}
+
+/** Restrictive-pattern flag and calorie tracking, for one client. */
+export async function saveFuelSettingsAction(
+  clientId: string,
+  settings: FuelSettings,
+): Promise<Result> {
+  const supabase = await createServerSupabase();
+  const { error } = await saveFuelSettings(supabase, clientId, settings);
   if (error) return { ok: false, error: friendlyError(error) };
   revalidatePath(`/clients/${clientId}`);
   return { ok: true };

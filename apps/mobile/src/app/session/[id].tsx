@@ -19,6 +19,7 @@ import { Rise, Tap } from '@/components/motion';
 import { CelebrationCard } from '@/components/session-kit';
 import { MoveRequestCard } from '@/components/moveRequest';
 import { LeanExtras } from '@/components/leanItem';
+import { SessionFuel } from '@/components/fuelCard';
 import {
   ACUTE_OPTIONS,
   ChoiceChips,
@@ -29,7 +30,7 @@ import {
 } from '@/components/scales';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
-import { useSessionMeta, useSessionPlan } from '@/lib/data';
+import { useFuelCards, useSessionMeta, useSessionPlan } from '@/lib/data';
 import { clock, useSessionLog } from '@/lib/sessionLog';
 
 /**
@@ -58,6 +59,7 @@ export default function SessionScreen() {
   const plan = useSessionPlan(sessionId ?? null);
   const meta = useSessionMeta(sessionId ?? null);
   const log = useSessionLog(sessionId ?? null);
+  const fuel = useFuelCards();
 
   const [phase, setPhase] = useState<Phase>('pre');
   const [readiness, setReadiness] = useState<number | null>(null);
@@ -179,6 +181,14 @@ export default function SessionScreen() {
                 <Prose body={dayNotes} />
               </View>
             </Card>
+          )}
+
+          {meta.data && (
+            <SessionFuel
+              cards={fuel.data}
+              session={meta.data}
+              restrictive={client?.restrictivePattern === true}
+            />
           )}
 
           <Rise>

@@ -13,6 +13,7 @@ import {
   listFlags,
   listWellness,
   gatedInBlock,
+  getFuelSettings,
   getClientGates,
   mondayOf,
 } from '@vela/api';
@@ -33,6 +34,7 @@ import { createServerSupabase } from '@/lib/supabase/server';
 import { WeeklyPlanCard } from './WeeklyPlanCard';
 import { GatesCard } from './GatesCard';
 import { MovementGatesCard } from './MovementGatesCard';
+import { FuelSettingsCard } from './FuelSettingsCard';
 import { FlagsPanel } from '@/components/flags/FlagsPanel';
 
 const VITALS: MetricType[] = ['weight_kg', 'resting_hr', 'hrv_ms', 'steps'];
@@ -80,7 +82,7 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
   const todayIso = new Date().toISOString().slice(0, 10);
   const since28 = daysBack(27);
 
-  const [sessions, metrics, reads, activities, plans, flags, gates, wellness, gated] =
+  const [sessions, metrics, reads, activities, plans, flags, gates, wellness, gated, fuelSettings] =
     await Promise.all([
       listSessions(supabase, { clientId: id, from: since28 }),
       listMetrics(supabase, {
@@ -96,6 +98,7 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
       getClientGates(supabase, id),
       listWellness(supabase, id, 4),
       gatedInBlock(supabase, id),
+      getFuelSettings(supabase, id),
     ]);
   const firstName = client.first_name_hint?.trim() || client.email.split('@')[0] || 'her';
 
@@ -416,6 +419,7 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
           overrides={gated.overrides}
           waiting={gated.waiting}
         />
+        <FuelSettingsCard clientId={id} settings={fuelSettings} />
         <Card title="Wellness, weekly">
           {wellness.length === 0 ? (
             <p className="text-sm ink-2">

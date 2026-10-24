@@ -132,11 +132,13 @@ export async function exportMyData(supabase: VelaClient): Promise<Record<string,
   const { data: client } = await supabase.from('clients').select('*').maybeSingle();
   const { data: profile } = await supabase.from('profiles').select('*').maybeSingle();
   const { data: consents } = await supabase.from('consents').select('*');
-  const [{ data: wellness }, { data: cycle }, { data: periodStarts }] = await Promise.all([
-    supabase.from('wellness_checks').select('*'),
-    supabase.from('cycle_context').select('*'),
-    supabase.from('period_starts').select('*'),
-  ]);
+  const [{ data: wellness }, { data: cycle }, { data: periodStarts }, { data: foodLogs }] =
+    await Promise.all([
+      supabase.from('wellness_checks').select('*'),
+      supabase.from('cycle_context').select('*'),
+      supabase.from('period_starts').select('*'),
+      supabase.from('food_logs').select('*').order('logged_on'),
+    ]);
   return {
     exportedAt: new Date().toISOString(),
     profile,
@@ -145,5 +147,6 @@ export async function exportMyData(supabase: VelaClient): Promise<Record<string,
     wellness,
     cycle,
     periodStarts,
+    foodLogs,
   };
 }

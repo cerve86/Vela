@@ -11,6 +11,7 @@ import {
   Sparkles,
   Trophy,
   Users,
+  Utensils,
 } from 'lucide-react';
 import type { VelaIconName } from '@vela/shared';
 import { palette } from '@vela/shared/tokens';
@@ -32,6 +33,7 @@ const NAV: NavItem[] = [
   { href: '/programs', label: 'Programmes', vela: 'program-block' },
   { href: '/challenges', label: 'Challenges', Icon: Trophy },
   { href: '/library', label: 'Exercise library', Icon: Dumbbell },
+  { href: '/fuel', label: 'Fuelling', Icon: Utensils },
   { href: '/messages', label: 'Messages', Icon: MessageSquare },
   { href: '/preview', label: 'Design preview', Icon: Sparkles },
   { href: '/settings', label: 'Settings', Icon: Settings },

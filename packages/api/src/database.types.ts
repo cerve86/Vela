@@ -525,6 +525,7 @@ export type Database = {
       clients: {
         Row: {
           breastfeeding: boolean
+          calorie_tracking: boolean
           cleared_gates: string[]
           coach_id: string
           condition: string | null
@@ -541,6 +542,7 @@ export type Database = {
           pain_thresholds: Json
           pf_gate: boolean
           profile_id: string | null
+          restrictive_pattern: boolean
           sex: string | null
           started_on: string
           status: Database["public"]["Enums"]["client_status"]
@@ -549,6 +551,7 @@ export type Database = {
         }
         Insert: {
           breastfeeding?: boolean
+          calorie_tracking?: boolean
           cleared_gates?: string[]
           coach_id: string
           condition?: string | null
@@ -565,6 +568,7 @@ export type Database = {
           pain_thresholds?: Json
           pf_gate?: boolean
           profile_id?: string | null
+          restrictive_pattern?: boolean
           sex?: string | null
           started_on?: string
           status?: Database["public"]["Enums"]["client_status"]
@@ -573,6 +577,7 @@ export type Database = {
         }
         Update: {
           breastfeeding?: boolean
+          calorie_tracking?: boolean
           cleared_gates?: string[]
           coach_id?: string
           condition?: string | null
@@ -589,6 +594,7 @@ export type Database = {
           pain_thresholds?: Json
           pf_gate?: boolean
           profile_id?: string | null
+          restrictive_pattern?: boolean
           sex?: string | null
           started_on?: string
           status?: Database["public"]["Enums"]["client_status"]
@@ -1097,6 +1103,59 @@ export type Database = {
           },
         ]
       }
+      fuel_cards: {
+        Row: {
+          coach_id: string
+          detail: Json
+          evidence: string | null
+          face: Json
+          key: string
+          kind: string
+          published: boolean
+          sort: number
+          tag: string | null
+          title: string
+          updated_at: string
+          why: string | null
+        }
+        Insert: {
+          coach_id: string
+          detail?: Json
+          evidence?: string | null
+          face?: Json
+          key: string
+          kind: string
+          published?: boolean
+          sort?: number
+          tag?: string | null
+          title: string
+          updated_at?: string
+          why?: string | null
+        }
+        Update: {
+          coach_id?: string
+          detail?: Json
+          evidence?: string | null
+          face?: Json
+          key?: string
+          kind?: string
+          published?: boolean
+          sort?: number
+          tag?: string | null
+          title?: string
+          updated_at?: string
+          why?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fuel_cards_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body: string
@@ -1360,6 +1419,7 @@ export type Database = {
         Row: {
           day_no: number
           discipline: string
+          fuel_type: string | null
           heat_finish: boolean
           id: string
           notes: string | null
@@ -1370,6 +1430,7 @@ export type Database = {
         Insert: {
           day_no: number
           discipline?: string
+          fuel_type?: string | null
           heat_finish?: boolean
           id?: string
           notes?: string | null
@@ -1380,6 +1441,7 @@ export type Database = {
         Update: {
           day_no?: number
           discipline?: string
+          fuel_type?: string | null
           heat_finish?: boolean
           id?: string
           notes?: string | null

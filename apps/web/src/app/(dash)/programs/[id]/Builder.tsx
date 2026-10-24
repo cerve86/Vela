@@ -1,5 +1,6 @@
 'use client';
 
+import { FUEL_TYPE_LABEL, fuelTypeFor } from '@vela/shared';
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -199,6 +200,40 @@ export function Builder({
                 <StatusPill tone={DISCIPLINE_TONE[day.discipline]}>
                   {DISCIPLINES.find((d) => d.value === day.discipline)?.label ?? day.discipline}
                 </StatusPill>
+                <select
+                  value={day.fuelType ?? ''}
+                  disabled={pending}
+                  onChange={(e) =>
+                    run(
+                      () =>
+                        updateDayAction(program.id, day.id, {
+                          fuelType: (e.target.value || null) as
+                            'long' | 'quality' | 'easy' | 'strength' | null,
+                        }),
+                      'Fuelling saved.',
+                    )
+                  }
+                  className="rounded-full px-2 py-0.5 text-xs ink-2 outline-none"
+                  style={{ background: 'var(--ghost)' }}
+                  aria-label="Fuel for this day"
+                  title="Which Fuel for today card she sees. Auto reads it from the discipline and title."
+                >
+                  <option value="">
+                    Fuel: auto (
+                    {FUEL_TYPE_LABEL[
+                      fuelTypeFor({
+                        discipline: day.discipline,
+                        title: day.title,
+                        notes: day.notes,
+                      })
+                    ].toLowerCase()}
+                    )
+                  </option>
+                  <option value="long">Fuel: long run</option>
+                  <option value="quality">Fuel: quality</option>
+                  <option value="easy">Fuel: easy day</option>
+                  <option value="strength">Fuel: strength</option>
+                </select>
                 {(day.discipline === 'run' || day.discipline === 'cross') && (
                   <label
                     className="inline-flex items-center gap-1.5 text-xs ink-2"

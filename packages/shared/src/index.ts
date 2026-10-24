@@ -8,6 +8,7 @@ export * from './readiness';
 export * from './plan';
 export * from './context';
 export * from './libraryImport';
+export * from './fuel';
 export * from './progression';
 export * from './programImport';
 export * from './programWeeks';
