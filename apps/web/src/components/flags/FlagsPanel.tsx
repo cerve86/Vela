@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { FLAG_LABEL, type CoachFlag, type FlagKind } from '@vela/api';
 import { palette } from '@vela/shared/tokens';
 import { resolveFlagAction } from '@/app/(dash)/clients/[id]/actions';
-import { decideMoveAction } from '@/app/(dash)/calendar/actions';
+import { decideDeloadAction, decideMoveAction } from '@/app/(dash)/calendar/actions';
 
 const TONE: Record<FlagKind, string> = {
   acute: palette.status.critical,
@@ -16,6 +16,7 @@ const TONE: Record<FlagKind, string> = {
   divergence: palette.status.warning,
   hold: palette.brand[600],
   move_request: palette.brand[600],
+  deload_check: palette.status.warning,
 };
 
 /**
@@ -76,6 +77,16 @@ function FlagRow({ flag, name, compact }: { flag: CoachFlag; name?: string; comp
       const res = flag.sessionId
         ? await decideMoveAction(flag.sessionId, accept)
         : { ok: false, error: 'That request has no session.' };
+      if (!res.ok) setError(res.error ?? 'Could not save.');
+      else router.refresh();
+    });
+
+  const decideDeload = (choice: 'deload' | 'repeat') =>
+    startTransition(async () => {
+      setError(null);
+      const res = flag.sessionId
+        ? await decideDeloadAction(flag.sessionId, choice)
+        : { ok: false, error: 'That check has no session.' };
       if (!res.ok) setError(res.error ?? 'Could not save.');
       else router.refresh();
     });
@@ -161,6 +172,27 @@ function FlagRow({ flag, name, compact }: { flag: CoachFlag; name?: string; comp
                   As planned
                 </button>
               </div>
+            </div>
+          ) : flag.kind === 'deload_check' ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={pending}
+                className={btn}
+                style={{ background: palette.brand[600], color: '#fff' }}
+                onClick={() => decideDeload('repeat')}
+              >
+                Repeat the load week first
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                className={btn}
+                style={{ background: 'var(--surface)' }}
+                onClick={() => decideDeload('deload')}
+              >
+                Deload as planned
+              </button>
             </div>
           ) : flag.kind === 'move_request' ? (
             <div className="mt-2 flex flex-wrap gap-2">

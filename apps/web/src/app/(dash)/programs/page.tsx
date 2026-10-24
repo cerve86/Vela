@@ -4,6 +4,8 @@ import { loadArchivedPrograms, loadPrograms } from './actions';
 import { NewProgramForm } from './NewProgramForm';
 import { DeleteProgramButton } from './DeleteProgramButton';
 import { RestoreProgramButton } from './RestoreProgramButton';
+import { StarterTemplatesButton } from './StarterTemplatesButton';
+import { PHASES } from '@vela/shared';
 
 export const metadata = { title: 'Programmes — Vela' };
 
@@ -25,6 +27,7 @@ export default async function ProgramsPage() {
         <Link href="/programs/import" className="text-sm font-medium ink-2 hover:underline">
           Import from a spreadsheet →
         </Link>
+        <StarterTemplatesButton />
       </div>
 
       {programs.length === 0 ? (
@@ -40,6 +43,7 @@ export default async function ProgramsPage() {
               <thead>
                 <tr className="border-b text-left text-xs ink-3">
                   <th className="pb-2 font-medium">Programme</th>
+                  <th className="pb-2 font-medium">Phase</th>
                   <th className="pb-2 font-medium">Weeks</th>
                   <th className="pb-2 font-medium">Days</th>
                   <th className="pb-2 font-medium">Exercises</th>
@@ -55,6 +59,9 @@ export default async function ProgramsPage() {
                         {p.name}
                       </Link>
                       {p.description && <div className="text-xs ink-3">{p.description}</div>}
+                    </td>
+                    <td className="py-2.5 ink-2">
+                      {p.phase ? PHASES.find((x) => x.value === p.phase)?.label : '—'}
                     </td>
                     <td className="tnum py-2.5 ink-2">{p.durationWeeks}</td>
                     <td className="tnum py-2.5 ink-2">

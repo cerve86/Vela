@@ -65,6 +65,10 @@ export interface Program {
   kind: ProgramKind;
   /** The text of a descriptive programme; null for a structured one. */
   body: string | null;
+  /** Base, build, peak or taper; null when not tagged. */
+  phase: 'base' | 'build' | 'peak' | 'taper' | null;
+  /** Weeks that are deloads — conditional on the load weeks before them being done. */
+  deloadWeeks: number[];
   days: ProgramDay[];
 }
 
@@ -77,13 +81,14 @@ export interface ProgramSummary {
   kind: ProgramKind;
   dayCount: number;
   itemCount: number;
+  phase: 'base' | 'build' | 'peak' | 'taper' | null;
 }
 
 export async function listPrograms(supabase: VelaClient): Promise<ProgramSummary[]> {
   const { data } = await supabase
     .from('programs')
     .select(
-      'id, name, description, duration_weeks, is_template, kind, program_days(id, program_items(id))',
+      'id, name, description, duration_weeks, is_template, kind, phase, program_days(id, program_items(id))',
     )
     .is('archived_at', null)
     .order('created_at', { ascending: false });
@@ -99,6 +104,7 @@ export async function listPrograms(supabase: VelaClient): Promise<ProgramSummary
       kind: p.kind as ProgramKind,
       dayCount: days.length,
       itemCount: days.reduce((n, d) => n + (d.program_items?.length ?? 0), 0),
+      phase: (p.phase as ProgramSummary['phase']) ?? null,
     };
   });
 }
@@ -108,7 +114,7 @@ export async function getProgram(supabase: VelaClient, id: string): Promise<Prog
   const { data } = await supabase
     .from('programs')
     .select(
-      `id, name, description, duration_weeks, is_template, kind, body,
+      `id, name, description, duration_weeks, is_template, kind, body, phase, deload_weeks,
        program_days (
          id, week_no, day_no, title, discipline, notes, heat_finish, fuel_type,
          program_items (
@@ -192,6 +198,8 @@ export async function getProgram(supabase: VelaClient, id: string): Promise<Prog
     isTemplate: data.is_template,
     kind: data.kind as ProgramKind,
     body: data.body,
+    phase: (data.phase as Program['phase']) ?? null,
+    deloadWeeks: (data.deload_weeks as number[] | null) ?? [],
     days,
   };
 }

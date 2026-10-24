@@ -202,7 +202,10 @@ export function FreshnessCard({
             Read the acute:chronic ratio as context, not a prediction. It divides two coupled
             numbers and has no established predictive or causal validity. Vela flags only when load
             and her weekly wellness disagree: wellness sliding on a steady load, or load up sharply
-            while she reports feeling as usual.
+            while she reports feeling as usual.{' '}
+            <a href="/evidence" className="underline">
+              Evidence
+            </a>
           </p>
         </>
       )}

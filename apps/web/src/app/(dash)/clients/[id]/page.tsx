@@ -13,6 +13,8 @@ import {
   listFlags,
   listWellness,
   gatedInBlock,
+  raiseDeloadChecks,
+  getPowerLadder,
   getFuelSettings,
   getClientGates,
   mondayOf,
@@ -35,6 +37,7 @@ import { WeeklyPlanCard } from './WeeklyPlanCard';
 import { GatesCard } from './GatesCard';
 import { MovementGatesCard } from './MovementGatesCard';
 import { FuelSettingsCard } from './FuelSettingsCard';
+import { PowerLadderCard } from './PowerLadderCard';
 import { FlagsPanel } from '@/components/flags/FlagsPanel';
 
 const VITALS: MetricType[] = ['weight_kg', 'resting_hr', 'hrv_ms', 'steps'];
@@ -82,24 +85,37 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
   const todayIso = new Date().toISOString().slice(0, 10);
   const since28 = daysBack(27);
 
-  const [sessions, metrics, reads, activities, plans, flags, gates, wellness, gated, fuelSettings] =
-    await Promise.all([
-      listSessions(supabase, { clientId: id, from: since28 }),
-      listMetrics(supabase, {
-        clientId: id,
-        // Cardio load is not a vital on the page; it is the training load the HRV read needs.
-        types: [...VITALS, 'cardio_load'],
-        since: sinceTimestamp(28),
-      }),
-      listDailyReads(supabase, { clientId: id, from: daysBack(6) }),
-      listActivities(supabase, { clientId: id, from: since28 }),
-      listClientPlans(supabase, id),
-      listFlags(supabase, { clientId: id, open: true }),
-      getClientGates(supabase, id),
-      listWellness(supabase, id, 4),
-      gatedInBlock(supabase, id),
-      getFuelSettings(supabase, id),
-    ]);
+  await raiseDeloadChecks(supabase);
+  const [
+    sessions,
+    metrics,
+    reads,
+    activities,
+    plans,
+    flags,
+    gates,
+    wellness,
+    gated,
+    fuelSettings,
+    ladder,
+  ] = await Promise.all([
+    listSessions(supabase, { clientId: id, from: since28 }),
+    listMetrics(supabase, {
+      clientId: id,
+      // Cardio load is not a vital on the page; it is the training load the HRV read needs.
+      types: [...VITALS, 'cardio_load'],
+      since: sinceTimestamp(28),
+    }),
+    listDailyReads(supabase, { clientId: id, from: daysBack(6) }),
+    listActivities(supabase, { clientId: id, from: since28 }),
+    listClientPlans(supabase, id),
+    listFlags(supabase, { clientId: id, open: true }),
+    getClientGates(supabase, id),
+    listWellness(supabase, id, 4),
+    gatedInBlock(supabase, id),
+    getFuelSettings(supabase, id),
+    getPowerLadder(supabase, id),
+  ]);
   const firstName = client.first_name_hint?.trim() || client.email.split('@')[0] || 'her';
 
   const week = adherenceOver(sessions, daysBack(6), todayIso);
@@ -420,6 +436,11 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
           waiting={gated.waiting}
         />
         <FuelSettingsCard clientId={id} settings={fuelSettings} />
+        <PowerLadderCard
+          clientId={id}
+          ladder={ladder}
+          gatesCleared={gated.cleared.includes('pelvic_floor') && gated.cleared.includes('shin')}
+        />
         <Card title="Wellness, weekly">
           {wellness.length === 0 ? (
             <p className="text-sm ink-2">

@@ -24,7 +24,10 @@ export default async function FuelPage() {
           quality, strength, or the plate reminder on an easy day — and long runs add the heat and
           pre-dawn cues. One plain line each on the face; amounts and the why behind a tap, hidden
           for any client you flag for restrictive patterns. Supplement cards stay drafts until you
-          publish them.
+          publish them.{' '}
+          <a href="/evidence" className="underline">
+            Evidence
+          </a>
         </p>
       </header>
       <FuelEditor cards={cards} own={[...own]} />

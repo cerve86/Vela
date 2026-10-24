@@ -1146,3 +1146,30 @@ deleted, and the food log downloads as CSV from her page (and is in her own data
 The client view of a movement no longer shows the clinical why — glanceable by spec: the
 cue, the watch-for, the easier version and the clip. Minimum app version 0.3.17, so a
 flagged client never sees the diary on an older build. Five new pgTAP assertions (181).
+
+## Coaching layer, phase 7: power, periodisation and the evidence (29 October 2026)
+
+Portal only; no app build. Programmes and templates carry a **phase** (base, build, peak,
+taper, with the spec's emphasis shown in the builder) and **deload weeks**. A deload is
+conditional: from the Saturday before a deload week, `raise_deload_checks` (run when the
+coach opens her client list or a client's page) asks her about any block whose three
+load weeks before it are less than nine-tenths done — "Deload as planned" or "Repeat the
+load week first", which moves the rest of the block a week later and puts the last load
+week's days into the freed week, marked as moved. Her answer is recorded on the
+assignment and never asked twice.
+
+The **power and elasticity ladder** (L1 depth and stick landings, L2 countermovement and
+pogos, L3 bounding and single-leg, L4 reactive and loaded) is per client on her page: up
+one level at a time, above L1 only once she is cleared through both the pelvic-floor and
+shin gates, and only by the coach's tick (`set_power_level`); every change is logged with
+its note.
+
+**Starter templates** (Programmes → Add the starter templates): the ladder as a written
+reference from the spec's text, and the road-half and trail build blocks as four-week
+shells (phase build, week 4 a deload) for the coach to fill — their content is hers.
+
+**Evidence** is a coach-only reference list by topic, linked from the freshness panel and
+the fuelling page. The sources the spec names (Foster's session RPE, the ACWR critique,
+Laborde/Altini/Plews, her booklet, the consensus ranges, her supplements doc) are offered
+by name only, for her to complete; nothing is a guessed citation. Eleven new pgTAP
+assertions (192).
