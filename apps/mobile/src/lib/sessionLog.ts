@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { FuelCheck } from '@vela/shared';
 import { supabase } from './supabase';
 import { notifyCoach } from './integrations';
 import { celebrate } from '@/lib/mascot';
@@ -30,6 +31,8 @@ export interface After {
   completion: 'all' | 'some' | 'none';
   painAfter: number | null;
   painLocation: string | null;
+  /** The fuelling check, after a session that had a fuel card. */
+  fuel?: FuelCheck | null;
 }
 
 interface Stored {
@@ -130,6 +133,14 @@ export function useSessionLog(sessionId: string | null) {
           completion: a.completion,
           pain_after: a.painAfter,
           ...(a.painLocation ? { pain_location: a.painLocation } : {}),
+          ...(a.fuel
+            ? {
+                fuel_followed: a.fuel.followed,
+                fuel_enough: a.fuel.enough,
+                fuel_gut: a.fuel.gut,
+                fuel_barrier: a.fuel.barrier,
+              }
+            : {}),
           duration_sec: startedAt === null ? null : Math.round((Date.now() - startedAt) / 1000),
         })
         .eq('id', sessionId);

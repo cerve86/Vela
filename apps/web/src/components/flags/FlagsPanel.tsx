@@ -17,6 +17,7 @@ const TONE: Record<FlagKind, string> = {
   hold: palette.brand[600],
   move_request: palette.brand[600],
   deload_check: palette.status.warning,
+  fuel: palette.status.warning,
 };
 
 /**

@@ -1678,6 +1678,10 @@ export type Database = {
           discipline: string
           done_item_ids: string[]
           duration_sec: number | null
+          fuel_barrier: string | null
+          fuel_enough: string | null
+          fuel_followed: string | null
+          fuel_gut: number | null
           id: string
           logged_via: string
           moved_at: string | null
@@ -1711,6 +1715,10 @@ export type Database = {
           discipline?: string
           done_item_ids?: string[]
           duration_sec?: number | null
+          fuel_barrier?: string | null
+          fuel_enough?: string | null
+          fuel_followed?: string | null
+          fuel_gut?: number | null
           id?: string
           logged_via?: string
           moved_at?: string | null
@@ -1744,6 +1752,10 @@ export type Database = {
           discipline?: string
           done_item_ids?: string[]
           duration_sec?: number | null
+          fuel_barrier?: string | null
+          fuel_enough?: string | null
+          fuel_followed?: string | null
+          fuel_gut?: number | null
           id?: string
           logged_via?: string
           moved_at?: string | null

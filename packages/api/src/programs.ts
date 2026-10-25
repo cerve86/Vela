@@ -1,6 +1,7 @@
 import type { VelaClient } from './client';
 import { listExercises, type ExerciseCategory } from './exercises';
 import { matchExerciseNames, normaliseExerciseName } from './exerciseMatch';
+import type { FuelCheck } from '@vela/shared';
 
 export { matchExerciseNames, normaliseExerciseName, stripBrackets } from './exerciseMatch';
 
@@ -723,10 +724,12 @@ export interface ScheduledSession {
   heatFinish: boolean;
   /** The fuelling type the coach set on the day; null to read it from the day. */
   fuelType: 'long' | 'quality' | 'easy' | 'strength' | null;
+  /** Her fuelling check after a session with a fuel card; null when she was not asked. */
+  fuelCheck: FuelCheck | null;
 }
 
 const SESSION_COLUMNS =
-  'id, client_id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe, done_item_ids, readiness_before, completion, pain_location, pf_flag, acute_symptom, adjusted_to, adjusted_note, assignment_id, original_date, program_days(notes, heat_finish, fuel_type)';
+  'id, client_id, title, discipline, scheduled_date, status, pain_before, pain_after, sets_done, sets_planned, duration_sec, program_day_id, logged_via, session_rpe, done_item_ids, readiness_before, completion, pain_location, pf_flag, acute_symptom, adjusted_to, adjusted_note, assignment_id, original_date, fuel_followed, fuel_enough, fuel_gut, fuel_barrier, program_days(notes, heat_finish, fuel_type)';
 
 function toSession(row: {
   id: string;
@@ -753,6 +756,10 @@ function toSession(row: {
   adjusted_note?: string | null;
   assignment_id?: string | null;
   original_date?: string | null;
+  fuel_followed?: string | null;
+  fuel_enough?: string | null;
+  fuel_gut?: number | null;
+  fuel_barrier?: string | null;
   program_days?: {
     notes: string | null;
     heat_finish?: boolean | null;
@@ -787,6 +794,15 @@ function toSession(row: {
     originalDate: row.original_date ?? null,
     heatFinish: row.program_days?.heat_finish === true,
     fuelType: (row.program_days?.fuel_type as ScheduledSession['fuelType']) ?? null,
+    fuelCheck:
+      row.fuel_followed || row.fuel_enough
+        ? {
+            followed: (row.fuel_followed as FuelCheck['followed']) ?? null,
+            enough: (row.fuel_enough as FuelCheck['enough']) ?? null,
+            gut: row.fuel_gut ?? null,
+            barrier: (row.fuel_barrier as FuelCheck['barrier']) ?? null,
+          }
+        : null,
   };
 }
 

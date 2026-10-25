@@ -102,7 +102,8 @@ export type FlagKind =
   | 'hold'
   | 'divergence'
   | 'move_request'
-  | 'deload_check';
+  | 'deload_check'
+  | 'fuel';
 
 export const FLAG_LABEL: Record<FlagKind, string> = {
   readiness_low: 'Low readiness, persisting',
@@ -113,6 +114,7 @@ export const FLAG_LABEL: Record<FlagKind, string> = {
   divergence: 'Load and wellness disagree',
   move_request: 'Asks to move a session',
   deload_check: 'Deload week, load not done',
+  fuel: 'Fuelling not working',
 };
 
 export interface CoachFlag {

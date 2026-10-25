@@ -4,6 +4,7 @@ import {
   adherence,
   currentTarget,
   listFoodLogs,
+  listFuelChecks,
   listSessions,
   listMetrics,
   listTargets,
@@ -15,6 +16,7 @@ import {
 import { Card, EmptyState, StatTile, StatusPill } from '@/components/ui';
 import { Meter, TimeSeriesPanels, type Panel } from '@/components/charts';
 import { createServerSupabase } from '@/lib/supabase/server';
+import { FuelCheckins } from '@/components/FuelCheckins';
 import { TargetEditor } from './TargetEditor';
 
 /** ISO date `n` days before today, UTC — the basis every window on this page shares. */
@@ -39,7 +41,7 @@ export default async function NutritionTab({ params }: { params: Promise<{ id: s
 
   const { data: client } = await supabase
     .from('clients')
-    .select('id, breastfeeding')
+    .select('id, breastfeeding, calorie_tracking, restrictive_pattern')
     .eq('id', id)
     .maybeSingle();
   if (!client) notFound();
@@ -47,7 +49,7 @@ export default async function NutritionTab({ params }: { params: Promise<{ id: s
   const today = daysBack(0);
   const from = daysBack(29);
 
-  const [days, target, history, logs, weights, sessions] = await Promise.all([
+  const [days, target, history, logs, weights, sessions, fuelChecks] = await Promise.all([
     nutritionDays(supabase, id, from, today),
     currentTarget(supabase, id, today),
     listTargets(supabase, id),
@@ -59,6 +61,7 @@ export default async function NutritionTab({ params }: { params: Promise<{ id: s
     }),
     // Only to answer "is today a training day", which changes what a shortfall means.
     listSessions(supabase, { clientId: id, from: today, to: today }),
+    listFuelChecks(supabase, { clientId: id, from: daysBack(27) }),
   ]);
 
   const week = days.slice(-7);
@@ -142,9 +145,7 @@ export default async function NutritionTab({ params }: { params: Promise<{ id: s
   const energyNote = (() => {
     if (!target) return null;
 
-    const slotsFilled = new Set(
-      logs.filter((l) => l.loggedOn === today).map((l) => l.meal),
-    ).size;
+    const slotsFilled = new Set(logs.filter((l) => l.loggedOn === today).map((l) => l.meal)).size;
     if (slotsFilled === 0) return null;
 
     const shortfall = Math.round(target.kcal - todayTotals.kcal);
@@ -175,17 +176,36 @@ export default async function NutritionTab({ params }: { params: Promise<{ id: s
     };
   })();
 
+  const diaryEmpty = days.every((d) => d.entries === 0);
+  // Calorie tracking is off unless she turns it on: then the phone shows Fuel for today, not
+  // the diary, and an empty diary is the setting working, not a client who has not logged.
+  const diaryOff = !client.calorie_tracking || client.restrictive_pattern;
+
   return (
     <div className="space-y-4">
-      <TargetEditor
-        clientId={id}
-        current={target}
-        history={history}
-        breastfeeding={Boolean(client.breastfeeding)}
-        today={today}
+      <FuelCheckins
+        checks={fuelChecks}
+        days={28}
+        restrictive={Boolean(client.restrictive_pattern)}
       />
 
-      {days.every((d) => d.entries === 0) ? (
+      {diaryOff && diaryEmpty ? (
+        <p className="px-1 text-sm ink-2">
+          {client.restrictive_pattern
+            ? 'She is flagged for restrictive patterns, so the app shows Fuel for today and no food diary.'
+            : 'Calorie tracking is off for her, so the app shows Fuel for today instead of the food diary. Turn it on from the Fuelling card on her Overview.'}
+        </p>
+      ) : (
+        <TargetEditor
+          clientId={id}
+          current={target}
+          history={history}
+          breastfeeding={Boolean(client.breastfeeding)}
+          today={today}
+        />
+      )}
+
+      {diaryOff && diaryEmpty ? null : diaryEmpty ? (
         <EmptyState
           art="plate"
           title="Nothing logged yet"
@@ -208,10 +228,7 @@ export default async function NutritionTab({ params }: { params: Promise<{ id: s
                   : 'Within 10% of the energy target'
               }
             />
-            <StatTile
-              label="Days logged · 30 days"
-              value={`${month30.logged}/${month30.total}`}
-            />
+            <StatTile label="Days logged · 30 days" value={`${month30.logged}/${month30.total}`} />
             <StatTile
               label="Average energy · 7 days"
               value={
@@ -233,8 +250,8 @@ export default async function NutritionTab({ params }: { params: Promise<{ id: s
           >
             <TimeSeriesPanels xLabels={xLabels} panels={[kcalPanel, weightPanel]} />
             <p className="mt-2 text-xs ink-3">
-              Days with no entry are gaps, not zeros. A blank bar means she did not log,
-              which is a different fact from eating nothing.
+              Days with no entry are gaps, not zeros. A blank bar means she did not log, which is a
+              different fact from eating nothing.
             </p>
           </Card>
 
@@ -267,7 +284,10 @@ export default async function NutritionTab({ params }: { params: Promise<{ id: s
                           <span className="tnum">
                             {Math.round(d.kcal).toLocaleString('en-GB')}
                             {d.targetKcal !== null && (
-                              <span className="ink-3"> / {d.targetKcal.toLocaleString('en-GB')}</span>
+                              <span className="ink-3">
+                                {' '}
+                                / {d.targetKcal.toLocaleString('en-GB')}
+                              </span>
                             )}
                           </span>
                         )}
@@ -299,9 +319,7 @@ export default async function NutritionTab({ params }: { params: Promise<{ id: s
                     <span className="tnum font-semibold">
                       {Math.round(todayTotals.kcal).toLocaleString('en-GB')} kcal
                     </span>
-                    <span className="tnum ink-2">
-                      {Math.round(todayTotals.proteinG)} g protein
-                    </span>
+                    <span className="tnum ink-2">{Math.round(todayTotals.proteinG)} g protein</span>
                     <span className="tnum ink-2">{Math.round(todayTotals.carbsG)} g carbs</span>
                     <span className="tnum ink-2">{Math.round(todayTotals.fatG)} g fat</span>
                   </div>

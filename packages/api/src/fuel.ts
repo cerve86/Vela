@@ -1,4 +1,4 @@
-import type { FuelCard, FuelLines, FuelType } from '@vela/shared';
+import type { FuelCard, FuelCheck, FuelLines, FuelType } from '@vela/shared';
 import type { VelaClient } from './client';
 
 /**
@@ -113,6 +113,43 @@ export async function setDayFuelType(
 ): Promise<{ error: string | null }> {
   const { error } = await supabase.from('program_days').update({ fuel_type: type }).eq('id', dayId);
   return { error: error?.message ?? null };
+}
+
+export interface FuelCheckRow extends FuelCheck {
+  sessionId: string;
+  clientId: string;
+  date: string;
+  title: string;
+}
+
+/**
+ * The fuelling checks answered since a date, newest first: one client's, or — read as the
+ * coach without a client — every client of hers, which row security limits to her own.
+ */
+export async function listFuelChecks(
+  supabase: VelaClient,
+  opts: { from: string; clientId?: string },
+): Promise<FuelCheckRow[]> {
+  let q = supabase
+    .from('sessions')
+    .select(
+      'id, client_id, title, scheduled_date, fuel_followed, fuel_enough, fuel_gut, fuel_barrier',
+    )
+    .gte('scheduled_date', opts.from)
+    .or('fuel_followed.not.is.null,fuel_enough.not.is.null')
+    .order('scheduled_date', { ascending: false });
+  if (opts.clientId) q = q.eq('client_id', opts.clientId);
+  const { data } = await q;
+  return (data ?? []).map((r) => ({
+    sessionId: r.id,
+    clientId: r.client_id,
+    date: r.scheduled_date,
+    title: r.title,
+    followed: (r.fuel_followed as FuelCheck['followed']) ?? null,
+    enough: (r.fuel_enough as FuelCheck['enough']) ?? null,
+    gut: r.fuel_gut ?? null,
+    barrier: (r.fuel_barrier as FuelCheck['barrier']) ?? null,
+  }));
 }
 
 /** Everything she logged in the food diary, as CSV, oldest first. */
