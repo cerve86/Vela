@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (198);
+  plan (199);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -2080,6 +2080,26 @@ select ok (
   (select detail like 'Ran out of energy on 2 fuelled sessions%restrictive patterns%'
    from public.coach_flags where kind = 'fuel' and session_id is null and resolved_at is null),
   'twice in 14 days does, and says she is flagged for restrictive patterns'
+);
+
+update public.coach_flags set resolved_at = now(), resolution = 'talked'
+where kind = 'fuel' and session_id is null;
+
+reset role;
+insert into public.sessions (id, client_id, title, scheduled_date)
+values ('00000000-0000-4000-8000-00000000fc03', '00000000-0000-4000-8000-0000000000f1', 'Old long run', current_date - 20);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+update public.sessions set fuel_followed = 'yes', fuel_enough = 'ran_out', fuel_gut = 0
+where id = '00000000-0000-4000-8000-00000000fc03';
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select count(*) from public.coach_flags where kind = 'fuel' and session_id is null and resolved_at is null),
+  0::bigint,
+  'catching up on a session from weeks ago does not re-raise a flag she has dealt with'
 );
 
 set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';

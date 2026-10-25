@@ -42,9 +42,10 @@ add constraint coach_flags_kind_check check (
 
 /**
  * Raises a fuel flag when she had to stop for her stomach (once per session), or when this
- * answer makes two fuelled sessions in 14 days where she ran out of energy (once until the
- * coach resolves it). For a client flagged for restrictive patterns the flag says so: the
- * answer is a conversation, not a bigger plan.
+ * answer — about a session in the last 14 days — makes two fuelled sessions in those 14
+ * days where she ran out of energy (once until the coach resolves it). For a client
+ * flagged for restrictive patterns the flag says so: the answer is a conversation, not a
+ * bigger plan.
  */
 create or replace function public.raise_fuel_flags () returns trigger language plpgsql security definer
 set
@@ -69,7 +70,10 @@ begin
     on conflict do nothing;
   end if;
 
+  -- Only an answer about a session inside the window counts: catching up on one from weeks
+  -- ago must not re-raise a flag the coach has already dealt with.
   if new.fuel_enough = 'ran_out'
+     and new.scheduled_date > current_date - 14
      and (tg_op = 'INSERT' or old.fuel_enough is distinct from new.fuel_enough) then
     select count(*) into v_ran_out
     from public.sessions s

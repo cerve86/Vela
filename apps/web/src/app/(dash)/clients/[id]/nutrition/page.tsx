@@ -191,8 +191,9 @@ export default async function NutritionTab({ params }: { params: Promise<{ id: s
 
       {diaryOff && diaryEmpty ? (
         <p className="px-1 text-sm ink-2">
-          Calorie tracking is off for her, so the app shows Fuel for today instead of the food
-          diary. Turn it on from the Fuelling card on her Overview.
+          {client.restrictive_pattern
+            ? 'She is flagged for restrictive patterns, so the app shows Fuel for today and no food diary.'
+            : 'Calorie tracking is off for her, so the app shows Fuel for today instead of the food diary. Turn it on from the Fuelling card on her Overview.'}
         </p>
       ) : (
         <TargetEditor

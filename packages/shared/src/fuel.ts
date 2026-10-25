@@ -173,7 +173,7 @@ export const FUEL_DEFAULTS: FuelCard[] = [
     title: 'Running before breakfast',
     face: { cue: 'A small carb snack before, and start fuelling early on the run.' },
     detail: {
-      cue: 'Carb-load the night before. 15–30 g quick carbs 15–30 min before — half a banana (about 12 g), a slice of white toast with honey (about 30 g), or 250 mL sports drink (about 15 g) — with 200–300 mL water. Then carbs within 20–30 min of starting, 30–60 g per hour.',
+      cue: 'Carb-load the night before. 15–30 g quick carbs 15–30 min before — a small banana (about 20 g), a slice of white toast with honey (about 30 g), or 250 mL sports drink (about 15 g) — with 200–300 mL water. Then carbs within 20–30 min of starting, 30–60 g per hour.',
     },
     why: 'No time for a full meal: shift the fuel into the run instead.',
     evidence: null,
@@ -272,8 +272,12 @@ export const FUEL_TYPE_LABEL: Record<FuelType, string> = {
 /** The order a card's lines read in, whatever order they were stored in. */
 export const FUEL_LINES: (keyof FuelLines)[] = ['before', 'during', 'after', 'cue'];
 
+// A per-kg amount: "1–2 g per kg", "1 to 2 g/kg", "0.3 g per kg of body weight", "5–7 ml
+// per kg". Not a figure inside another number (".3", "0,3"), not "per kg lost" (that is
+// fluid against weight lost, not body weight) and not per kg of fat-free mass. The first
+// group keeps the character before the number, so no lookbehind is needed on Hermes.
 const PER_KG =
-  /(\d+(?:\.\d+)?)(?:\s*[–-]\s*(\d+(?:\.\d+)?))?\s*(g|mL)\s*(?:per\s+kg|\/\s*kg)(?:\s+of\s+body\s+weight)?(?:\s+a\s+day)?/g;
+  /(^|[^\d.,])(\d+(?:\.\d+)?)(?:\s*(?:[–—-]|to)\s*(\d+(?:\.\d+)?))?\s*(g|ml)\s*(?:per\s+kg|\/\s*kg)(?!\s+(?:of\s+)?(?:weight\s+|body\s*weight\s+)?lost|\s*(?:of\s+)?(?:ffm|fat-free|lean))(?:\s+of\s+body\s*weight)?(?:\s+a\s+day)?/gi;
 
 /**
  * Per-kg amounts in a line, worked out for her weight: "1–2 g per kg" reads "1–2 g per kg
@@ -282,14 +286,18 @@ const PER_KG =
  */
 export function amountsFor(text: string, weightKg: number | null | undefined): string {
   if (!weightKg || weightKg < 30 || weightKg > 200) return text;
-  return text.replace(PER_KG, (match, lo: string, hi: string | undefined, unit: string) => {
-    const step = unit === 'mL' ? 50 : 5;
-    const at = (perKg: string) =>
-      Math.max(step, Math.round((Number(perKg) * weightKg) / step) * step);
-    const a = at(lo);
-    const b = hi ? at(hi) : a;
-    return `${match} (about ${a === b ? a : `${a}–${b}`} ${unit} for you)`;
-  });
+  return text.replace(
+    PER_KG,
+    (match, _before: string, lo: string, hi: string | undefined, unit: string) => {
+      const ml = unit.toLowerCase() === 'ml';
+      const step = ml ? 50 : 5;
+      const at = (perKg: string) =>
+        Math.max(step, Math.round((Number(perKg) * weightKg) / step) * step);
+      const a = at(lo);
+      const b = hi ? at(hi) : a;
+      return `${match} (about ${a === b ? a : `${a}–${b}`} ${ml ? 'mL' : 'g'} for you)`;
+    },
+  );
 }
 
 function forWeight(c: FuelCard, weightKg: number | null | undefined): FuelCard {

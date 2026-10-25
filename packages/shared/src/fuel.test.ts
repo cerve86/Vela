@@ -86,6 +86,24 @@ describe('amountsFor', () => {
     );
   });
 
+  it('reads ranges written with "to" or a dash, and millilitres in any case', () => {
+    assert.match(amountsFor('Carbs 1 to 2 g per kg', 60), /about 60–120 g for you/);
+    assert.match(amountsFor('Carbs 1—2 g per kg', 60), /about 60–120 g for you/);
+    assert.match(amountsFor('Drink 5-7 ml/kg', 60), /about 300–400 mL for you/);
+  });
+
+  it('never gives a wrong figure: no part of a number, no fluid per kg lost, no fat-free mass', () => {
+    for (const line of [
+      'protein .3 g per kg',
+      'protein 0,3 g per kg',
+      'Drink 1250–1500 mL per kg lost',
+      'Drink 1250–1500 mL per kg of weight lost',
+      'Protein 2.2 g per kg FFM',
+      'caffeine 3 mg per kg',
+    ])
+      assert.equal(amountsFor(line, 60), line);
+  });
+
   it('leaves the line as written without a plausible weight, and per-hour amounts alone', () => {
     const line = '30–60 g carbohydrate per hour; 1.25–1.5 L for every kg lost.';
     assert.equal(amountsFor(line, 60), line);

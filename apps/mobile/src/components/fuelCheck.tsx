@@ -9,7 +9,7 @@ import {
 } from '@vela/shared';
 import { Body, Card } from '@/components/kit';
 import { useTheme } from '@/theme';
-import { useHistory } from '@/lib/data';
+import { useFuelChecks } from '@/lib/data';
 
 const day = (iso: string) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', {
@@ -19,30 +19,27 @@ const day = (iso: string) =>
   });
 
 /**
- * How her fuelling went, from the check after each fuelled session: the last four weeks in
- * two counts — fuelled as planned, felt about right — and her latest answers. In words,
+ * How her fuelling went, from the check after each fuelled session: the last 28 days — the
+ * window her physio reads — in two counts — fuelled as planned, felt about right — and her latest answers. In words,
  * never a score, and nothing about amounts.
  */
 export function FuelCheckCard() {
   const t = useTheme();
-  const history = useHistory(4);
+  const checks = useFuelChecks(28);
 
   useFocusEffect(
     useCallback(() => {
-      history.reload();
+      checks.reload();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );
 
-  const checked = history.data
-    .filter((s) => s.fuelCheck)
-    .sort((a, b) => b.scheduledDate.localeCompare(a.scheduledDate));
-  const sum = summariseFuelChecks(checked.map((s) => s.fuelCheck!));
+  const sum = summariseFuelChecks(checks.data);
 
   return (
     <Card style={{ borderRadius: 22 }}>
       <Body size={11} weight="medium" color={t.textSecondary} style={{ letterSpacing: 0.5 }}>
-        HOW YOUR FUELLING WENT · 4 WEEKS
+        HOW YOUR FUELLING WENT · 28 DAYS
       </Body>
       {sum.answered === 0 ? (
         <Body size={13.5} color={t.textSecondary} style={{ marginTop: 8, lineHeight: 19 }}>
@@ -65,16 +62,15 @@ export function FuelCheckCard() {
             </Body>
           )}
           <View style={{ marginTop: 12, gap: 8 }}>
-            {checked.slice(0, 4).map((s) => {
-              const c = s.fuelCheck!;
+            {checks.data.slice(0, 4).map((c) => {
               return (
-                <View key={s.id} style={{ flexDirection: 'row', gap: 10 }}>
+                <View key={c.sessionId} style={{ flexDirection: 'row', gap: 10 }}>
                   <Body size={12.5} color={t.textMuted} style={{ width: 82 }}>
-                    {day(s.scheduledDate)}
+                    {day(c.date)}
                   </Body>
                   <View style={{ flex: 1 }}>
                     <Body size={13} weight="medium" numberOfLines={1}>
-                      {s.title}
+                      {c.title}
                     </Body>
                     <Body size={12.5} color={t.textSecondary}>
                       {[

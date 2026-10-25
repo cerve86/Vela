@@ -21,7 +21,7 @@ import {
   listWellness,
   type WellnessCheck,
 } from '@vela/api';
-import { listFuelCards } from '@vela/api';
+import { listFuelCards, listFuelChecks, type FuelCheckRow } from '@vela/api';
 import { mergeFuelCards, type FuelCard } from '@vela/shared';
 import { supabase } from './supabase';
 import { useSession } from './session';
@@ -174,6 +174,18 @@ export function useWeeklyPlan() {
     async () => (client ? currentClientPlan(supabase, client.id, todayIso) : null),
     null,
     [client?.id, todayIso],
+  );
+}
+
+/** Her fuelling checks over the last `days`, newest first — the same window her physio reads. */
+export function useFuelChecks(days = 28) {
+  const { client } = useSession();
+  const todayIso = today();
+  const from = addDays(todayIso, -(days - 1));
+  return useAsync<FuelCheckRow[]>(
+    async () => (client ? listFuelChecks(supabase, { clientId: client.id, from }) : []),
+    [],
+    [client?.id, from],
   );
 }
 
