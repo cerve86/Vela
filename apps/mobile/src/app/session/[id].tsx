@@ -3,7 +3,20 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Clock } from 'lucide-react-native';
-import { activePlan, painLabel, readinessGate } from '@vela/shared';
+import {
+  activePlan,
+  FUEL_BARRIER_LABEL,
+  FUEL_ENOUGH_LABEL,
+  FUEL_FOLLOWED_LABEL,
+  FUEL_GUT_LABEL,
+  fuelForSession,
+  fuelTypeFor,
+  painLabel,
+  readinessGate,
+  type FuelBarrier,
+  type FuelEnough,
+  type FuelFollowed,
+} from '@vela/shared';
 import {
   Body,
   Button,
@@ -30,7 +43,7 @@ import {
 } from '@/components/scales';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
-import { useFuelCards, useSessionMeta, useSessionPlan } from '@/lib/data';
+import { useFuelCards, useSessionMeta, useSessionPlan, useWeightKg } from '@/lib/data';
 import { clock, useSessionLog } from '@/lib/sessionLog';
 
 /**
@@ -60,6 +73,7 @@ export default function SessionScreen() {
   const meta = useSessionMeta(sessionId ?? null);
   const log = useSessionLog(sessionId ?? null);
   const fuel = useFuelCards();
+  const weightKg = useWeightKg();
 
   const [phase, setPhase] = useState<Phase>('pre');
   const [readiness, setReadiness] = useState<number | null>(null);
@@ -71,12 +85,33 @@ export default function SessionScreen() {
   const [completion, setCompletion] = useState<'all' | 'some' | 'none' | null>(null);
   const [painAfter, setPainAfter] = useState<number | null>(null);
   const [painAfterLocation, setPainAfterLocation] = useState<string | null>(null);
+  const [fuelFollowed, setFuelFollowed] = useState<FuelFollowed | null>(null);
+  const [fuelEnough, setFuelEnough] = useState<FuelEnough | null>(null);
+  const [fuelGut, setFuelGut] = useState<number | null>(null);
+  const [fuelBarrier, setFuelBarrier] = useState<FuelBarrier | null>(null);
   const [nudge, setNudge] = useState<string | null>(null);
 
   const loading = plan.loading || meta.loading || !log.restored;
   const title = meta.data?.title ?? 'Session';
   const dayNotes = meta.data?.dayNotes ?? null;
   const pfGate = client?.pfGate === true;
+  const restrictive = client?.restrictivePattern === true;
+
+  // A session that had a fuel card — long, quality or strength, published — asks after it
+  // whether the fuelling worked. Not on a day she did none of it.
+  const fuelled =
+    !!meta.data &&
+    fuelForSession(
+      fuel.data,
+      fuelTypeFor({
+        discipline: meta.data.discipline,
+        title: meta.data.title,
+        notes: meta.data.dayNotes,
+        override: meta.data.fuelType,
+      }),
+      { restrictive },
+    ).main?.kind === 'session';
+  const asksFuel = fuelled && completion !== 'none';
 
   // Before she starts, the plan follows what she is tapping; once started, what she sent.
   const said = log.before;
@@ -187,7 +222,8 @@ export default function SessionScreen() {
             <SessionFuel
               cards={fuel.data}
               session={meta.data}
-              restrictive={client?.restrictivePattern === true}
+              restrictive={restrictive}
+              weightKg={weightKg}
             />
           )}
 
@@ -527,6 +563,57 @@ export default function SessionScreen() {
                 )}
               </Card>
             </Rise>
+
+            {asksFuel && (
+              <Rise delay={120}>
+                <Card style={{ borderRadius: 22 }}>
+                  {label('DID YOU FUEL AS PLANNED?')}
+                  <View style={{ marginTop: 12 }}>
+                    <ChoiceChips
+                      options={choices(FUEL_FOLLOWED_LABEL)}
+                      value={fuelFollowed}
+                      onChange={setFuelFollowed}
+                    />
+                  </View>
+                  {fuelFollowed !== null && fuelFollowed !== 'yes' && (
+                    <View style={{ marginTop: 12 }}>
+                      <Body size={12.5} color={t.textSecondary} style={{ marginBottom: 8 }}>
+                        What got in the way?
+                      </Body>
+                      <ChoiceChips
+                        options={choices(FUEL_BARRIER_LABEL)}
+                        value={fuelBarrier}
+                        onChange={setFuelBarrier}
+                      />
+                    </View>
+                  )}
+                  <Body
+                    size={12.5}
+                    color={t.textSecondary}
+                    style={{ marginTop: 16, marginBottom: 8 }}
+                  >
+                    Was it enough for the session?
+                  </Body>
+                  <ChoiceChips
+                    options={choices(FUEL_ENOUGH_LABEL)}
+                    value={fuelEnough}
+                    onChange={setFuelEnough}
+                  />
+                  <Body
+                    size={12.5}
+                    color={t.textSecondary}
+                    style={{ marginTop: 16, marginBottom: 8 }}
+                  >
+                    Your stomach during it?
+                  </Body>
+                  <ChoiceChips
+                    options={FUEL_GUT_LABEL.map((l, i) => ({ value: String(i), label: l }))}
+                    value={fuelGut === null ? null : String(fuelGut)}
+                    onChange={(v) => setFuelGut(Number(v))}
+                  />
+                </Card>
+              </Rise>
+            )}
           </>
         )}
 
@@ -564,6 +651,10 @@ export default function SessionScreen() {
                   setNudge('Tap how hard it was and how much you did.');
                   return;
                 }
+                if (asksFuel && (fuelFollowed === null || fuelEnough === null)) {
+                  setNudge('Tell your physio how your fuelling went.');
+                  return;
+                }
                 setNudge(null);
                 void log.send({
                   rpe,
@@ -573,6 +664,14 @@ export default function SessionScreen() {
                     painAfter && painAfter > 0
                       ? (painAfterLocation ?? said?.painLocation ?? null)
                       : null,
+                  fuel: asksFuel
+                    ? {
+                        followed: fuelFollowed,
+                        enough: fuelEnough,
+                        gut: fuelGut,
+                        barrier: fuelFollowed !== 'yes' ? fuelBarrier : null,
+                      }
+                    : null,
                 });
               }}
             />
@@ -592,4 +691,9 @@ export default function SessionScreen() {
       </ScrollView>
     </Screen>
   );
+}
+
+/** A label map as chip options, in its own order. */
+function choices<T extends string>(labels: Record<T, string>) {
+  return (Object.keys(labels) as T[]).map((value) => ({ value, label: labels[value] }));
 }

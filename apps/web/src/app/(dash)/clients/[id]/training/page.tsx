@@ -15,7 +15,13 @@ import {
 import { ActivitiesCard } from './ActivitiesCard';
 import { FreshnessCard } from './FreshnessCard';
 import { BlocksList } from '@/components/BlocksList';
-import { readinessBaseline, readinessGate } from '@vela/shared';
+import {
+  FUEL_ENOUGH_LABEL,
+  FUEL_FOLLOWED_LABEL,
+  FUEL_GUT_LABEL,
+  readinessBaseline,
+  readinessGate,
+} from '@vela/shared';
 import { Card, EmptyState, PainDot, StatusPill } from '@/components/ui';
 import { SessionResponse } from './SessionResponse';
 import { TimeSeriesPanels, type Panel } from '@/components/charts';
@@ -266,6 +272,21 @@ export default async function TrainingTab({ params }: { params: Promise<{ id: st
                 {review.painBefore !== null && review.painAfter !== null
                   ? `symptoms ${review.painBefore}/10 before, ${review.painAfter}/10 after`
                   : 'no symptom scores recorded'}
+                {review.fuelCheck && (
+                  <>
+                    {' · fuel '}
+                    {[
+                      review.fuelCheck.followed &&
+                        `as planned: ${FUEL_FOLLOWED_LABEL[review.fuelCheck.followed].toLowerCase()}`,
+                      review.fuelCheck.enough &&
+                        FUEL_ENOUGH_LABEL[review.fuelCheck.enough].toLowerCase(),
+                      review.fuelCheck.gut &&
+                        `stomach ${FUEL_GUT_LABEL[review.fuelCheck.gut]?.toLowerCase()}`,
+                    ]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </>
+                )}
               </p>
             </div>
             {review.completion && review.completion !== 'all' ? (

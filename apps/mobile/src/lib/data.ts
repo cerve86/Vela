@@ -346,6 +346,17 @@ export function latestOf(metrics: Metric[], type: MetricType): Metric | null {
   return of.length ? (of[of.length - 1] as Metric) : null;
 }
 
+const WEIGHT: MetricType[] = ['weight_kg'];
+
+/**
+ * Her latest weight from the last six months, so the fuel cards' per-kg amounts read in
+ * grams for her. Null without one: the cards then keep the per-kg wording.
+ */
+export function useWeightKg(): number | null {
+  const metrics = useMetrics(WEIGHT, 180);
+  return latestOf(metrics.data, 'weight_kg')?.value ?? null;
+}
+
 /**
  * Adherence for the week so far.
  *

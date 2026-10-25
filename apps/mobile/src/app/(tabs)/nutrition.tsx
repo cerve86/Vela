@@ -20,6 +20,7 @@ import { Illustration } from '@/components/Illustration';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
 import { FuelGuide } from '@/components/fuelGuide';
+import { FuelCheckCard } from '@/components/fuelCheck';
 import { today, useNutrition } from '@/lib/data';
 import { useDailyRead } from '@/lib/daily';
 import { supabase } from '@/lib/supabase';
@@ -410,6 +411,8 @@ function CalorieDiary() {
             ))}
           </>
         )}
+
+        <FuelCheckCard />
       </ScrollView>
 
       {toast && (

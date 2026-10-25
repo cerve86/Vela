@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import {
+  FUEL_LINES,
   FUEL_TYPE_LABEL,
   fuelForSession,
   fuelTypeFor,
@@ -22,7 +23,8 @@ const LINE_LABEL: Record<keyof FuelLines, string> = {
 export function FuelCardView({ card, label }: { card: FuelCard; label?: string }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
-  const keys = (Object.keys(card.face) as (keyof FuelLines)[]).filter((k) => card.face[k]);
+  // In reading order: a card she saved comes back from the database with its keys sorted.
+  const keys = FUEL_LINES.filter((k) => card.face[k]);
   const detail = keys.filter((k) => card.detail[k]);
   const more = detail.length > 0 || !!card.why;
   return (
@@ -84,6 +86,7 @@ export function SessionFuel({
   cards,
   session,
   restrictive,
+  weightKg = null,
   bare = false,
 }: {
   /** On the Fuel screen itself, where "Fuel for today" is already the title. */
@@ -96,6 +99,8 @@ export function SessionFuel({
     fuelType?: FuelType | null;
   };
   restrictive: boolean;
+  /** Her latest weight, so per-kg amounts read in grams for her. */
+  weightKg?: number | null;
 }) {
   const type = fuelTypeFor({
     discipline: session.discipline,
@@ -103,7 +108,7 @@ export function SessionFuel({
     notes: session.dayNotes,
     override: session.fuelType,
   });
-  const f = fuelForSession(cards, type, { restrictive });
+  const f = fuelForSession(cards, type, { restrictive, weightKg });
   if (!f.main && f.extras.length === 0) return null;
   return (
     <>

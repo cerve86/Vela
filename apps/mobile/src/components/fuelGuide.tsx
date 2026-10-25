@@ -2,12 +2,13 @@ import { useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { FuelCard } from '@vela/shared';
+import { fuelForSession, type FuelCard } from '@vela/shared';
 import { Body, Card, Display, Screen } from '@/components/kit';
 import { FuelCardView, SessionFuel } from '@/components/fuelCard';
+import { FuelCheckCard } from '@/components/fuelCheck';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
-import { useFuelCards, useWeek } from '@/lib/data';
+import { useFuelCards, useWeek, useWeightKg } from '@/lib/data';
 
 /**
  * Fuel, without counting: today's card from the session, or the plate reminder on a day
@@ -22,6 +23,7 @@ export function FuelGuide() {
   const week = useWeek();
   const fuel = useFuelCards();
   const restrictive = client?.restrictivePattern === true;
+  const weightKg = useWeightKg();
 
   useFocusEffect(
     useCallback(() => {
@@ -31,7 +33,8 @@ export function FuelGuide() {
   );
 
   const today = week.todaySession;
-  const plate = fuel.data.find((c) => c.key === 'plate' && c.published) ?? null;
+  // The plate card on a day without a session, amounts worked out (or taken off) as for one.
+  const plate = fuelForSession(fuel.data, 'easy', { restrictive, weightKg }).main;
   const supplements = fuel.data.filter((c) => c.kind === 'supplement' && c.published);
 
   return (
@@ -47,13 +50,18 @@ export function FuelGuide() {
       >
         <Display size={28}>Fuel for today</Display>
         {today ? (
-          <SessionFuel cards={fuel.data} session={today} restrictive={restrictive} bare />
-        ) : plate ? (
-          <FuelCardView
-            card={restrictive ? { ...plate, detail: {} } : plate}
-            label="No session today · Build the plate"
+          <SessionFuel
+            cards={fuel.data}
+            session={today}
+            restrictive={restrictive}
+            weightKg={weightKg}
+            bare
           />
+        ) : plate ? (
+          <FuelCardView card={plate} label="No session today · Build the plate" />
         ) : null}
+
+        <FuelCheckCard />
 
         {supplements.length > 0 && (
           <>

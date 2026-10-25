@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (192);
+  plan (198);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -2029,6 +2029,69 @@ select is (
   0::bigint,
   'her evidence list is hers alone'
 );
+
+-- The fuelling check after a session (30 October 2026) --------------------------
+reset role;
+update public.clients set restrictive_pattern = true where id = '00000000-0000-4000-8000-0000000000f1';
+insert into public.sessions (id, client_id, title, scheduled_date)
+values
+  ('00000000-0000-4000-8000-00000000fc01', '00000000-0000-4000-8000-0000000000f1', 'Long run', current_date - 1),
+  ('00000000-0000-4000-8000-00000000fc02', '00000000-0000-4000-8000-0000000000f1', 'Tempo', current_date - 5);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select lives_ok (
+  $$update public.sessions
+    set fuel_followed = 'partly', fuel_enough = 'ran_out', fuel_gut = 3, fuel_barrier = 'stomach'
+    where id = '00000000-0000-4000-8000-00000000fc01'$$,
+  'she records her fuelling check on her own session'
+);
+
+select throws_ok (
+  $$update public.sessions set fuel_enough = 'starving' where id = '00000000-0000-4000-8000-00000000fc02'$$,
+  '23514',
+  null,
+  'and only from the four answers'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select count(*) from public.coach_flags
+   where kind = 'fuel' and session_id = '00000000-0000-4000-8000-00000000fc01' and resolved_at is null),
+  1::bigint,
+  'having to stop for her stomach flags her coach'
+);
+
+select is (
+  (select count(*) from public.coach_flags where kind = 'fuel' and session_id is null),
+  0::bigint,
+  'running out of energy once does not'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+update public.sessions set fuel_followed = 'yes', fuel_enough = 'ran_out', fuel_gut = 0
+where id = '00000000-0000-4000-8000-00000000fc02';
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select ok (
+  (select detail like 'Ran out of energy on 2 fuelled sessions%restrictive patterns%'
+   from public.coach_flags where kind = 'fuel' and session_id is null and resolved_at is null),
+  'twice in 14 days does, and says she is flagged for restrictive patterns'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+
+select is (
+  (select count(*) from public.sessions where fuel_followed is not null),
+  0::bigint,
+  'another coach sees none of her answers'
+);
+
+reset role;
+update public.clients set restrictive_pattern = false where id = '00000000-0000-4000-8000-0000000000f1';
 
 select * from finish ();
 
