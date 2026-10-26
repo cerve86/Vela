@@ -1,7 +1,7 @@
 import type { VelaClient } from './client';
 import { listExercises, type ExerciseCategory } from './exercises';
 import { matchExerciseNames, normaliseExerciseName } from './exerciseMatch';
-import type { FuelCheck } from '@vela/shared';
+import type { FuelCheck, FuelType } from '@vela/shared';
 
 export { matchExerciseNames, normaliseExerciseName, stripBrackets } from './exerciseMatch';
 
@@ -46,7 +46,7 @@ export interface ProgramDay {
   /** A sauna or 40 °C bath after it, on a run or cross-training day. */
   heatFinish: boolean;
   /** Long, quality, easy or strength fuelling; null to read it from the day. */
-  fuelType: 'long' | 'quality' | 'easy' | 'strength' | null;
+  fuelType: FuelType | null;
   items: ProgramItem[];
 }
 
@@ -723,7 +723,7 @@ export interface ScheduledSession {
   /** Sauna or a 40 °C bath after it, when the coach asked for one. */
   heatFinish: boolean;
   /** The fuelling type the coach set on the day; null to read it from the day. */
-  fuelType: 'long' | 'quality' | 'easy' | 'strength' | null;
+  fuelType: FuelType | null;
   /** Her fuelling check after a session with a fuel card; null when she was not asked. */
   fuelCheck: FuelCheck | null;
 }

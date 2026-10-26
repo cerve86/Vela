@@ -1,6 +1,6 @@
 'use client';
 
-import { FUEL_TYPE_LABEL, fuelTypeFor, PHASES, type Phase } from '@vela/shared';
+import { FUEL_TYPE_LABEL, fuelTypeFor, PHASES, type FuelType, type Phase } from '@vela/shared';
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -269,8 +269,7 @@ export function Builder({
                     run(
                       () =>
                         updateDayAction(program.id, day.id, {
-                          fuelType: (e.target.value || null) as
-                            'long' | 'quality' | 'easy' | 'strength' | null,
+                          fuelType: (e.target.value || null) as FuelType | null,
                         }),
                       'Fuelling saved.',
                     )
@@ -292,7 +291,11 @@ export function Builder({
                     )
                   </option>
                   <option value="long">Fuel: long run</option>
+                  <option value="long_gut">Fuel: long run · gut training (wk 1–3)</option>
+                  <option value="long_absorb">Fuel: long run · absorption week (wk 4)</option>
+                  <option value="long_rehearsal">Fuel: long run · race rehearsal (wk 5–7)</option>
                   <option value="quality">Fuel: quality</option>
+                  <option value="double">Fuel: double day</option>
                   <option value="easy">Fuel: easy day</option>
                   <option value="strength">Fuel: strength</option>
                 </select>

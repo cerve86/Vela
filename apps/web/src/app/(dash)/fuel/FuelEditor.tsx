@@ -14,12 +14,12 @@ const SECTIONS: { kind: FuelCard['kind']; title: string; hint: string }[] = [
   {
     kind: 'session',
     title: 'Session cards',
-    hint: 'Before, during and after, chosen by the session.',
+    hint: 'Before, during and after, chosen by the session. The race-block long-run cards show on the days you tag in the programme builder.',
   },
   {
     kind: 'cue',
     title: 'Cues',
-    hint: 'The plate reminder on easy days; heat and pre-dawn on long runs.',
+    hint: 'The plate reminder on easy days; heat and pre-dawn on long runs; the second half of the cycle for a client who shares it; the golden rule on every session.',
   },
   {
     kind: 'supplement',

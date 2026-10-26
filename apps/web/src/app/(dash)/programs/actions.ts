@@ -40,6 +40,7 @@ import {
 } from '@vela/shared';
 import type { Phase } from '@vela/shared';
 import { createServerSupabase } from '@/lib/supabase/server';
+import type { FuelType } from '@vela/shared';
 
 export interface Result {
   ok: boolean;
@@ -184,7 +185,7 @@ export async function updateDayAction(
     title?: string;
     discipline?: Discipline;
     heatFinish?: boolean;
-    fuelType?: 'long' | 'quality' | 'easy' | 'strength' | null;
+    fuelType?: FuelType | null;
   },
 ): Promise<Result> {
   const { supabase } = await ctx();

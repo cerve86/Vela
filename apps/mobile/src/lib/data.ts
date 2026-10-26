@@ -21,8 +21,14 @@ import {
   listWellness,
   type WellnessCheck,
 } from '@vela/api';
-import { listFuelCards, listFuelChecks, type FuelCheckRow } from '@vela/api';
-import { mergeFuelCards, type FuelCard } from '@vela/shared';
+import {
+  getCycleContext,
+  listFuelCards,
+  listFuelChecks,
+  type CycleContext,
+  type FuelCheckRow,
+} from '@vela/api';
+import { inLutealPhase, mergeFuelCards, type FuelCard } from '@vela/shared';
 import { supabase } from './supabase';
 import { useSession } from './session';
 
@@ -175,6 +181,20 @@ export function useWeeklyPlan() {
     null,
     [client?.id, todayIso],
   );
+}
+
+/**
+ * Whether today is in the second half of her cycle, from the cycle context she chose to
+ * share — for the fuel cue that goes with it. False without consent or a recorded start.
+ */
+export function useLuteal(): boolean {
+  const { client } = useSession();
+  const ctx = useAsync<CycleContext | null>(
+    async () => (client ? getCycleContext(supabase, client.id) : null),
+    null,
+    [client?.id],
+  );
+  return inLutealPhase(ctx.data, today());
 }
 
 /** Her fuelling checks over the last `days`, newest first — the same window her physio reads. */

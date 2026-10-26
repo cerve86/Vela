@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import {
   FUEL_LINES,
-  FUEL_TYPE_LABEL,
   fuelForSession,
   fuelTypeFor,
   type FuelCard,
@@ -87,6 +86,7 @@ export function SessionFuel({
   session,
   restrictive,
   weightKg = null,
+  luteal = false,
   bare = false,
 }: {
   /** On the Fuel screen itself, where "Fuel for today" is already the title. */
@@ -101,6 +101,8 @@ export function SessionFuel({
   restrictive: boolean;
   /** Her latest weight, so per-kg amounts read in grams for her. */
   weightKg?: number | null;
+  /** In the second half of her cycle, from cycle context she shares. */
+  luteal?: boolean;
 }) {
   const type = fuelTypeFor({
     discipline: session.discipline,
@@ -108,7 +110,12 @@ export function SessionFuel({
     notes: session.dayNotes,
     override: session.fuelType,
   });
-  const f = fuelForSession(cards, type, { restrictive, weightKg });
+  const f = fuelForSession(cards, type, {
+    restrictive,
+    weightKg,
+    luteal,
+    discipline: session.discipline,
+  });
   if (!f.main && f.extras.length === 0) return null;
   return (
     <>
@@ -118,8 +125,8 @@ export function SessionFuel({
           label={
             f.main.kind === 'session'
               ? bare
-                ? FUEL_TYPE_LABEL[type]
-                : `Fuel for today · ${FUEL_TYPE_LABEL[type]}`
+                ? f.main.title
+                : `Fuel for today · ${f.main.title}`
               : undefined
           }
         />

@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (199);
+  plan (201);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -2112,6 +2112,23 @@ select is (
 
 reset role;
 update public.clients set restrictive_pattern = false where id = '00000000-0000-4000-8000-0000000000f1';
+
+-- Race-block fuel types on a day (31 October 2026) -----------------------------
+reset role;
+
+select lives_ok (
+  $$update public.program_days set fuel_type = 'long_rehearsal'
+    where program_id = '00000000-0000-4000-8000-0000000000b3' and title = 'Load Monday'$$,
+  'a day can take a race-block long-run card'
+);
+
+select throws_ok (
+  $$update public.program_days set fuel_type = 'carb_load'
+    where program_id = '00000000-0000-4000-8000-0000000000b3' and title = 'Load Monday'$$,
+  '23514',
+  null,
+  'and only a known one'
+);
 
 select * from finish ();
 

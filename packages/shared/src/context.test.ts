@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { cycleDay, readinessBaseline } from './context.ts';
+import { cycleDay, inLutealPhase, readinessBaseline } from './context.ts';
 
 describe('cycleDay', () => {
   it('counts from the last start, day 1 being that day', () => {
@@ -54,5 +54,21 @@ describe('readinessBaseline', () => {
       ),
       null,
     );
+  });
+});
+
+describe('inLutealPhase', () => {
+  const regular = { status: 'regular', periodStarts: ['2026-09-01', '2026-09-29', '2026-10-27'] };
+
+  it('is the 14 days before the next period is due, on a regular cycle', () => {
+    assert.equal(inLutealPhase(regular, '2026-11-05'), false); // day 10 of 28
+    assert.equal(inLutealPhase(regular, '2026-11-12'), true); // day 17
+    assert.equal(inLutealPhase(regular, '2026-11-23'), true); // day 28
+  });
+
+  it('says nothing for an irregular cycle, no record, or a period well overdue', () => {
+    assert.equal(inLutealPhase({ ...regular, status: 'irregular' }, '2026-11-12'), false);
+    assert.equal(inLutealPhase(null, '2026-11-12'), false);
+    assert.equal(inLutealPhase(regular, '2026-12-05'), false); // day 40
   });
 });

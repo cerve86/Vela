@@ -5,7 +5,7 @@ import { ChevronRight, Frown, Laugh, Meh, Smile, SmilePlus, Utensils } from 'luc
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   activePlan,
-  FUEL_TYPE_LABEL,
+  fuelTypeShort,
   fuelTypeFor,
   planMinutes,
   stateCounts,
@@ -333,16 +333,14 @@ export default function TodayScreen() {
                   icon={<Utensils size={22} color="#9A6BFF" strokeWidth={2.2} />}
                   label={
                     week.todaySession
-                      ? `${
-                          FUEL_TYPE_LABEL[
-                            fuelTypeFor({
-                              discipline: week.todaySession.discipline,
-                              title: week.todaySession.title,
-                              notes: week.todaySession.dayNotes,
-                              override: week.todaySession.fuelType,
-                            })
-                          ]
-                        } fuel`
+                      ? `${fuelTypeShort(
+                          fuelTypeFor({
+                            discipline: week.todaySession.discipline,
+                            title: week.todaySession.title,
+                            notes: week.todaySession.dayNotes,
+                            override: week.todaySession.fuelType,
+                          }),
+                        )} fuel`
                       : 'Build the plate'
                   }
                   onPress={() => router.push('/(tabs)/nutrition')}
