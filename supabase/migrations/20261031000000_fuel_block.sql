@@ -19,3 +19,21 @@ add constraint program_days_fuel_type_known check (
     'strength'
   )
 );
+
+/**
+ * The keys of her coach's cards kept as drafts. A client reads only published cards, so
+ * without this a shipped default stayed on her phone after the coach set it to Draft; the
+ * phone now hides the default under each key. Only the keys: a draft's wording stays with
+ * the coach.
+ */
+create or replace function public.hidden_fuel_cards () returns setof text language sql stable security definer
+set
+  search_path = public as $$
+  select f.key
+  from public.fuel_cards f
+  join public.clients c on c.coach_id = f.coach_id
+  where c.profile_id = auth.uid() and not f.published;
+$$;
+
+grant
+execute on function public.hidden_fuel_cards () to authenticated;

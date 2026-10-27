@@ -4,6 +4,7 @@ import {
   FUEL_LINES,
   fuelForSession,
   fuelTypeFor,
+  plannedMinutes,
   type FuelCard,
   type FuelLines,
   type FuelType,
@@ -115,6 +116,7 @@ export function SessionFuel({
     weightKg,
     luteal,
     discipline: session.discipline,
+    minutes: plannedMinutes(session.title, session.dayNotes),
   });
   if (!f.main && f.extras.length === 0) return null;
   return (

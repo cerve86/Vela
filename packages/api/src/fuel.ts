@@ -73,6 +73,15 @@ export async function resetFuelCard(
   return { error: error?.message ?? null };
 }
 
+/**
+ * Read as a client: the keys of her coach's cards kept as drafts, so the shipped default
+ * under each comes off her phone too. Pass them to `mergeFuelCards`.
+ */
+export async function listHiddenFuelCards(supabase: VelaClient): Promise<string[]> {
+  const { data } = await supabase.rpc('hidden_fuel_cards');
+  return ((data as string[] | null) ?? []).filter(Boolean);
+}
+
 export interface FuelSettings {
   restrictivePattern: boolean;
   calorieTracking: boolean;

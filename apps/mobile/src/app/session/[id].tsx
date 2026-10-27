@@ -75,7 +75,7 @@ export default function SessionScreen() {
   const log = useSessionLog(sessionId ?? null);
   const fuel = useFuelCards();
   const weightKg = useWeightKg();
-  const luteal = useLuteal();
+  const { luteal } = useLuteal();
 
   const [phase, setPhase] = useState<Phase>('pre');
   const [readiness, setReadiness] = useState<number | null>(null);

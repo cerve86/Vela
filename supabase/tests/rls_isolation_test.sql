@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (201);
+  plan (203);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -2129,6 +2129,26 @@ select throws_ok (
   null,
   'and only a known one'
 );
+
+insert into public.fuel_cards (coach_id, key, kind, title, face, detail, published)
+values ('00000000-0000-4000-8000-0000000000a1', 'golden', 'cue', 'Draft rule',
+  '{"cue":"Her draft wording."}', '{}', false);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select ok (
+  'golden' = any (array(select public.hidden_fuel_cards ())),
+  'her phone learns which cards her coach keeps as drafts'
+);
+
+select is (
+  (select count(*) from public.fuel_cards where key = 'golden'),
+  0::bigint,
+  'but never their wording'
+);
+
+reset role;
 
 select * from finish ();
 

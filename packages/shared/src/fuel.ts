@@ -52,8 +52,13 @@ export interface FuelCard {
 
 const QUALITY = /interval|tempo|quality|threshold|hill|bun|fartlek|race|speed|strides|track|vo2/i;
 const LONG = /\blong\b|\blsd\b/i;
-// Two sessions in a day: "DOUBLE – AM 5 km easy · PM progression", "easy 5 km · PM boxing".
-const DOUBLE = /\bdouble\b|\bPM\b/;
+// Two sessions in a day: a DOUBLE tag ("DOUBLE – AM 5 km easy · PM progression"), an AM and
+// a PM part, or a PM part after another ("easy 5 km · PM boxing") — but not one evening
+// session ("Tempo 6 PM", "Strength (PM)") and not a "double-leg" movement.
+const isDouble = (title: string) =>
+  /\bdouble\b(?!-)/i.test(title) ||
+  /\bAM\b[\s\S]*\bPM\b/.test(title) ||
+  /[·+&,;]\s*PM\b/.test(title);
 
 /** Minutes written in a title or notes ("90 min", "1h30"), the largest one. */
 function minutesIn(text: string): number {
@@ -65,13 +70,18 @@ function minutesIn(text: string): number {
   return best;
 }
 
+/** A session's planned minutes, from its title or notes; null when neither says. */
+export function plannedMinutes(title: string, notes?: string | null): number | null {
+  return minutesIn(`${title} ${notes ?? ''}`) || null;
+}
+
 /**
  * The fuelling type of a session. The coach's choice on the day wins — including which
- * long-run card of a race block it gets; otherwise a day with two sessions (a "DOUBLE", or
- * a "PM" part) is a double day, strength is strength, a run or cross day is long when it
+ * long-run card of a race block it gets; otherwise rehab and mobility days are easy days,
+ * a run, cross or strength day with two sessions (a DOUBLE tag, or a PM part after another)
+ * is a double day, strength is strength, a run or cross day is long when it
  * says so or runs past 75 minutes, easy when it is a walk or walk-run, quality when its
- * title reads like intervals or a Run&Bun, and easy otherwise. Rehab and mobility days
- * are easy days.
+ * title reads like intervals or a Run&Bun, and easy otherwise.
  */
 export function fuelTypeFor(s: {
   discipline: string;
@@ -80,9 +90,10 @@ export function fuelTypeFor(s: {
   override?: FuelType | null;
 }): FuelType {
   if (s.override) return s.override;
-  if (DOUBLE.test(s.title)) return 'double';
+  if (s.discipline !== 'run' && s.discipline !== 'cross' && s.discipline !== 'strength')
+    return 'easy';
+  if (isDouble(s.title)) return 'double';
   if (s.discipline === 'strength') return 'strength';
-  if (s.discipline !== 'run' && s.discipline !== 'cross') return 'easy';
   const text = `${s.title} ${s.notes ?? ''}`;
   if (LONG.test(s.title) || minutesIn(text) >= 75) return 'long';
   // Walk-run intervals are return-to-running, not a hard session.
@@ -111,7 +122,7 @@ const BLOCK_CARDS: FuelCard[] = [
     title: 'Long run · gut training',
     face: {
       before: 'A carb-based meal a few hours before.',
-      during: 'Practise fuelling: a small dose of carbs regularly, from early in the run.',
+      during: 'Practise fuelling: small regular doses once you’re settled into the run.',
       after: 'Protein and carbs within the hour.',
     },
     detail: {
@@ -179,7 +190,7 @@ const BLOCK_CARDS: FuelCard[] = [
         'Easy-digest carbs 1–2 h before each session, low in fat and fibre: about 1 g per kg — a banana and a slice of white toast with jam is about 50 g.',
       during: 'Water. Past 60 minutes, 30–60 g carbohydrate per hour.',
       after:
-        'Carbs after both sessions. If the next session is less than 24 h away: roughly 1 g per kg each hour of fast carbs in the first 2 h after finishing.',
+        'Carbs after both sessions. If the next session is less than 24 h away: roughly 1 g per kg each hour of fast carbs in the first 2 h after finishing. When the evening session is strength, 30–40 g dairy protein before bed as well.',
     },
     why: 'The second session runs on how well you refuelled after the first.',
     evidence: null,
@@ -388,10 +399,18 @@ export const SUPPLEMENT_DEFAULTS: FuelCard[] = (
   ),
 );
 
-/** Her cards over the defaults: one of hers with the same key replaces the default. */
-export function mergeFuelCards(mine: FuelCard[]): FuelCard[] {
+/**
+ * Her cards over the defaults: one of hers with the same key replaces the default. A client
+ * reads only her published cards, so `hidden` — the keys she keeps as drafts — takes the
+ * default under each off the phone as well.
+ */
+export function mergeFuelCards(mine: FuelCard[], hidden: string[] = []): FuelCard[] {
   const byKey = new Map([...FUEL_DEFAULTS, ...SUPPLEMENT_DEFAULTS].map((c) => [c.key, c]));
   for (const c of mine) byKey.set(c.key, c);
+  for (const k of hidden) {
+    const c = byKey.get(k);
+    if (c) byKey.set(k, { ...c, published: false });
+  }
   return [...byKey.values()].sort((a, b) => a.sort - b.sort);
 }
 
@@ -420,12 +439,19 @@ export function fuelForSession(
     discipline?: string | null;
     /** In the second half of her cycle, from cycle context she chose to share. */
     luteal?: boolean;
+    /** The session's planned minutes, when its title or notes say: easy runs of an hour or more are not water-only. */
+    minutes?: number | null;
+    /** A day without a session: the plate, with the golden rule as well. */
+    rest?: boolean;
   },
 ): TodayFuel {
   const live = new Map(cards.filter((c) => c.published).map((c) => [c.key, c]));
   const strip = (c: FuelCard | undefined) =>
     c ? (opts.restrictive ? { ...c, detail: {} } : forWeight(c, opts.weightKg)) : null;
-  const easyRun = type === 'easy' && (opts.discipline === 'run' || opts.discipline === 'cross');
+  const easyRun =
+    type === 'easy' &&
+    (opts.discipline === 'run' || opts.discipline === 'cross') &&
+    (opts.minutes == null || opts.minutes < 60);
   const pick = (): FuelCard | undefined => {
     if (type === 'easy') return (easyRun && live.get('easy')) || live.get('plate');
     // A block long-run card she has not published falls back to the general one.
@@ -434,10 +460,13 @@ export function fuelForSession(
   };
   const main = strip(pick());
   const extraKeys = [
-    ...(isLongRun(type) ? ['heat', 'predawn'] : []),
+    // The pre-dawn cue carries its own rates: only beside the general long-run card, not the
+    // block cards with hers.
+    ...(isLongRun(type) ? ['heat'] : []),
+    ...(type === 'long' ? ['predawn'] : []),
     ...(easyRun && main?.key === 'easy' ? ['plate'] : []),
     ...(opts.luteal ? ['luteal'] : []),
-    ...(type !== 'easy' ? ['golden'] : []),
+    ...(type !== 'easy' || opts.rest ? ['golden'] : []),
   ];
   const extras = extraKeys.map((k) => strip(live.get(k))).filter(Boolean) as FuelCard[];
   return { type, main, extras };
