@@ -1,33 +1,38 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { listMessages, unreadCount } from '@vela/api';
+import { listMessages, unreadCount, type Message } from '@vela/api';
 import { supabase } from './supabase';
 import { useSession } from './session';
 
 /**
- * How many messages from the coach are unread.
+ * Her physio's messages she has not read yet: how many, and the latest of them.
  *
- * This exists for the dot on the Profile tab, which is where the thread is reached from. It
- * refetches on focus rather than polling: a message arriving while the app is open is not
- * worth a timer, and a message arriving while it is closed shows up the moment a tab is
- * touched.
+ * This feeds the dot on the Profile tab and the card at the top of Today, which is where a
+ * new message has to be seen — the thread itself sits behind Profile. It refetches on
+ * focus rather than polling: a message arriving while the app is closed shows up the moment
+ * a tab is touched.
  *
  * Bounded to the recent thread rather than counting the whole history — the badge only ever
  * needs "is there anything", and the number never reaches the ceiling in a real thread.
  */
-export function useUnreadFromCoach(): number {
+export function useCoachInbox(): { unread: number; latest: Message | null } {
   const { client } = useSession();
-  const [count, setCount] = useState(0);
+  const [state, setState] = useState<{ unread: number; latest: Message | null }>({
+    unread: 0,
+    latest: null,
+  });
 
   useFocusEffect(
     useCallback(() => {
       let live = true;
       if (!client) {
-        setCount(0);
+        setState({ unread: 0, latest: null });
         return;
       }
       void listMessages(supabase, client.id, 50).then((rows) => {
-        if (live) setCount(unreadCount(rows, 'coach'));
+        if (!live) return;
+        const waiting = rows.filter((m) => m.sender === 'coach' && m.readAt === null);
+        setState({ unread: unreadCount(rows, 'coach'), latest: waiting.at(-1) ?? null });
       });
       return () => {
         live = false;
@@ -35,5 +40,10 @@ export function useUnreadFromCoach(): number {
     }, [client]),
   );
 
-  return count;
+  return state;
+}
+
+/** How many messages from the coach are unread — the dot on the Profile tab. */
+export function useUnreadFromCoach(): number {
+  return useCoachInbox().unread;
 }

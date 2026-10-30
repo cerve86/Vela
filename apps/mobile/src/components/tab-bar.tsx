@@ -129,10 +129,14 @@ const TABS: Record<string, { label: string; glyph: GlyphName }> = {
   profile: { label: 'Profile', glyph: 'profile' },
 };
 
-/** Badge tones, from the prototype: amber wants attention, blue is merely waiting. */
+/**
+ * Badge tones: amber wants attention; an unread message is a bright blue that reads on the
+ * dark bar as well as on the white pill — the prototype's deep blue all but vanished on the
+ * bar, which is how messages went unseen.
+ */
 const BADGE_FILL: Record<string, string> = {
   attention: '#E8A200',
-  unread: '#1B4FD8',
+  unread: '#5B8CFF',
 };
 
 function TabItem({
@@ -207,11 +211,13 @@ function TabItem({
           <View
             style={{
               position: 'absolute',
-              top: -3,
-              right: -4,
-              width: 7,
-              height: 7,
-              borderRadius: 4,
+              top: -4,
+              right: -5,
+              width: 11,
+              height: 11,
+              borderRadius: 6,
+              borderWidth: 2,
+              borderColor: '#FFFFFF',
               backgroundColor: BADGE_FILL[badge],
             }}
           />
