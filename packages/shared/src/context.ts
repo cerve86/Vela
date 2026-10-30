@@ -38,6 +38,22 @@ export function cycleDay(periodStarts: string[], today: string): CycleDay | null
 }
 
 /**
+ * Whether today falls in the second half of her cycle — the luteal phase, the 14 days
+ * before her next period is due. Only for a regular cycle with a recorded start, and not
+ * once a period is more than a week late, when the estimate no longer means anything.
+ */
+export function inLutealPhase(
+  ctx: { status: string; periodStarts: string[] } | null,
+  today: string,
+): boolean {
+  if (!ctx || ctx.status !== 'regular') return false;
+  const c = cycleDay(ctx.periodStarts, today);
+  if (!c) return false;
+  const length = c.averageLength ?? 28;
+  return c.day > length - 14 && c.day <= length + 7;
+}
+
+/**
  * Her mean readiness over the 28 days before a day, from the sessions she tapped it on.
  * Null with fewer than three taps: two is not a baseline.
  */

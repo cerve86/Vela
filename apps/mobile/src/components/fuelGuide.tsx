@@ -8,7 +8,7 @@ import { FuelCardView, SessionFuel } from '@/components/fuelCard';
 import { FuelCheckCard } from '@/components/fuelCheck';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
-import { useFuelCards, useWeek, useWeightKg } from '@/lib/data';
+import { useFuelCards, useLuteal, useWeek, useWeightKg } from '@/lib/data';
 
 /**
  * Fuel, without counting: today's card from the session, or the plate reminder on a day
@@ -24,17 +24,22 @@ export function FuelGuide() {
   const fuel = useFuelCards();
   const restrictive = client?.restrictivePattern === true;
   const weightKg = useWeightKg();
+  const cycle = useLuteal();
+  const luteal = cycle.luteal;
 
   useFocusEffect(
     useCallback(() => {
       fuel.reload();
+      cycle.reload();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );
 
   const today = week.todaySession;
-  // The plate card on a day without a session, amounts worked out (or taken off) as for one.
-  const plate = fuelForSession(fuel.data, 'easy', { restrictive, weightKg }).main;
+  // A day without a session: the plate card, the second-half-of-cycle cue when she is in it,
+  // and the golden rule — amounts worked out (or taken off) as on a session day.
+  const rest = fuelForSession(fuel.data, 'easy', { restrictive, weightKg, luteal, rest: true });
+  const plate = rest.main;
   const supplements = fuel.data.filter((c) => c.kind === 'supplement' && c.published);
 
   return (
@@ -55,11 +60,17 @@ export function FuelGuide() {
             session={today}
             restrictive={restrictive}
             weightKg={weightKg}
+            luteal={luteal}
             bare
           />
-        ) : plate ? (
-          <FuelCardView card={plate} label="No session today · Build the plate" />
-        ) : null}
+        ) : (
+          <>
+            {plate && <FuelCardView card={plate} label="No session today · Build the plate" />}
+            {rest.extras.map((c) => (
+              <FuelCardView key={c.key} card={c} />
+            ))}
+          </>
+        )}
 
         <FuelCheckCard />
 

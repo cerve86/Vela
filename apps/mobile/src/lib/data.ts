@@ -21,8 +21,15 @@ import {
   listWellness,
   type WellnessCheck,
 } from '@vela/api';
-import { listFuelCards, listFuelChecks, type FuelCheckRow } from '@vela/api';
-import { mergeFuelCards, type FuelCard } from '@vela/shared';
+import {
+  getCycleContext,
+  listFuelCards,
+  listFuelChecks,
+  listHiddenFuelCards,
+  type CycleContext,
+  type FuelCheckRow,
+} from '@vela/api';
+import { inLutealPhase, mergeFuelCards, type FuelCard } from '@vela/shared';
 import { supabase } from './supabase';
 import { useSession } from './session';
 
@@ -161,7 +168,13 @@ export function useAssignedProgram() {
 /** Her coach's published fuelling and supplement cards, over the shipped defaults. */
 export function useFuelCards() {
   return useAsync<FuelCard[]>(
-    async () => mergeFuelCards(await listFuelCards(supabase)),
+    async () => {
+      const [mine, hidden] = await Promise.all([
+        listFuelCards(supabase),
+        listHiddenFuelCards(supabase),
+      ]);
+      return mergeFuelCards(mine, hidden);
+    },
     mergeFuelCards([]),
     [],
   );
@@ -175,6 +188,21 @@ export function useWeeklyPlan() {
     null,
     [client?.id, todayIso],
   );
+}
+
+/**
+ * Whether today is in the second half of her cycle, from the cycle context she chose to
+ * share — for the fuel cue that goes with it. False without consent or a recorded start;
+ * `reload` on focus, so withdrawing consent or logging a period takes the cue off at once.
+ */
+export function useLuteal(): { luteal: boolean; reload: () => void } {
+  const { client } = useSession();
+  const ctx = useAsync<CycleContext | null>(
+    async () => (client ? getCycleContext(supabase, client.id) : null),
+    null,
+    [client?.id],
+  );
+  return { luteal: inLutealPhase(ctx.data, today()), reload: ctx.reload };
 }
 
 /** Her fuelling checks over the last `days`, newest first — the same window her physio reads. */

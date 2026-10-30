@@ -9,6 +9,7 @@ import {
   FUEL_ENOUGH_LABEL,
   FUEL_FOLLOWED_LABEL,
   FUEL_GUT_LABEL,
+  asksFuelCheck,
   fuelForSession,
   fuelTypeFor,
   painLabel,
@@ -43,7 +44,7 @@ import {
 } from '@/components/scales';
 import { useTheme } from '@/theme';
 import { useSession } from '@/lib/session';
-import { useFuelCards, useSessionMeta, useSessionPlan, useWeightKg } from '@/lib/data';
+import { useFuelCards, useLuteal, useSessionMeta, useSessionPlan, useWeightKg } from '@/lib/data';
 import { clock, useSessionLog } from '@/lib/sessionLog';
 
 /**
@@ -74,6 +75,7 @@ export default function SessionScreen() {
   const log = useSessionLog(sessionId ?? null);
   const fuel = useFuelCards();
   const weightKg = useWeightKg();
+  const { luteal } = useLuteal();
 
   const [phase, setPhase] = useState<Phase>('pre');
   const [readiness, setReadiness] = useState<number | null>(null);
@@ -99,18 +101,18 @@ export default function SessionScreen() {
 
   // A session that had a fuel card — long, quality or strength, published — asks after it
   // whether the fuelling worked. Not on a day she did none of it.
-  const fuelled =
-    !!meta.data &&
-    fuelForSession(
-      fuel.data,
-      fuelTypeFor({
+  const fuelType = meta.data
+    ? fuelTypeFor({
         discipline: meta.data.discipline,
         title: meta.data.title,
         notes: meta.data.dayNotes,
         override: meta.data.fuelType,
-      }),
-      { restrictive },
-    ).main?.kind === 'session';
+      })
+    : null;
+  const fuelled =
+    fuelType !== null &&
+    asksFuelCheck(fuelType) &&
+    fuelForSession(fuel.data, fuelType, { restrictive }).main?.kind === 'session';
   const asksFuel = fuelled && completion !== 'none';
 
   // Before she starts, the plan follows what she is tapping; once started, what she sent.
@@ -224,6 +226,7 @@ export default function SessionScreen() {
               session={meta.data}
               restrictive={restrictive}
               weightKg={weightKg}
+              luteal={luteal}
             />
           )}
 

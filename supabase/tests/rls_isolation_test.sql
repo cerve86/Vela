@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (199);
+  plan (203);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -2112,6 +2112,43 @@ select is (
 
 reset role;
 update public.clients set restrictive_pattern = false where id = '00000000-0000-4000-8000-0000000000f1';
+
+-- Race-block fuel types on a day (31 October 2026) -----------------------------
+reset role;
+
+select lives_ok (
+  $$update public.program_days set fuel_type = 'long_rehearsal'
+    where program_id = '00000000-0000-4000-8000-0000000000b3' and title = 'Load Monday'$$,
+  'a day can take a race-block long-run card'
+);
+
+select throws_ok (
+  $$update public.program_days set fuel_type = 'carb_load'
+    where program_id = '00000000-0000-4000-8000-0000000000b3' and title = 'Load Monday'$$,
+  '23514',
+  null,
+  'and only a known one'
+);
+
+insert into public.fuel_cards (coach_id, key, kind, title, face, detail, published)
+values ('00000000-0000-4000-8000-0000000000a1', 'golden', 'cue', 'Draft rule',
+  '{"cue":"Her draft wording."}', '{}', false);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select ok (
+  'golden' = any (array(select public.hidden_fuel_cards ())),
+  'her phone learns which cards her coach keeps as drafts'
+);
+
+select is (
+  (select count(*) from public.fuel_cards where key = 'golden'),
+  0::bigint,
+  'but never their wording'
+);
+
+reset role;
 
 select * from finish ();
 

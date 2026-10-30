@@ -2074,6 +2074,7 @@ export type Database = {
       }
       has_cycle_consent: { Args: { p_client: string }; Returns: boolean }
       has_health_consent: { Args: { p_client: string }; Returns: boolean }
+      hidden_fuel_cards: { Args: never; Returns: string[] }
       import_health_metrics: { Args: { p_samples: Json }; Returns: number }
       is_coach_of: { Args: { target_client: string }; Returns: boolean }
       is_the_client: { Args: { target_client: string }; Returns: boolean }

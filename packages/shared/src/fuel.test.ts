@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   amountsFor,
+  asksFuelCheck,
   FUEL_DEFAULTS,
   fuelForSession,
   fuelTypeFor,
@@ -23,6 +24,30 @@ describe('fuelTypeFor', () => {
     assert.equal(fuelTypeFor({ discipline: 'run', title: 'Easy run', notes: '40 min' }), 'easy');
     assert.equal(fuelTypeFor({ discipline: 'rehab', title: 'Pelvic floor' }), 'easy');
     assert.equal(fuelTypeFor({ discipline: 'run', title: 'Walk-run intervals' }), 'easy');
+    assert.equal(
+      fuelTypeFor({ discipline: 'run', title: 'DOUBLE – AM 5 km easy · PM progression' }),
+      'double',
+    );
+    assert.equal(fuelTypeFor({ discipline: 'run', title: 'Easy 5 km · PM boxing' }), 'double');
+    assert.equal(
+      fuelTypeFor({ discipline: 'run', title: 'DOUBLE – AM 5 km easy + strength' }),
+      'double',
+    );
+  });
+
+  it('reads one evening session as itself, not a double day', () => {
+    assert.equal(fuelTypeFor({ discipline: 'strength', title: 'PM strength' }), 'strength');
+    assert.equal(
+      fuelTypeFor({ discipline: 'strength', title: 'Strength — lower (PM)' }),
+      'strength',
+    );
+    assert.equal(fuelTypeFor({ discipline: 'run', title: 'Tempo 6 PM' }), 'quality');
+    assert.equal(fuelTypeFor({ discipline: 'run', title: "Easy 40' @ 6 PM" }), 'easy');
+    assert.equal(fuelTypeFor({ discipline: 'mobility', title: 'AM walk · PM mobility' }), 'easy');
+    assert.equal(
+      fuelTypeFor({ discipline: 'strength', title: 'Lower body · double-leg bridges' }),
+      'strength',
+    );
   });
 
   it('lets the coach decide the day', () => {
@@ -39,12 +64,88 @@ describe('fuelForSession', () => {
     assert.deepEqual(f.extras, []);
   });
 
-  it('adds the heat cue and the pre-dawn variant to a long run only', () => {
+  it('adds the heat cue and the pre-dawn variant to a long run, the golden rule to every session', () => {
     assert.deepEqual(
       fuelForSession(cards, 'long', { restrictive: false }).extras.map((c) => c.key),
-      ['heat', 'predawn'],
+      ['heat', 'predawn', 'golden'],
     );
-    assert.deepEqual(fuelForSession(cards, 'quality', { restrictive: false }).extras, []);
+    assert.deepEqual(
+      fuelForSession(cards, 'quality', { restrictive: false }).extras.map((c) => c.key),
+      ['golden'],
+    );
+  });
+
+  it('gives an easy run the water-only card and the plate, other easy days the plate', () => {
+    const run = fuelForSession(cards, 'easy', { restrictive: false, discipline: 'run' });
+    assert.equal(run.main?.key, 'easy');
+    assert.deepEqual(
+      run.extras.map((c) => c.key),
+      ['plate'],
+    );
+    assert.equal(
+      fuelForSession(cards, 'easy', { restrictive: false, discipline: 'rehab' }).main?.key,
+      'plate',
+    );
+    assert.equal(
+      fuelForSession(cards, 'easy', { restrictive: false, discipline: 'run', minutes: 70 }).main
+        ?.key,
+      'plate',
+    );
+  });
+
+  it('gives a rest day the plate and the golden rule, stripped for a restrictive client', () => {
+    const coach = mergeFuelCards([
+      {
+        ...FUEL_DEFAULTS.find((c) => c.key === 'golden')!,
+        detail: { cue: '1 g per kg at dinner' },
+      },
+    ]);
+    const f = fuelForSession(coach, 'easy', { restrictive: true, rest: true });
+    assert.equal(f.main?.key, 'plate');
+    assert.deepEqual(f.extras.find((c) => c.key === 'golden')?.detail, {});
+  });
+
+  it('hides a default the coach keeps as a draft, though the client never reads the draft', () => {
+    const hidden = mergeFuelCards([], ['golden', 'luteal']);
+    assert.equal(hidden.find((c) => c.key === 'golden')?.published, false);
+    assert.equal(
+      fuelForSession(hidden, 'quality', { restrictive: false, luteal: true }).extras.length,
+      0,
+    );
+  });
+
+  it('picks the block long-run card, falling back to the general one when unpublished', () => {
+    const gut = fuelForSession(cards, 'long_gut', { restrictive: false });
+    assert.equal(gut.main?.key, 'long_gut');
+    // The pre-dawn cue's own rates stay off the block cards.
+    assert.deepEqual(
+      gut.extras.map((c) => c.key),
+      ['heat', 'golden'],
+    );
+    const hidden = cards.map((c) => (c.key === 'long_rehearsal' ? { ...c, published: false } : c));
+    const f = fuelForSession(hidden, 'long_rehearsal', { restrictive: false });
+    assert.equal(f.main?.key, 'long');
+    assert.ok(f.extras.some((c) => c.key === 'heat'));
+  });
+
+  it('adds the second-half-of-cycle cue only when she is in it', () => {
+    assert.ok(
+      fuelForSession(cards, 'easy', { restrictive: false, luteal: true }).extras.some(
+        (c) => c.key === 'luteal',
+      ),
+    );
+    assert.ok(
+      !fuelForSession(cards, 'long', { restrictive: false }).extras.some((c) => c.key === 'luteal'),
+    );
+  });
+
+  it('keeps the golden rule whole for a restrictive-pattern client, and asks no check on easy days', () => {
+    const golden = fuelForSession(cards, 'double', { restrictive: true }).extras.find(
+      (c) => c.key === 'golden',
+    );
+    assert.match(golden!.face.cue!, /never down/);
+    assert.equal(asksFuelCheck('easy'), false);
+    assert.equal(asksFuelCheck('long_gut'), true);
   });
 
   it('takes every amount off for a restrictive-pattern client', () => {
@@ -122,7 +223,7 @@ describe('amountsFor', () => {
   });
 
   it('gives every session card amounts in grams or millilitres', () => {
-    for (const c of FUEL_DEFAULTS)
+    for (const c of FUEL_DEFAULTS.filter((c) => c.key !== 'easy'))
       for (const line of Object.values(c.detail))
         assert.match(line!, /\d+(–\d+)?\s*(g|mL|L|mg)\b/, `${c.key}: ${line}`);
   });

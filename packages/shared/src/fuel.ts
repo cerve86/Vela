@@ -12,7 +12,23 @@
  * Pure and free of extensionless imports, so it is tested under `node --test` directly.
  */
 
-export type FuelType = 'long' | 'quality' | 'easy' | 'strength';
+export type FuelType =
+  | 'long'
+  | 'long_gut'
+  | 'long_absorb'
+  | 'long_rehearsal'
+  | 'quality'
+  | 'double'
+  | 'easy'
+  | 'strength';
+
+/**
+ * The long-run cards of a race block, which the coach picks per day: gut training in the
+ * first weeks, the absorption week, then race rehearsal. Untagged, a long run gets the
+ * general long-run card.
+ */
+export const LONG_RUN_TYPES: FuelType[] = ['long', 'long_gut', 'long_absorb', 'long_rehearsal'];
+export const isLongRun = (t: FuelType) => LONG_RUN_TYPES.includes(t);
 
 export interface FuelLines {
   before?: string;
@@ -36,6 +52,13 @@ export interface FuelCard {
 
 const QUALITY = /interval|tempo|quality|threshold|hill|bun|fartlek|race|speed|strides|track|vo2/i;
 const LONG = /\blong\b|\blsd\b/i;
+// Two sessions in a day: a DOUBLE tag ("DOUBLE – AM 5 km easy · PM progression"), an AM and
+// a PM part, or a PM part after another ("easy 5 km · PM boxing") — but not one evening
+// session ("Tempo 6 PM", "Strength (PM)") and not a "double-leg" movement.
+const isDouble = (title: string) =>
+  /\bdouble\b(?!-)/i.test(title) ||
+  /\bAM\b[\s\S]*\bPM\b/.test(title) ||
+  /[·+&,;]\s*PM\b/.test(title);
 
 /** Minutes written in a title or notes ("90 min", "1h30"), the largest one. */
 function minutesIn(text: string): number {
@@ -47,12 +70,18 @@ function minutesIn(text: string): number {
   return best;
 }
 
+/** A session's planned minutes, from its title or notes; null when neither says. */
+export function plannedMinutes(title: string, notes?: string | null): number | null {
+  return minutesIn(`${title} ${notes ?? ''}`) || null;
+}
+
 /**
- * The fuelling type of a session. The coach's choice on the day wins; otherwise strength
- * is strength, a run or cross day is long when it says so or runs past 75 minutes, easy
- * when it is a walk or walk-run, quality when its title reads like intervals or a
- * Run&Bun, and easy otherwise. Rehab and
- * mobility days are easy days.
+ * The fuelling type of a session. The coach's choice on the day wins — including which
+ * long-run card of a race block it gets; otherwise rehab and mobility days are easy days,
+ * a run, cross or strength day with two sessions (a DOUBLE tag, or a PM part after another)
+ * is a double day, strength is strength, a run or cross day is long when it
+ * says so or runs past 75 minutes, easy when it is a walk or walk-run, quality when its
+ * title reads like intervals or a Run&Bun, and easy otherwise.
  */
 export function fuelTypeFor(s: {
   discipline: string;
@@ -61,8 +90,10 @@ export function fuelTypeFor(s: {
   override?: FuelType | null;
 }): FuelType {
   if (s.override) return s.override;
+  if (s.discipline !== 'run' && s.discipline !== 'cross' && s.discipline !== 'strength')
+    return 'easy';
+  if (isDouble(s.title)) return 'double';
   if (s.discipline === 'strength') return 'strength';
-  if (s.discipline !== 'run' && s.discipline !== 'cross') return 'easy';
   const text = `${s.title} ${s.notes ?? ''}`;
   if (LONG.test(s.title) || minutesIn(text) >= 75) return 'long';
   // Walk-run intervals are return-to-running, not a hard session.
@@ -73,6 +104,148 @@ export function fuelTypeFor(s: {
 
 const card = (c: Omit<FuelCard, 'published' | 'sort'> & { sort?: number }, published = true) =>
   ({ published, sort: 0, ...c }) as FuelCard;
+
+const LONG_BEFORE =
+  'Carb meal 2–3 h before: 1–2 g per kg of body weight — e.g. 2 slices of white toast with honey and a banana is about 70 g. Drink 5–7 mL per kg in the same window.';
+const LONG_AFTER =
+  'Within about an hour: protein 0.3 g per kg (200 g Greek yogurt is about 20 g) with carbs 1–1.2 g per kg. Drink 1.25–1.5 L for every kg lost on the run.';
+
+/**
+ * Her race-block notes: the long run by block week (picked per day in the builder), easy
+ * runs, double days, the second half of the cycle, and the golden rule. What must reach a
+ * client flagged for restrictive patterns — fuel up, never down — sits on the face.
+ */
+const BLOCK_CARDS: FuelCard[] = [
+  card({
+    key: 'long_gut',
+    kind: 'session',
+    title: 'Long run · gut training',
+    face: {
+      before: 'A carb-based meal a few hours before.',
+      during: 'Practise fuelling: small regular doses once you’re settled into the run.',
+      after: 'Protein and carbs within the hour.',
+    },
+    detail: {
+      before: LONG_BEFORE,
+      during:
+        '20–30 g carbohydrate per hour — a gel, chews or sports drink, any form works: one dose every 20–25 min, starting at 40 minutes.',
+      after: LONG_AFTER,
+    },
+    why: 'Training your gut is part of training.',
+    evidence: null,
+    tag: null,
+    sort: 2,
+  }),
+  card({
+    key: 'long_absorb',
+    kind: 'session',
+    title: 'Long run · absorption week',
+    face: {
+      before: 'Your usual carb meal — don’t eat lighter because the week feels easier.',
+      during: 'Keep fuelling as on your other long runs.',
+      after: 'Protein and carbs within the hour.',
+    },
+    detail: {
+      before: LONG_BEFORE,
+      during:
+        '20–30 g carbohydrate per hour, one dose every 20–25 min from 40 minutes: intensity drops, distance stays — so fuelling stays.',
+      after: LONG_AFTER,
+    },
+    why: 'Intensity drops, distance stays — so fuelling stays. Carbs during the long run protect your bones too.',
+    evidence: null,
+    tag: null,
+    sort: 3,
+  }),
+  card({
+    key: 'long_rehearsal',
+    kind: 'session',
+    title: 'Long run · race rehearsal',
+    face: {
+      before: 'Extra carbs the day before, then your usual carb meal.',
+      during: 'Race-day fuelling: the same products, regular doses, and drink with them.',
+      after: 'Protein and carbs within the hour.',
+    },
+    detail: {
+      before: `Extra carbs the day before. ${LONG_BEFORE}`,
+      during:
+        '30–45 g carbohydrate per hour with the same products you will use on race day, a dose every 20–25 min. Fluid and a pinch of sodium with each: heat cuts carb absorption by about 20%, so don’t megadose — drink with it.',
+      after: LONG_AFTER,
+    },
+    why: 'Rehearse race day, so nothing on the day is new.',
+    evidence: null,
+    tag: null,
+    sort: 4,
+  }),
+  card({
+    key: 'double',
+    kind: 'session',
+    title: 'Double day',
+    face: {
+      before: 'Something carb-based before each session.',
+      during: 'Water; carbs only if a session runs past an hour.',
+      after: 'Carbs after both sessions — not just the second.',
+    },
+    detail: {
+      before:
+        'Easy-digest carbs 1–2 h before each session, low in fat and fibre: about 1 g per kg — a banana and a slice of white toast with jam is about 50 g.',
+      during: 'Water. Past 60 minutes, 30–60 g carbohydrate per hour.',
+      after:
+        'Carbs after both sessions. If the next session is less than 24 h away: roughly 1 g per kg each hour of fast carbs in the first 2 h after finishing. When the evening session is strength, 30–40 g dairy protein before bed as well.',
+    },
+    why: 'The second session runs on how well you refuelled after the first.',
+    evidence: null,
+    tag: null,
+    sort: 6,
+  }),
+  card({
+    key: 'easy',
+    kind: 'session',
+    title: 'Easy run',
+    face: {
+      before: 'Eat normally earlier in the day.',
+      during: 'Water only — nothing else.',
+      after: 'Your next normal meal.',
+    },
+    detail: {
+      before:
+        'No special load before an easy run under 60 minutes: eat normally earlier in the day.',
+      during: 'Water only. Carbs during would blunt what this run is building.',
+      after: 'No recovery fuel needed: your next meal, built on the plate.',
+    },
+    why: 'Easy runs under an hour are where your fat-burning engine improves; carbs during would blunt it.',
+    evidence: null,
+    tag: null,
+    sort: 7,
+  }),
+  card({
+    key: 'luteal',
+    kind: 'cue',
+    title: 'Second half of your cycle',
+    face: {
+      cue: 'A little more carbohydrate and protein than usual — and in the heat, add sodium to your water rather than plain water only.',
+    },
+    detail: {
+      cue: 'Slightly more carbs and protein than usual. On long or hard sessions in the heat, 500–1000 mg sodium per litre.',
+    },
+    why: 'In the second half of the cycle plasma volume is lower and sodium loss higher.',
+    evidence: null,
+    tag: null,
+    sort: 12,
+  }),
+  card({
+    key: 'golden',
+    kind: 'cue',
+    title: 'The golden rule',
+    face: {
+      cue: 'We scale fuel up to the session, never down: no fasted key sessions, and no low-carb evenings after training.',
+    },
+    detail: {},
+    why: null,
+    evidence: null,
+    tag: null,
+    sort: 13,
+  }),
+];
 
 /** Session cards and cues from her framework; she rewrites them in the portal. */
 export const FUEL_DEFAULTS: FuelCard[] = [
@@ -118,7 +291,7 @@ export const FUEL_DEFAULTS: FuelCard[] = [
     why: 'Hard sessions run on carbohydrate; recovery starts with the next meal.',
     evidence: null,
     tag: null,
-    sort: 2,
+    sort: 5,
   }),
   card({
     key: 'strength',
@@ -127,19 +300,19 @@ export const FUEL_DEFAULTS: FuelCard[] = [
     face: {
       before: 'Protein and some carbs beforehand — not fasted.',
       during: 'Water.',
-      after: 'A protein-rich meal within a couple of hours.',
+      after: 'A protein-rich meal, and dairy protein before bed after an evening session.',
     },
     detail: {
       before:
         'Protein and some carbs 1–2 h before — 150 g Greek yogurt with a banana is about 15 g protein and 30 g carbs.',
       during: 'Water, about 500 mL across the session.',
       after:
-        'Protein 25–40 g within about 2 hours — 100–120 g cooked chicken is about 30–35 g; 2 eggs and 200 g Greek yogurt about 32 g.',
+        'Protein 25–40 g within about 2 hours — 100–120 g cooked chicken is about 30–35 g; 2 eggs and 200 g Greek yogurt about 32 g. On a strength evening, before bed: 30–40 g dairy protein — 300–400 g Greek yogurt or a casein shake; a big glass of milk (about 10 g) counts toward it.',
     },
-    why: 'Protein across the day builds what the session asks for.',
+    why: 'Your muscles and tendons rebuild overnight — feed them.',
     evidence: null,
     tag: null,
-    sort: 3,
+    sort: 8,
   }),
   card({
     key: 'plate',
@@ -152,7 +325,7 @@ export const FUEL_DEFAULTS: FuelCard[] = [
     why: 'Easy days need less carbohydrate; the order keeps energy steady.',
     evidence: null,
     tag: null,
-    sort: 4,
+    sort: 9,
   }),
   card({
     key: 'heat',
@@ -165,7 +338,7 @@ export const FUEL_DEFAULTS: FuelCard[] = [
     why: 'Singapore heat raises sweat and sodium losses year-round.',
     evidence: null,
     tag: null,
-    sort: 5,
+    sort: 10,
   }),
   card({
     key: 'predawn',
@@ -178,8 +351,9 @@ export const FUEL_DEFAULTS: FuelCard[] = [
     why: 'No time for a full meal: shift the fuel into the run instead.',
     evidence: null,
     tag: null,
-    sort: 6,
+    sort: 11,
   }),
+  ...BLOCK_CARDS,
 ];
 
 /**
@@ -219,16 +393,24 @@ export const SUPPLEMENT_DEFAULTS: FuelCard[] = (
       why: null,
       evidence: null,
       tag,
-      sort: 10 + i,
+      sort: 20 + i,
     },
     false,
   ),
 );
 
-/** Her cards over the defaults: one of hers with the same key replaces the default. */
-export function mergeFuelCards(mine: FuelCard[]): FuelCard[] {
+/**
+ * Her cards over the defaults: one of hers with the same key replaces the default. A client
+ * reads only her published cards, so `hidden` — the keys she keeps as drafts — takes the
+ * default under each off the phone as well.
+ */
+export function mergeFuelCards(mine: FuelCard[], hidden: string[] = []): FuelCard[] {
   const byKey = new Map([...FUEL_DEFAULTS, ...SUPPLEMENT_DEFAULTS].map((c) => [c.key, c]));
   for (const c of mine) byKey.set(c.key, c);
+  for (const k of hidden) {
+    const c = byKey.get(k);
+    if (c) byKey.set(k, { ...c, published: false });
+  }
   return [...byKey.values()].sort((a, b) => a.sort - b.sort);
 }
 
@@ -241,33 +423,71 @@ export interface TodayFuel {
 }
 
 /**
- * What the session screen shows. Easy days get the plate reminder, not a fuelling card;
- * long runs add the heat cue and the pre-dawn variant. Only published cards count, and a
+ * What the session screen shows. An easy run gets the easy-run card and the plate reminder,
+ * other easy days the plate alone; long runs add the heat cue and the pre-dawn variant;
+ * every other session the golden rule; and the second half of her cycle its own cue. Only published cards count, and a
  * restrictive-pattern client gets them with every amount taken off. With her weight, the
  * per-kg amounts also read in grams and millilitres for her.
  */
 export function fuelForSession(
   cards: FuelCard[],
   type: FuelType,
-  opts: { restrictive: boolean; weightKg?: number | null },
+  opts: {
+    restrictive: boolean;
+    weightKg?: number | null;
+    /** The session's discipline: an easy run gets the easy-run card, other easy days the plate. */
+    discipline?: string | null;
+    /** In the second half of her cycle, from cycle context she chose to share. */
+    luteal?: boolean;
+    /** The session's planned minutes, when its title or notes say: easy runs of an hour or more are not water-only. */
+    minutes?: number | null;
+    /** A day without a session: the plate, with the golden rule as well. */
+    rest?: boolean;
+  },
 ): TodayFuel {
   const live = new Map(cards.filter((c) => c.published).map((c) => [c.key, c]));
   const strip = (c: FuelCard | undefined) =>
     c ? (opts.restrictive ? { ...c, detail: {} } : forWeight(c, opts.weightKg)) : null;
-  const main = strip(live.get(type === 'easy' ? 'plate' : type));
-  const extras =
-    type === 'long'
-      ? ([strip(live.get('heat')), strip(live.get('predawn'))].filter(Boolean) as FuelCard[])
-      : [];
+  const easyRun =
+    type === 'easy' &&
+    (opts.discipline === 'run' || opts.discipline === 'cross') &&
+    (opts.minutes == null || opts.minutes < 60);
+  const pick = (): FuelCard | undefined => {
+    if (type === 'easy') return (easyRun && live.get('easy')) || live.get('plate');
+    // A block long-run card she has not published falls back to the general one.
+    if (isLongRun(type)) return live.get(type) ?? live.get('long');
+    return live.get(type);
+  };
+  const main = strip(pick());
+  const extraKeys = [
+    // The pre-dawn cue carries its own rates: only beside the general long-run card, not the
+    // block cards with hers.
+    ...(isLongRun(type) ? ['heat'] : []),
+    ...(type === 'long' ? ['predawn'] : []),
+    ...(easyRun && main?.key === 'easy' ? ['plate'] : []),
+    ...(opts.luteal ? ['luteal'] : []),
+    ...(type !== 'easy' || opts.rest ? ['golden'] : []),
+  ];
+  const extras = extraKeys.map((k) => strip(live.get(k))).filter(Boolean) as FuelCard[];
   return { type, main, extras };
 }
 
+/** The fuelling check follows a session that had something to fuel: not an easy day. */
+export const asksFuelCheck = (type: FuelType) => type !== 'easy';
+
 export const FUEL_TYPE_LABEL: Record<FuelType, string> = {
   long: 'Long run',
+  long_gut: 'Long run · gut training',
+  long_absorb: 'Long run · absorption week',
+  long_rehearsal: 'Long run · race rehearsal',
   quality: 'Quality session',
+  double: 'Double day',
   easy: 'Easy day',
   strength: 'Strength',
 };
+
+/** The type in a word or two, where space is short: every long run is a long run. */
+export const fuelTypeShort = (t: FuelType) => (isLongRun(t) ? 'Long run' : FUEL_TYPE_LABEL[t]);
 
 /** The order a card's lines read in, whatever order they were stored in. */
 export const FUEL_LINES: (keyof FuelLines)[] = ['before', 'during', 'after', 'cue'];
