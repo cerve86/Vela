@@ -115,8 +115,17 @@ function Gate() {
       <Stack.Screen name="program" />
       <Stack.Screen name="calendar" />
       <Stack.Screen name="weekly" />
-      {/* A pushed screen, not a sheet: the keyboard and a sheet fight each other. */}
-      <Stack.Screen name="messages" />
+      {/* A pushed screen, not a sheet: the keyboard and a sheet fight each other. Opened
+          from a session — itself a sheet — it covers the screen instead, because a screen
+          pushed under a sheet opens out of sight. */}
+      <Stack.Screen
+        name="messages"
+        options={({ route }) => ({
+          presentation: (route.params as { session?: string } | undefined)?.session
+            ? 'fullScreenModal'
+            : 'card',
+        })}
+      />
       <Stack.Screen name="health" options={{ presentation: 'modal' }} />
       <Stack.Screen name="session/[id]" options={{ presentation: 'modal' }} />
       <Stack.Screen name="food/add" options={{ presentation: 'modal' }} />

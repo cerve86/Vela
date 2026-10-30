@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -58,9 +58,15 @@ export default function MessagesScreen() {
     void markRead(supabase, client.id, 'coach');
   }, [client]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  // On every visit, and every 20 seconds while she has it open: a reply that lands while
+  // she is reading the thread shows up without leaving it.
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+      const id = setInterval(() => void load(), 20_000);
+      return () => clearInterval(id);
+    }, [load]),
+  );
 
   async function send() {
     if (!client || sending) return;
@@ -160,9 +166,13 @@ export default function MessagesScreen() {
             <Card style={{ borderRadius: 22, marginTop: t.space.lg }}>
               <View style={{ alignItems: 'center', gap: 10, paddingVertical: 8 }}>
                 <Illustration name="welcome" width={150} />
-                <Body size={13} color={t.textSecondary} style={{ textAlign: 'center', lineHeight: 19 }}>
-                  Nothing here yet. Anything that felt off, or a question between
-                  appointments — this is the place for it.
+                <Body
+                  size={13}
+                  color={t.textSecondary}
+                  style={{ textAlign: 'center', lineHeight: 19 }}
+                >
+                  Nothing here yet. Anything that felt off, or a question between appointments —
+                  this is the place for it.
                 </Body>
               </View>
             </Card>
@@ -183,7 +193,9 @@ export default function MessagesScreen() {
                 paddingHorizontal: 12,
               }}
             >
-              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: t.brand[600] }} />
+              <View
+                style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: t.brand[600] }}
+              />
               <Body size={11} color={t.textSecondary}>
                 About {about ?? 'this session'}
               </Body>

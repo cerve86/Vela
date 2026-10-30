@@ -29,6 +29,7 @@ import { HeroBand } from '@/components/hero';
 import { Mascot, TrendGauge, type MascotMood } from '@/components/mascot';
 import { RingStat } from '@/components/rings';
 import { CheckInCard } from '@/components/checkin';
+import { CoachMessageCard } from '@/components/coachMessage';
 import { Prose } from '@/components/prose';
 import { Illustration } from '@/components/Illustration';
 import { useTheme } from '@/theme';
@@ -369,6 +370,8 @@ export default function TodayScreen() {
             </View>
           </View>
         </HeroBand>
+
+        <CoachMessageCard />
 
         <CheckInCard
           wellnessDue={!wellness.loading && wellness.data === null && Boolean(client)}
