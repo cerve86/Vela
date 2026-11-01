@@ -16,10 +16,14 @@ const PUBLIC_PATHS = [
   '/api/',
   '/done/',
   '/welcome',
+  '/companion',
 ];
 // `/api/` is here because route handlers authenticate themselves and answer 401 as JSON.
 // A script posting a programme with a Bearer token has no cookie, and redirecting it to
 // an HTML sign-in page is the wrong answer to a machine.
+//
+// `/companion` is the athletes' web app: a static site that signs in on its own, with a
+// code, and keeps that session in the browser rather than in the portal's cookie.
 
 /**
  * Refreshes the auth cookie on every request and gates the dashboard.

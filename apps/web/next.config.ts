@@ -42,5 +42,10 @@ export default function config(phase: string): NextConfig {
     // The shared package ships raw TypeScript so mobile and web consume one source of
     // truth without a build step in between.
     transpilePackages: ['@vela/shared'],
+    // The athletes' companion (apps/companion, copied into public/companion before dev
+    // and build). A folder in public/ is not served at its bare path, so name the page.
+    async rewrites() {
+      return [{ source: '/companion', destination: '/companion/index.html' }];
+    },
   };
 }

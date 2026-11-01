@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base href="/companion/">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B4FD8">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+<title>Energy &amp; Nutrition Check</title>
+</head>
+<body>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* On-demand energy & nutrition risk screen: LEAF-Q-informed energy module + simplified iron / vitamin D,
+     with a gentle food-first recommendation ladder. Vela "Poppy blue" palette, matching the companion. */
+  :root{
+    --bg:#F2F6FF; --surface:#FFFFFF; --ink:#12172B; --muted:#57608A;
+    --line:#E3E8F4; --grid:#DDE3F2; --ring:#EDF1FB;
+    --accent:#1B4FD8; --accent-fill:#1B4FD8; --on-accent:#FFFFFF; --chip:#F3F5F9;
+    --good:#08744A; --warn:#8A5B00;
+    --d-ser:"Outfit","Avenir Next","Segoe UI",system-ui,sans-serif;
+    --d-body:"Plus Jakarta Sans","Segoe UI",system-ui,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --bg:#0E1220; --surface:#171C2E; --ink:#EEF2FF; --muted:#A9B3D4;
+    --line:#2A3150; --grid:#2A3150; --ring:#1E2438;
+    --accent:#8FAEFF; --accent-fill:#3B6BE8; --on-accent:#FFFFFF; --chip:#232A42;
+    --good:#3ACB8E; --warn:#E8A200; color-scheme:dark;
+  }}
+  :root[data-theme="dark"]{
+    --bg:#0E1220; --surface:#171C2E; --ink:#EEF2FF; --muted:#A9B3D4;
+    --line:#2A3150; --grid:#2A3150; --ring:#1E2438;
+    --accent:#8FAEFF; --accent-fill:#3B6BE8; --on-accent:#FFFFFF; --chip:#232A42;
+    --good:#3ACB8E; --warn:#E8A200; color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--d-body);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;
+    padding-left:max(16px,env(safe-area-inset-left,0px));
+    padding-right:max(16px,env(safe-area-inset-right,0px));
+    padding-block:28px 48px}
+  .eyebrow{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 6px}
+  h1{font-family:var(--d-ser);font-weight:600;font-size:clamp(1.9rem,5vw,2.6rem);line-height:1.08;margin:0 0 10px;text-wrap:balance;letter-spacing:-.02em}
+  .lede{margin:0;max-width:60ch;color:var(--muted);font-size:1.02rem}
+  .when{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:13px 15px;margin:18px 0 6px;font-size:.9rem;color:var(--muted)}
+  .when b{color:var(--ink)}
+  .mod{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:18px;margin-top:16px}
+  .mod h2{font-family:var(--d-ser);font-weight:500;font-size:1.3rem;margin:0 0 3px}
+  .mod .intro{margin:0 0 10px;font-size:.88rem;color:var(--muted)}
+  .qrow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-top:1px solid var(--line)}
+  .qrow p{margin:0;font-size:.9rem;min-width:0}
+  .yn{display:flex;gap:6px;flex:0 0 auto}
+  .yn button{font:inherit;font-size:.8rem;font-weight:600;padding:7px 13px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+  .yn button[aria-pressed="true"]{color:var(--on-accent);border-color:transparent;background:var(--accent-fill)}
+  .readout{margin-top:14px;border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;padding:13px 15px;font-size:.93rem;line-height:1.5;color:var(--ink);background:var(--bg)}
+  .readout .pill{display:inline-block;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 10px;border-radius:999px;border:1px solid currentColor;margin-bottom:8px}
+  .readout.good{border-left-color:var(--good)} .readout.good .pill{color:var(--good)}
+  .readout.warn{border-left-color:var(--warn)} .readout.warn .pill{color:var(--warn)}
+  .readout .step{margin-top:7px;font-size:.88rem;color:var(--muted)}
+  .readout .step b{color:var(--ink)}
+  .recs{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:20px}
+  .recs h2{font-family:var(--d-ser);font-weight:500;font-size:1.35rem;margin:0 0 10px}
+  .rec{display:flex;gap:12px;padding:11px 0;border-top:1px solid var(--line)}
+  .rec:first-of-type{border-top:0}
+  .rec .n{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:var(--chip);color:var(--accent);font-weight:700;font-size:.82rem;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+  .rec h3{margin:0 0 2px;font-size:.98rem}
+  .rec p{margin:0;font-size:.87rem;color:var(--muted);line-height:1.45}
+  .rec p b{color:var(--ink);font-weight:600}
+  .foot{margin-top:26px;font-size:.84rem;color:var(--muted);max-width:66ch;border-top:1px solid var(--line);padding-top:14px}
+  .foot strong{color:var(--ink);font-weight:600}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<div class="wrap">
+  <p><a href="index.html" style="color:inherit">&larr; Back to the companion</a></p>
+  <p class="eyebrow">Coach check-in</p>
+  <h1>Energy &amp; nutrition check</h1>
+  <p class="lede">A quick look at the three things that quietly hold endurance back — under-fuelling, low iron, and low vitamin D. It's a pointer, not a diagnosis, and it stays between you and your coach.</p>
+
+  <div class="when"><b>When to run this:</b> once early in a training block — iron and vitamin D take weeks to months to put right, so there's time to act — and again in your peak weeks, when the load is highest.</div>
+
+  <div class="mod" id="mod-reds">
+    <h2>Energy availability</h2>
+    <p class="intro">How your body's been running lately — based on a validated screen (the LEAF-Q) plus our own check. Nothing here is about food or weight.</p>
+    <div class="qs"></div>
+    <div class="readout"></div>
+  </div>
+
+  <div class="mod" id="mod-iron">
+    <h2>Iron</h2>
+    <p class="intro">A few things that raise the odds of running low on iron.</p>
+    <div class="qs"></div>
+    <div class="readout"></div>
+  </div>
+
+  <div class="mod" id="mod-vitd">
+    <h2>Vitamin D</h2>
+    <p class="intro">Mostly about sunlight and how much reaches your skin.</p>
+    <div class="qs"></div>
+    <div class="readout"></div>
+  </div>
+
+  <div class="recs" id="recs" hidden>
+    <h2>What you can do</h2>
+    <div class="body"></div>
+  </div>
+
+  <p class="foot"><strong>A pointer, not a diagnosis — and not a referral.</strong> This flags what's worth a conversation or a simple blood test, and suggests values to discuss; your GP evaluates them against your full history. Your answers stay on this device, your coach confirms anything before your plan changes, and if eating ever feels stressful or out of your control, you deserve proper support — say the word and your coach will help you find it.</p>
+</div>
+
+<script>
+(function(){
+  var MODS={
+    "mod-reds":{
+      threshold:3,
+      qs:[
+        "An injury in the last year that kept me out of training for a while",
+        "Recurrent niggles, stress reactions or bone-stress injuries",
+        "Regular bloating, constipation or other gut discomfort",
+        "My periods are irregular, very light, or have stopped (and no contraceptive explains it)",
+        "My periods changed or stopped when my training load went up",
+        "Persistent tiredness or heavy legs that rest doesn't fix",
+        "I feel cold, flat, or low on drive a lot of the time",
+        "I seem to catch every bug going"
+      ],
+      clear:{pill:"Looks well-fuelled",msg:"Nothing here is flagging — your body looks like it's getting the fuel the training asks for.",step:""},
+      flag:{pill:"Worth a conversation",msg:"A few of these together can point to under-fuelling (low energy availability). Nothing is wrong with you — it usually just means the fuel hasn't kept pace with the training, and that's very fixable.",step:""}
+    },
+    "mod-iron":{
+      threshold:2,
+      qs:[
+        "My periods are heavy or long",
+        "I eat little or no red meat (mostly plant-based)",
+        "I've been told my iron or ferritin was low before",
+        "I have gut issues (or coeliac disease)",
+        "I'm often breathless or wiped out beyond the normal training tired",
+        "My training volume is high right now"
+      ],
+      clear:{pill:"Low risk today",msg:"No strong iron risk factors showing right now.",step:""},
+      flag:{pill:"Worth a blood test",msg:"A few iron risk factors here — common in endurance women, and very fixable once you know.",step:""}
+    },
+    "mod-vitd":{
+      threshold:2,
+      qs:[
+        "I get little midday sun on most days, or I'm mostly indoors",
+        "I'm usually covered up or wearing sunscreen when outside",
+        "I have a darker skin tone",
+        "I'm not taking a vitamin D supplement",
+        "Where I am has weak winter sun, or I'm in air-con indoors most of the day"
+      ],
+      clear:{pill:"Low risk today",msg:"Low vitamin-D risk from these.",step:""},
+      flag:{pill:"Worth a blood test",msg:"A few vitamin-D risk factors here.",step:""}
+    }
+  };
+
+  var flags={}; // id -> {answered, flagged}
+
+  Object.keys(MODS).forEach(function(id){
+    var cfg=MODS[id], root=document.getElementById(id), qbox=root.querySelector('.qs'), out=root.querySelector('.readout');
+    var KEY="rb-screen2-"+id, ans={};
+    try{var s=JSON.parse(localStorage.getItem(KEY));if(s)ans=s;}catch(e){}
+    function save(){try{localStorage.setItem(KEY,JSON.stringify(ans));}catch(e){}}
+    cfg.qs.forEach(function(q,i){
+      var row=document.createElement('div');row.className='qrow';
+      var p=document.createElement('p');p.textContent=q;row.appendChild(p);
+      var yn=document.createElement('div');yn.className='yn';
+      [["yes","Yes"],["no","No"]].forEach(function(o){
+        var b=document.createElement('button');b.type='button';b.textContent=o[1];
+        b.setAttribute('aria-pressed', ans[i]===o[0]?'true':'false');
+        b.onclick=function(){ans[i]=o[0];
+          Array.prototype.slice.call(yn.querySelectorAll('button')).forEach(function(x){x.setAttribute('aria-pressed','false');});
+          b.setAttribute('aria-pressed','true');save();render();};
+        yn.appendChild(b);
+      });
+      row.appendChild(yn);qbox.appendChild(row);
+    });
+    function render(){
+      var answered=0, yes=0;
+      cfg.qs.forEach(function(q,i){ if(ans[i]){answered++; if(ans[i]==='yes')yes++;} });
+      var flagged = yes>=cfg.threshold;
+      flags[id]={answered:answered>0, flagged:flagged};
+      if(answered===0){ out.className='readout'; out.innerHTML="Tap through the questions for your read."; renderRecs(); return; }
+      var r = flagged?cfg.flag:cfg.clear;
+      out.className='readout '+(flagged?'warn':'good');
+      out.innerHTML='<span class="pill">'+r.pill+'</span><div>'+r.msg+'</div>'+(r.step?'<div class="step">'+r.step+'</div>':'');
+      renderRecs();
+    }
+    render();
+  });
+
+  function renderRecs(){
+    var recsEl=document.getElementById('recs'), body=recsEl.querySelector('.body');
+    var anyAnswered = Object.keys(flags).some(function(k){return flags[k]&&flags[k].answered;});
+    var reds=flags['mod-reds']&&flags['mod-reds'].flagged, iron=flags['mod-iron']&&flags['mod-iron'].flagged, vitd=flags['mod-vitd']&&flags['mod-vitd'].flagged;
+    if(!anyAnswered){ recsEl.hidden=true; return; }
+    recsEl.hidden=false;
+    if(!reds && !iron && !vitd){
+      body.innerHTML='<p style="margin:0;font-size:.92rem;color:var(--muted)">Nothing is flagging right now — keep fuelling and sleeping the way you are. Run this again in your peak weeks.</p>';
+      return;
+    }
+    var steps=[];
+    // 1 — food first (always, when anything flags, esp. energy)
+    steps.push({h:"Start with food, not restriction",p:"The most powerful fix is usually the simplest: <b>add, don't cut</b>. An extra snack around training, a bigger breakfast, carbs beside your sessions. Small, consistent additions beat any supplement."});
+    // 2 — sleep
+    steps.push({h:"Protect your sleep",p:"Steady wind-down, a dark cool room, caffeine earlier in the day. Under-recovery and under-fuelling feed each other, so sleep is part of the fuelling picture."});
+    // 3 — aids, cautious
+    steps.push({h:"Aids — only with your GP",p:"Correcting a <b>confirmed</b> low iron or vitamin D is the highest-value one. Magnesium may help sleep and cramps (modest evidence). Be cautious with adaptogens like <b>ashwagandha</b> — limited evidence, and not advised in pregnancy, breast-feeding, or with thyroid conditions. Clear anything with your doctor first; this isn't a product recommendation."});
+    // 4 — bloods to discuss, dynamic
+    var markers=[];
+    if(iron) markers.push("ferritin, transferrin saturation (TSAT) and CRP");
+    if(vitd) markers.push("25(OH)D (vitamin D)");
+    if(reds) markers.push("your GP may also weigh thyroid (free T3) and other markers");
+    var mtxt = markers.length ? markers.join("; ") : "the markers above";
+    steps.push({h:"Values worth a blood test",p:"Ask your GP about <b>"+mtxt+"</b>. Take these in and your GP evaluates them against your full history (anamnesis). <b>This isn't a referral or a diagnosis</b> — just the values worth a conversation."});
+
+    body.innerHTML = steps.map(function(s,i){return '<div class="rec"><div class="n">'+(i+1)+'</div><div><h3>'+s.h+'</h3><p>'+s.p+'</p></div></div>';}).join('');
+  }
+  renderRecs();
+})();
+</script>
+
+</body>
+</html>

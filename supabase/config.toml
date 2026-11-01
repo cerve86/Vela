@@ -179,6 +179,9 @@ additional_redirect_urls = [
   "https://www.vela-coaching.com/auth/callback",
   "https://vela-coaching.com",
   "https://vela-coaching.com/auth/callback",
+  # The companion signs in with the emailed code; these only serve the link underneath it.
+  "https://www.vela-coaching.com/companion",
+  "https://www.vela-coaching.com/companion/index.html",
   "https://vela-web-phi.vercel.app",
   "https://vela-web-phi.vercel.app/auth/callback",
   "http://localhost:4310",

@@ -711,6 +711,217 @@ export type Database = {
           },
         ]
       }
+      companion_movement_profiles: {
+        Row: {
+          assessed_at: string
+          client_id: string
+          created_at: string
+          focus: string | null
+          id: string
+          scores: Json
+        }
+        Insert: {
+          assessed_at?: string
+          client_id: string
+          created_at?: string
+          focus?: string | null
+          id?: string
+          scores: Json
+        }
+        Update: {
+          assessed_at?: string
+          client_id?: string
+          created_at?: string
+          focus?: string | null
+          id?: string
+          scores?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companion_movement_profiles_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      companion_profiles: {
+        Row: {
+          client_id: string
+          intervals_icu_id: string | null
+          updated_at: string
+          weight_kg: number | null
+        }
+        Insert: {
+          client_id: string
+          intervals_icu_id?: string | null
+          updated_at?: string
+          weight_kg?: number | null
+        }
+        Update: {
+          client_id?: string
+          intervals_icu_id?: string | null
+          updated_at?: string
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companion_profiles_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      companion_readiness: {
+        Row: {
+          client_id: string
+          created_at: string
+          energy: number | null
+          hrv: number | null
+          id: string
+          last_session: number | null
+          legs: number | null
+          log_date: string
+          rhr: number | null
+          sleep: number | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          energy?: number | null
+          hrv?: number | null
+          id?: string
+          last_session?: number | null
+          legs?: number | null
+          log_date?: string
+          rhr?: number | null
+          sleep?: number | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          energy?: number | null
+          hrv?: number | null
+          id?: string
+          last_session?: number | null
+          legs?: number | null
+          log_date?: string
+          rhr?: number | null
+          sleep?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companion_readiness_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      companion_resources: {
+        Row: {
+          active: boolean
+          audience: string
+          blurb: string | null
+          coach_id: string
+          created_at: string
+          id: string
+          image_url: string | null
+          link_url: string | null
+          sort: number
+          title: string
+        }
+        Insert: {
+          active?: boolean
+          audience?: string
+          blurb?: string | null
+          coach_id: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          link_url?: string | null
+          sort?: number
+          title: string
+        }
+        Update: {
+          active?: boolean
+          audience?: string
+          blurb?: string | null
+          coach_id?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          link_url?: string | null
+          sort?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companion_resources_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      companion_routes: {
+        Row: {
+          active: boolean
+          coach_id: string
+          created_at: string
+          description: string | null
+          distance_km: number | null
+          id: string
+          map_url: string | null
+          name: string
+          sort: number
+          start_point: string | null
+          strava_url: string | null
+          terrain: string | null
+        }
+        Insert: {
+          active?: boolean
+          coach_id: string
+          created_at?: string
+          description?: string | null
+          distance_km?: number | null
+          id?: string
+          map_url?: string | null
+          name: string
+          sort?: number
+          start_point?: string | null
+          strava_url?: string | null
+          terrain?: string | null
+        }
+        Update: {
+          active?: boolean
+          coach_id?: string
+          created_at?: string
+          description?: string | null
+          distance_km?: number | null
+          id?: string
+          map_url?: string | null
+          name?: string
+          sort?: number
+          start_point?: string | null
+          strava_url?: string | null
+          terrain?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companion_routes_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consents: {
         Row: {
           client_id: string
@@ -2002,6 +2213,18 @@ export type Database = {
           unmeasured7: number
         }[]
       }
+      companion_my_strength: {
+        Args: never
+        Returns: {
+          cues: string[]
+          domain: string
+          dose: string
+          movement: string
+          tag: string
+          video_url: string
+          why: string
+        }[]
+      }
       create_client_invite: {
         Args: {
           p_breastfeeding?: boolean
@@ -2076,6 +2299,7 @@ export type Database = {
       has_health_consent: { Args: { p_client: string }; Returns: boolean }
       hidden_fuel_cards: { Args: never; Returns: string[] }
       import_health_metrics: { Args: { p_samples: Json }; Returns: number }
+      is_client_of_coach: { Args: { p_coach: string }; Returns: boolean }
       is_coach_of: { Args: { target_client: string }; Returns: boolean }
       is_the_client: { Args: { target_client: string }; Returns: boolean }
       join_words: { Args: { p: string[] }; Returns: string }

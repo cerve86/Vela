@@ -43,3 +43,6 @@ supabase/.temp/
 # not shareable state and this repository is public. The project-wide file
 # (.claude/settings.json) is the one to commit if the team ever needs shared rules.
 .claude/settings.local.json
+
+# companion — copied from apps/companion by apps/web/scripts/copy-companion.mjs
+apps/web/public/companion/

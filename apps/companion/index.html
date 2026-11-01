@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Served from the portal at /companion/; every relative URL below resolves from here. -->
+<base href="/companion/">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B4FD8">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+<title>Vela Companion</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="splash" aria-hidden="true">
+  <svg viewBox="0 0 96 104" role="img" aria-label="Vela">
+    <g class="boat">
+      <path d="M42 30 L42 81 L15 81 Q25 52 42 30 Z" fill="#B8CCFF"/>
+      <path d="M48 15 L48 81 L81 81 Q73 46 48 15 Z" fill="#FFFFFF"/>
+    </g>
+    <path class="wave" d="M6 94 q10 -6 21 0 t21 0 t21 0 t21 0" fill="none" stroke="#B8CCFF" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+  </svg>
+  <p class="hi" id="splashHi"></p>
+</div>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="15 15 66 66" aria-hidden="true"><path d="M42 30 L42 81 L15 81 Q25 52 42 30 Z" fill="var(--jib)"/><path d="M48 15 L48 81 L81 81 Q73 46 48 15 Z" fill="var(--main)"/></svg>
+      <span class="app">Vela<small>Companion</small></span>
+    </div>
+    <details class="acct" id="acct" hidden>
+      <summary aria-label="Your account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></summary>
+      <div class="menu">
+        <span class="who" id="acctWho"></span>
+        <button type="button" onclick="signOut()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>Sign out</button>
+      </div>
+    </details>
+  </header>
+
+  <!-- LOGIN -->
+  <main id="login" hidden>
+    <div class="card">
+      <h2 class="section-h">Sign in</h2>
+      <p class="section-s">Use the email you sign into the Vela app with. I'll send you a six-digit code — no password to remember.</p>
+      <input type="email" id="email" placeholder="you@email.com" autocomplete="email">
+      <button class="primary" id="sendLink">Send my code</button>
+      <div id="codeStep" hidden style="margin-top:14px">
+        <input type="text" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code">
+        <button class="primary" id="verifyCode">Sign in</button>
+      </div>
+      <p class="hintline" id="loginMsg" style="margin-top:10px"></p>
+    </div>
+  </main>
+
+  <!-- SIGNED IN, BUT NOT AN ATHLETE -->
+  <main id="notClient" hidden>
+    <div class="card">
+      <h2 class="section-h">This is the athletes' companion</h2>
+      <p class="section-s">This account isn't linked to an athlete. Coaches use the portal; athletes sign in with the email they use in the Vela app.</p>
+      <button class="chip" onclick="signOut()">Sign out</button>
+    </div>
+  </main>
+
+  <!-- APP -->
+  <main id="app" hidden>
+    <!-- TODAY -->
+    <section data-view="today">
+      <h2 class="section-h" id="greet">Good morning</h2>
+      <p class="section-s" id="todayLine">Here's your week, your profile, and today's check-in.</p>
+      <div class="today-grid">
+        <div class="card sumcard" id="plancard"><p class="hintline">Loading your plan…</p></div>
+        <div class="card sumcard" id="profcard"><p class="hintline">Loading your profile…</p></div>
+      </div>
+      <h3 class="sublabel">Morning check-in</h3>
+      <p class="section-s">A few taps and I'll suggest how to take today — a nudge, never an order. You can always just tell me you'd rather rest and we'll move it.</p>
+      <div class="checkcard">
+        <div class="frows" id="amrows"></div>
+        <details class="watch">
+          <summary>Add your watch numbers (optional)</summary>
+          <div class="wfields">
+            <label>Resting HR<input id="rhr" type="number" inputmode="numeric" min="30" max="120" step="1" placeholder="bpm"></label>
+            <label>HRV<input id="hrv" type="number" inputmode="numeric" min="10" max="200" step="1" placeholder="ms"></label>
+          </div>
+          <p class="estnote" id="baseinfo"></p>
+        </details>
+        <div class="readout" id="amout">Tap through the four above for today's read.</div>
+      </div>
+      <a class="card qcard" href="nutrition.html">
+        <span class="qi"><svg viewBox="0 0 24 24"><path d="M9 3h6"/><path d="M10 3v3.5L5.5 17A2.5 2.5 0 0 0 7.8 20.5h8.4a2.5 2.5 0 0 0 2.3-3.5L14 6.5V3"/><path d="M7.5 14h9"/></svg></span>
+        <span class="qt"><b>Energy &amp; nutrition check</b><span>A short questionnaire on fuelling, iron and vitamin D — about 3 minutes. Stays between you and your coach.</span></span>
+        <span class="go">Start →</span>
+      </a>
+    </section>
+
+    <!-- FUEL -->
+    <section data-view="fuel" hidden>
+      <h2 class="section-h">Did you fuel the work today?</h2>
+      <p class="section-s">Fuel follows the day. A big session needs plenty; an easy, recovery or unwell day needs less — and that's right, not a miss. Pick today first; the "enough" mark moves to match.</p>
+      <div class="fuelcard">
+        <div class="viz"><div id="fuelsvg"></div><div class="cap" id="fuelcap">Pick today first</div></div>
+        <div class="fuelmain">
+          <div class="selgroup" id="daysel"><span class="lbl">Today is a…</span></div>
+          <div class="selgroup" id="phasesel"><span class="lbl">Cycle phase — only if you track it</span></div>
+          <div class="frows" id="frows"></div>
+          <div class="feedback" id="feedback"></div>
+          <button class="reset" id="freset">Clear today</button>
+        </div>
+      </div>
+      <div class="mini" style="margin-top:16px"><span class="tag">On long runs</span><p>Past about 60 minutes, aim for roughly <b>30–60 g of carbs an hour</b> — about one gel every 30–45 min, or chews/drink to match. Short easy runs don't need it.</p></div>
+
+      <h2 class="section-h">The steady base — fat &amp; fibre</h2>
+      <div class="base-sec">
+        <p class="lead">Carbs are what we move up and down with the training — that's the bottle. Fat, protein and fibre are the steady base: they barely flex, and they're never the thing to cut. Periodised fuelling flexes the carbs, not the base.</p>
+        <div class="legend">
+          <i><span class="sw sw-carb"></span>Carbs — flexes with the day</i>
+          <i><span class="sw sw-pro"></span>Protein</i><i><span class="sw sw-fat"></span>Fat</i><i><span class="sw sw-veg"></span>Veg &amp; fibre</i>
+        </div>
+        <div class="estbox">
+          <div class="fields">
+            <label>Weight<input id="wkg" type="number" inputmode="decimal" min="30" max="150" step="0.5" placeholder="kg"></label>
+            <label>Height<input id="hcm" type="number" inputmode="decimal" min="130" max="200" step="0.5" placeholder="cm"></label>
+            <label>Age<input id="age" type="number" inputmode="numeric" min="16" max="70" step="1" placeholder="yrs"></label>
+          </div>
+          <div class="selgroup" id="sportsel"><span class="lbl">Today's sport</span></div>
+          <div class="fields" id="runinput" hidden><label>Distance<input id="dkm" type="number" inputmode="decimal" min="0" max="60" step="0.5" placeholder="km"></label></div>
+          <div id="metinput" hidden style="display:flex;flex-direction:column;gap:12px">
+            <div class="selgroup" id="effortsel"><span class="lbl">Effort</span></div>
+            <div class="fields"><label>Duration<input id="dmin" type="number" inputmode="numeric" min="0" max="600" step="5" placeholder="min"></label></div>
+          </div>
+          <div class="estout" id="estout">Add your details and today's session for an estimate.</div>
+          <p class="estnote">The session's demand drives the number — a longer or harder session raises it; an easy one lowers it. A floor to fuel toward, not a limit.</p>
+        </div>
+        <div class="plate">
+          <div class="prow"><div class="plabel"><b>Demanding day</b><span class="desc">~3 cupped hands of carbs</span></div>
+            <div class="bar"><i class="carb" style="width:48%"></i><i class="pro" style="width:20%"></i><i class="fat" style="width:18%"></i><i class="veg" style="width:14%"></i></div></div>
+          <div class="prow"><div class="plabel"><b>Easy day</b><span class="desc">~2 cupped hands of carbs</span></div>
+            <div class="bar"><i class="carb" style="width:28%"></i><i class="pro" style="width:20%"></i><i class="fat" style="width:18%"></i><i class="veg" style="width:14%"></i></div></div>
+          <div class="prow"><div class="plabel"><b>Recovery / rest</b><span class="desc">~1–2 cupped hands of carbs</span></div>
+            <div class="bar"><i class="carb" style="width:18%"></i><i class="pro" style="width:20%"></i><i class="fat" style="width:18%"></i><i class="veg" style="width:14%"></i></div></div>
+        </div>
+        <div class="mini" style="margin-bottom:12px"><span class="tag">Measure by hand, not grams</span><p>Carbs = a cupped hand · Protein = your palm · Fat = a thumb · Veg &amp; fibre = a fist. Only the cupped hands of carbs change with the day.</p></div>
+        <div class="twocol">
+          <div class="mini"><span class="tag">Timing</span><h4>Around a hard session</h4><p>Before and during: simple carbs, low in fibre and fat so nothing sits heavy. First recovery snack stays simple too — fast carbs and protein.</p></div>
+          <div class="mini"><span class="tag">Timing</span><h4>After, and away from it</h4><p>Bring fibre and healthy fats back from your next proper meal on — veg, wholegrains, good fats. Away from the session is where they belong.</p></div>
+        </div>
+        <div class="twocol">
+          <div class="mini"><h4>Why fat stays in</h4><p>Hormones, bone and menstrual health, and vitamins A, D, E, K all ride on dietary fat. Keep it steady; don't let it fall when carbs drop.</p></div>
+          <div class="mini"><h4>Why fibre stays in</h4><p>Your gut needs it daily. Cutting it to feel "light" backfires — it's timing, not removal. Keep fibre in; just don't stack it against your hardest runs.</p></div>
+        </div>
+        <div class="mini"><span class="tag">Optional with your coach</span><p><b>Metabolic (RMR) test</b> — measures your resting rate directly and replaces the estimate with a precise target. Ask about current options.</p></div>
+      </div>
+      <p style="margin-top:24px;text-align:center"><a class="cta" href="nutrition.html">Worried about your nutrition or energy? Take the check →</a></p>
+    </section>
+
+    <!-- STRENGTH -->
+    <section data-view="strength" hidden>
+      <h2 class="section-h">Your strength</h2>
+      <p class="section-s"><b>Focus</b> work targets what your running analysis flagged; <b>race-ready</b> work is the running strength everyone needs. Loads stay moderate — tendons adapt slowly.</p>
+      <div id="stout"></div>
+      <p class="note">Dose is the starting shape; your coach sets the load, progression and demos. This mirrors the strength in your plan — it doesn't replace it.</p>
+    </section>
+
+    <!-- ROUTES -->
+    <section data-view="routes" hidden>
+      <h2 class="section-h">Where to run</h2>
+      <p class="section-s">A few routes I've run and trust — distance, surface and where to start. Tap one to open it in your maps or Strava.</p>
+      <div id="routesout"></div>
+    </section>
+
+    <!-- PROGRESS -->
+    <section data-view="progress" hidden>
+      <h2 class="section-h">Your progress</h2>
+      <p class="section-s">How the training's adding up — your weekly running, your long run, and your recovery trend. Read against your own pattern over weeks, never a single day.</p>
+      <div id="progressout"></div>
+    </section>
+
+    <!-- LEARN -->
+    <section data-view="learn" hidden>
+      <h2 class="section-h">Learn</h2>
+      <p class="section-s">A small shelf of things worth knowing — the why behind your training. Added to over time.</p>
+      <div id="learnout"></div>
+    </section>
+
+    <!-- the filming guide, shown inside the profile card on Today -->
+    <template id="filmGuide"><details class="watch">
+        <summary>How to film your clip (about 10 min)</summary>
+        <div style="margin-top:10px;font-size:.9rem;color:var(--muted);line-height:1.5">
+          <p style="margin:0 0 8px"><b>Wear</b> running shoes, fitted leggings/shorts and a fitted top (so hips, knees, ankles show), hair tied back.</p>
+          <p style="margin:0 0 8px"><b>Phone</b> on slow-motion if easy (iPhone: Camera → Slo-mo; Android: Camera → More → Slow motion). Hold it sideways, wipe the lens, good light, not toward a window.</p>
+          <p style="margin:0 0 8px"><b>Who holds it:</b> prop it at hip height, or hand it to your child — "both hands, keep Mummy in the middle, stay still, count slowly to twenty."</p>
+          <p style="margin:0 0 4px"><b>Two angles, ~15–20 s each:</b></p>
+          <p style="margin:0 0 4px">1. <b>Side</b> — camera level and square, hip height, whole body in frame; one side then the other.</p>
+          <p style="margin:0 0 8px">2. <b>Behind</b> — centred right behind you, level, hip height (hips down to heels).</p>
+          <p style="margin:0"><b>Mark the spot</b> (a tile or tape) so your taper re-film sits in the same place. <b>Safety:</b> settle at the pace first, never look down at the phone while running.</p>
+        </div>
+      </details></template>
+  </main>
+</div>
+
+<nav class="tabs" id="tabs" hidden aria-label="Sections">
+  <div class="inner">
+    <button data-view="today" aria-current="true"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg></span>Today</button>
+    <button data-view="fuel"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6"/><path d="M10 2v2.5c0 .8-.4 1.5-1 2-1.3 1-2 2.3-2 3.9V20a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-9.6c0-1.6-.7-2.9-2-3.9-.6-.5-1-1.2-1-2V2"/><path d="M7 13h10"/></svg></span>Fuel</button>
+    <button data-view="strength"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5v11"/><path d="M17.5 6.5v11"/><path d="M3.5 9v6"/><path d="M20.5 9v6"/><path d="M6.5 12h11"/></svg></span>Strength</button>
+    <button data-view="routes"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5"/></svg></span>Routes</button>
+    <button data-view="progress"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-7"/></svg></span>Progress</button>
+    <button data-view="learn"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2Z"/><path d="M19 17v4H6"/><path d="M9 7h6"/></svg></span>Learn</button>
+  </div>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/data.js"></script>
+<script src="js/views.js"></script>
+<script>
+const $=(id)=>document.getElementById(id);
+
+const acct=$("acct");
+document.addEventListener("click",(e)=>{ if(acct.open&&!acct.contains(e.target)) acct.open=false; });
+document.addEventListener("keydown",(e)=>{ if(e.key==="Escape"&&acct.open){ acct.open=false; acct.querySelector("summary").focus(); } });
+
+function show(view){
+  acct.open=false;
+  document.querySelectorAll('#app section[data-view]').forEach(s=>s.hidden=s.dataset.view!==view);
+  $("tabs").querySelectorAll("button").forEach(b=>b.setAttribute("aria-current", b.dataset.view===view));
+  window.scrollTo(0,0);
+}
+$("tabs").addEventListener("click",(e)=>{const b=e.target.closest("button");if(b)show(b.dataset.view);});
+
+window.renderApp = async function(){
+  const user = await currentUser();
+  const authed = !!user;
+  // Signed in but not a Vela client (a coach, or an account with no client row): say so
+  // rather than render seven empty tabs.
+  const client = authed ? await myClient() : null;
+  const ok = authed && !!client;
+  $("login").hidden=authed; $("app").hidden=!ok; $("tabs").hidden=!ok; $("notClient").hidden=!(authed&&!client);
+  $("acct").hidden=!authed; $("acct").open=false; if(user) $("acctWho").textContent=user.email||"";
+  if(ok){
+    await initToday(); await initFuel(); await initStrength();
+    await initRoutes(); await initProgress(); await initLearn();
+    show("today");
+  }
+};
+
+$("sendLink").onclick = async ()=>{
+  const email=$("email").value.trim(); if(!email) return;
+  const { error } = await sendMagicLink(email);
+  // Show the code field either way: someone already holding a code from a previous
+  // attempt must not be stranded because this send failed.
+  $("codeStep").hidden=false;
+  $("loginMsg").textContent = error
+    ? (/signups? not allowed|not found/i.test(error.message)
+        ? "That email isn't on file — use the one you sign into the Vela app with."
+        : error.message)
+    : "Check your email for your six-digit code.";
+};
+$("verifyCode").onclick = async ()=>{
+  const email=$("email").value.trim(), code=$("code").value.replace(/\D/g,"");
+  if(!email||code.length!==6){ $("loginMsg").textContent="Enter your email and the six digits from the email."; return; }
+  const { error } = await verifyCode(email, code);
+  if(error) $("loginMsg").textContent = "That code didn't work — it may have expired. Send a new one.";
+};
+
+renderApp();
+
+// launch splash — show the sail briefly, then fade to the app
+(function(){const sp=$("splash");if(!sp)return;
+  const h=new Date().getHours(), hi=h<12?"Buongiorno":h<18?"Buon pomeriggio":"Buonasera";
+  const he=$("splashHi"); if(he) he.textContent=hi+"!";
+  const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  setTimeout(()=>{sp.classList.add('hide');setTimeout(()=>{sp.hidden=true;},650);}, reduce?600:2100);})();
+
+if("serviceWorker" in navigator){ navigator.serviceWorker.register("service-worker.js").catch(()=>{}); }
+</script>
+</body>
+</html>
