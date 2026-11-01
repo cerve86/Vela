@@ -1,0 +1,273 @@
+{
+  "_note": "Movement -> photo + description + cues. Drop your own photo into photos/<slug>.jpg (see PHOTO-GUIDE.md); the app shows it automatically. Until then a 'photo coming' placeholder shows.",
+  "Heel-raised hold over the toe (hands on wall)": {
+    "photo": "assets/exercises/photos/heel-raised-hold-over-the-toe-hands-on-wall.jpg",
+    "domain": "Foot & ankle",
+    "description": "Isometric calf hold up on the ball of the foot — builds ankle stiffness and push-off.",
+    "cues": [
+      "Tall on the ball of the foot",
+      "Hold still, weight through the big toe"
+    ]
+  },
+  "Bent-knee calf raise (seated / supported)": {
+    "photo": "assets/exercises/photos/bent-knee-calf-raise-seated-supported.jpg",
+    "domain": "Foot & ankle",
+    "description": "Calf raise with a bent knee to bias the soleus — the endurance muscle behind late-run push-off.",
+    "cues": [
+      "Knee bent — this is the soleus",
+      "Smooth up, slow down"
+    ]
+  },
+  "Single-leg heel raise off a step, 3s down": {
+    "photo": "assets/exercises/photos/single-leg-heel-raise-off-a-step-3s-down.jpg",
+    "domain": "Foot & ankle",
+    "description": "Full-range single-leg calf raise with a slow lower — strength and control through the ankle.",
+    "cues": [
+      "Full range off the step",
+      "3 seconds lowering"
+    ]
+  },
+  "Knee-to-wall ankle mobilisation": {
+    "photo": "assets/exercises/photos/knee-to-wall-ankle-mobilisation.jpg",
+    "domain": "Foot & ankle",
+    "description": "Mobility drill driving the knee past the toes — restores the dorsiflexion running needs.",
+    "cues": [
+      "Drive the knee toward the wall",
+      "Heel stays down"
+    ]
+  },
+  "Subtalar mob → loaded dorsiflexion hold": {
+    "photo": "assets/exercises/photos/subtalar-mob-loaded-dorsiflexion-hold.jpg",
+    "domain": "Foot & ankle",
+    "description": "Settles the ankle joint, then loads a deep dorsiflexion hold for range under load.",
+    "cues": [
+      "Settle the ankle, then hold deep",
+      "Heel down, weight forward"
+    ]
+  },
+  "Soleus iso prime — bent-knee calf-raise hold": {
+    "photo": "assets/exercises/photos/soleus-iso-prime-bent-knee-calf-raise-hold.jpg",
+    "domain": "Foot & ankle",
+    "description": "Short bent-knee calf hold to wake the soleus before running — primes push-off, eases calf soreness.",
+    "cues": [
+      "Bent knee, up on the ball of the foot",
+      "Mid-range hold — pre-run too"
+    ]
+  },
+  "Single-leg hip thrust, band at knees": {
+    "photo": "assets/exercises/photos/single-leg-hip-thrust-band-at-knees.jpg",
+    "domain": "Lateral hip",
+    "description": "Single-leg glute drive with the band cueing the hip out — power and pelvic control.",
+    "cues": [
+      "Shoulders on the bench, drive hips up",
+      "Knees press out on the band"
+    ]
+  },
+  "Wall-press isometric — hip abduction": {
+    "photo": "assets/exercises/photos/wall-press-isometric-hip-abduction.jpg",
+    "domain": "Lateral hip",
+    "description": "Isometric push of the outside knee into a wall — switches on the lateral hip that steadies each stride.",
+    "cues": [
+      "Outside knee presses the wall",
+      "Stand tall, hold steady"
+    ]
+  },
+  "Copenhagen": {
+    "photo": "assets/exercises/photos/copenhagen.jpg",
+    "domain": "Lateral hip",
+    "description": "Side-plank variation loading the inner thigh — groin and pelvic stability.",
+    "cues": [
+      "Top leg on the bench",
+      "Lift the hips, hold level"
+    ]
+  },
+  "Side plank, ball under top knee": {
+    "photo": "assets/exercises/photos/side-plank-ball-under-top-knee.jpg",
+    "domain": "Lateral hip",
+    "description": "Side plank with the top knee squeezing a ball — lateral trunk and hip endurance.",
+    "cues": [
+      "Squeeze the ball under the top knee",
+      "Hips stacked and lifted"
+    ]
+  },
+  "Standing loaded hip abduction": {
+    "photo": "assets/exercises/photos/standing-loaded-hip-abduction.jpg",
+    "domain": "Lateral hip",
+    "description": "Lifting the leg out to the side under load — direct strength for the glute med.",
+    "cues": [
+      "Lift the leg out to the side",
+      "Tall, no leaning"
+    ]
+  },
+  "Hip airplanes (fingertips on wall)": {
+    "photo": "assets/exercises/photos/hip-airplanes-fingertips-on-wall.jpg",
+    "domain": "Rotation & diagonal",
+    "description": "Single-leg hinge with slow rotation — hip control and balance through the stance leg.",
+    "cues": [
+      "Hinge on one leg, rotate slowly",
+      "Fingertips on the wall for balance"
+    ]
+  },
+  "Loaded thoracic rotation twist": {
+    "photo": "assets/exercises/photos/loaded-thoracic-rotation-twist.jpg",
+    "domain": "Rotation & diagonal",
+    "description": "Rotation driven from the upper back under light load — frees the trunk for an efficient arm swing.",
+    "cues": [
+      "Rotate from the upper back",
+      "Hips stay quiet"
+    ]
+  },
+  "Standing march — hip band + overhead serratus": {
+    "photo": "assets/exercises/photos/standing-march-hip-band-overhead-serratus.jpg",
+    "domain": "Rotation & diagonal",
+    "description": "Marching drill linking hip drive with overhead reach — coordinates the running cross-pattern.",
+    "cues": [
+      "March the knee up",
+      "Opposite arm reaches overhead"
+    ]
+  },
+  "Half-kneeling overhead hold / offset press": {
+    "photo": "assets/exercises/photos/half-kneeling-overhead-hold-offset-press.jpg",
+    "domain": "Rotation & diagonal",
+    "description": "Pressing or holding overhead from half-kneeling — anti-arch trunk control and shoulder stability.",
+    "cues": [
+      "Half-kneeling, ribs down",
+      "Press / hold overhead, don't arch"
+    ]
+  },
+  "Deep lunge isometric": {
+    "photo": "assets/exercises/photos/deep-lunge-isometric.jpg",
+    "domain": "Posterior chain",
+    "description": "A held deep lunge — strength and length through the hips and posterior chain.",
+    "cues": [
+      "Deep lunge, hold",
+      "Weight through the front heel"
+    ]
+  },
+  "Suitcase carry": {
+    "photo": "assets/exercises/photos/suitcase-carry.jpg",
+    "domain": "Posterior chain",
+    "description": "Walking tall with weight on one side — anti-tip trunk strength and grip.",
+    "cues": [
+      "Weight one side, walk tall",
+      "Don't lean away from it"
+    ]
+  },
+  "Hip thrust, both legs, heavy": {
+    "photo": "assets/exercises/photos/hip-thrust-both-legs-heavy.jpg",
+    "domain": "Posterior chain",
+    "description": "Loaded two-leg glute drive — the main strength lift for powerful hip extension.",
+    "cues": [
+      "Shoulders on the bench",
+      "Drive through the heels, squeeze"
+    ]
+  },
+  "Split-stance hinge (hand on rail)": {
+    "photo": "assets/exercises/photos/split-stance-hinge-hand-on-rail.jpg",
+    "domain": "Posterior chain",
+    "description": "A hip hinge in a split stance with support — hamstring and glute strength, balance-friendly.",
+    "cues": [
+      "Hinge from the hip",
+      "Hand on the rail for balance"
+    ]
+  },
+  "Tripod single-leg RDL": {
+    "photo": "assets/exercises/photos/tripod-single-leg-rdl.jpg",
+    "domain": "Posterior chain",
+    "description": "Single-leg hinge with a light hand support — posterior-chain strength and stride stability.",
+    "cues": [
+      "One leg, hinge long",
+      "Flat back, hips level"
+    ]
+  },
+  "Bilateral loaded hinge (RDL / trap bar / KB)": {
+    "photo": "assets/exercises/photos/bilateral-loaded-hinge-rdl-trap-bar-kb.jpg",
+    "domain": "Posterior chain",
+    "description": "A two-leg hip hinge — the foundational posterior-chain strength lift.",
+    "cues": [
+      "Hinge, push hips back",
+      "Flat back, bar close"
+    ]
+  },
+  "Dead bug, dumbbell in one hand": {
+    "photo": "assets/exercises/photos/dead-bug-dumbbell-in-one-hand.jpg",
+    "domain": "Trunk & pelvic floor",
+    "description": "Opposite arm and leg reach with ribs down — deep core and anti-extension control.",
+    "cues": [
+      "Ribs down, low back flat",
+      "Opposite arm and leg reach"
+    ]
+  },
+  "Landing ladder — slams / snap-downs / depth drops": {
+    "photo": "assets/exercises/photos/landing-ladder-slams-snap-downs-depth-drops.jpg",
+    "domain": "Trunk & pelvic floor",
+    "description": "Graded landing drills — teaches the legs to absorb impact softly for running.",
+    "cues": [
+      "Land soft and stick",
+      "Quiet, absorbed landings"
+    ]
+  },
+  "Exhale-on-effort breathing (90/90)": {
+    "photo": "assets/exercises/photos/exhale-on-effort-breathing-90-90.jpg",
+    "domain": "Trunk & pelvic floor",
+    "description": "Breathing drill in 90/90 — restores rib position and pelvic-floor coordination.",
+    "cues": [
+      "90/90, feet on the chair",
+      "Long exhale on the effort"
+    ]
+  },
+  "Lower-trap Y-T-W raises": {
+    "photo": "assets/exercises/photos/lower-trap-y-t-w-raises.jpg",
+    "domain": "Upper body",
+    "description": "Low-load raises for the mid and lower traps — posture and a relaxed shoulder carriage.",
+    "cues": [
+      "Thumbs up, lift low and wide",
+      "From the mid-back, not the neck"
+    ]
+  },
+  "Single-arm dumbbell row": {
+    "photo": "assets/exercises/photos/single-arm-dumbbell-row.jpg",
+    "domain": "Upper body",
+    "description": "A hinged single-arm pull — upper-back strength to hold posture late in a run.",
+    "cues": [
+      "Hinge, pull the elbow to the hip",
+      "2 seconds lowering"
+    ]
+  },
+  "Side-lying open book": {
+    "photo": "assets/exercises/photos/side-lying-open-book.jpg",
+    "domain": "Upper body",
+    "description": "Side-lying thoracic rotation — opens the upper back and frees the breath.",
+    "cues": [
+      "Open the top arm, follow with the eyes",
+      "Knees stay stacked"
+    ]
+  },
+  "Banded serratus wall slide / reach": {
+    "photo": "assets/exercises/photos/banded-serratus-wall-slide-reach.jpg",
+    "domain": "Upper body",
+    "description": "Sliding the arms up a wall against a band — serratus and shoulder-blade control.",
+    "cues": [
+      "Slide the arms up the wall",
+      "Reach tall at the top"
+    ]
+  },
+  "Half-kneeling Pallof hold": {
+    "photo": "assets/exercises/photos/half-kneeling-pallof-hold.jpg",
+    "domain": "Rotation & diagonal",
+    "description": "Anti-rotation press from half-kneeling — the trunk learns to resist twisting each stride.",
+    "cues": [
+      "Press straight out, resist the twist",
+      "Ribs down, weight through the stance leg"
+    ]
+  },
+  "Split Squat (iso hold)": {
+    "photo": "assets/exercises/photos/split-squat-iso-hold.jpg",
+    "domain": "Posterior chain",
+    "description": "A held split-squat bottom position — single-leg strength and tendon loading at moderate load.",
+    "cues": [
+      "Front shin vertical, torso tall",
+      "Back knee ~2 cm off the floor"
+    ]
+  }
+}

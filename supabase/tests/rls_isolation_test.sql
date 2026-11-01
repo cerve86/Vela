@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (203);
+  plan (221);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -2146,6 +2146,151 @@ select is (
   (select count(*) from public.fuel_cards where key = 'golden'),
   0::bigint,
   'but never their wording'
+);
+
+reset role;
+
+-- The companion (1 November 2026) --------------------------------------------
+-- Her readiness taps are hers; the radar is the coach's; routes and tiles are the
+-- coach's list for her own clients; the strength list is read from the library.
+reset role;
+
+update public.clients set cleared_gates = '{}' where id = '00000000-0000-4000-8000-0000000000f1';
+
+insert into public.client_exercise_priority (client_id, exercise_id, level)
+values
+  ('00000000-0000-4000-8000-0000000000f1', '00000000-0000-4000-8000-0000000000c4', 'priority'),
+  ('00000000-0000-4000-8000-0000000000f1', '00000000-0000-4000-8000-0000000000c3', 'yes')
+on conflict (client_id, exercise_id) do update set level = excluded.level;
+
+insert into public.companion_movement_profiles (client_id, scores)
+values ('00000000-0000-4000-8000-0000000000f1', '{"Foot & ankle": 3}');
+
+insert into public.companion_routes (coach_id, name, active)
+values
+  ('00000000-0000-4000-8000-0000000000a1', 'Coach A loop', true),
+  ('00000000-0000-4000-8000-0000000000a1', 'Coach A retired loop', false),
+  ('00000000-0000-4000-8000-0000000000a2', 'Coach B loop', true);
+
+insert into public.companion_resources (coach_id, title)
+values ('00000000-0000-4000-8000-0000000000a1', 'Coach A tile');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select lives_ok (
+  $$insert into public.companion_readiness (client_id, sleep, legs) values ('00000000-0000-4000-8000-0000000000f1', 2, 1)$$,
+  'she logs her own morning check'
+);
+
+select is (
+  (select count(*) from public.companion_readiness where client_id = '00000000-0000-4000-8000-0000000000f1'),
+  1::bigint,
+  'and reads it back'
+);
+
+select throws_ok (
+  $$insert into public.companion_readiness (client_id, sleep) values ('00000000-0000-4000-8000-0000000000f2', 0)$$,
+  '42501',
+  null,
+  'but cannot log one for another client'
+);
+
+select is (
+  (select count(*) from public.companion_movement_profiles),
+  1::bigint,
+  'she reads her movement radar'
+);
+
+select throws_ok (
+  $$insert into public.companion_movement_profiles (client_id, scores) values ('00000000-0000-4000-8000-0000000000f1', '{"Foot & ankle": 5}')$$,
+  '42501',
+  null,
+  'but the radar is her coach''s to score'
+);
+
+select is (
+  (select count(*) from public.companion_routes where name = 'Coach A loop'),
+  1::bigint,
+  'she sees her coach''s routes'
+);
+
+select is (
+  (select count(*) from public.companion_routes where name = 'Coach A retired loop'),
+  0::bigint,
+  'not the ones her coach retired'
+);
+
+select is (
+  (select count(*) from public.companion_routes where name = 'Coach B loop'),
+  0::bigint,
+  'and not another coach''s'
+);
+
+select is (
+  (select count(*) from public.companion_resources),
+  1::bigint,
+  'she sees her coach''s Learn tiles'
+);
+
+select is (
+  (select count(*) from public.companion_my_strength ()),
+  1::bigint,
+  'her strength list leaves out a movement behind a gate she has not cleared'
+);
+
+select is (
+  (select tag from public.companion_my_strength () where movement = 'Calf raise, bent knee'),
+  'focus',
+  'and a priority reads as focus'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c2';
+
+select is (
+  (select count(*) from public.companion_readiness),
+  0::bigint,
+  'another client sees none of her morning checks'
+);
+
+select is (
+  (select count(*) from public.companion_routes where coach_id = '00000000-0000-4000-8000-0000000000a1'),
+  0::bigint,
+  'nor her coach''s routes'
+);
+
+select is (
+  (select count(*) from public.companion_my_strength ()),
+  0::bigint,
+  'nor her strength list'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select count(*) from public.companion_readiness where client_id = '00000000-0000-4000-8000-0000000000f1'),
+  1::bigint,
+  'her coach reads her morning checks'
+);
+
+select lives_ok (
+  $$insert into public.companion_movement_profiles (client_id, scores) values ('00000000-0000-4000-8000-0000000000f1', '{"Foot & ankle": 4}')$$,
+  'and scores her radar'
+);
+
+select throws_ok (
+  $$insert into public.companion_routes (coach_id, name) values ('00000000-0000-4000-8000-0000000000a2', 'Planted')$$,
+  '42501',
+  null,
+  'but cannot add a route to another coach''s list'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+
+select is (
+  (select count(*) from public.companion_readiness where client_id = '00000000-0000-4000-8000-0000000000f1'),
+  0::bigint,
+  'another coach sees none of her morning checks'
 );
 
 reset role;

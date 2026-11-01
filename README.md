@@ -9,6 +9,7 @@ Plan and checkpoints: [docs/PLAN.md](docs/PLAN.md) · Architecture: [docs/ARCHIT
 ```
 apps/web        Next.js 16 coach portal
 apps/mobile     Expo SDK 57 iOS client app
+apps/companion  athletes' web companion (static PWA), served by the portal at /companion
 packages/shared Types, domain calculations, design tokens, seed data — one source of truth
 packages/mcp    MCP server: Claude drafting programmes into a coach's account
 supabase/       Migrations, RLS policy tests, Edge Functions
