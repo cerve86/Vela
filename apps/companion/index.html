@@ -5,43 +5,40 @@
 <!-- Served from the portal at /companion/; every relative URL below resolves from here. -->
 <base href="/companion/">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1f6a92">
+<meta name="theme-color" content="#1B4FD8">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Hanken+Grotesk:wght@400;600;700&display=swap">
-<title>Training Companion</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+<title>Vela Companion</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div id="splash" aria-hidden="true">
-  <svg viewBox="0 0 200 200" role="img" aria-label="Vela">
-    <g class="wave">
-      <path d="M12 172 q16 -9 32 0 t32 0 t32 0 t32 0 t32 0" fill="none" stroke="var(--base)" stroke-width="3.2" stroke-linecap="round" opacity=".45"/>
-      <path d="M4 184 q16 -9 32 0 t32 0 t32 0 t32 0 t32 0 t32 0" fill="none" stroke="var(--fuel)" stroke-width="3.2" stroke-linecap="round" opacity=".4"/>
-    </g>
+  <svg viewBox="0 0 96 104" role="img" aria-label="Vela">
     <g class="boat">
-      <line x1="100" y1="122" x2="100" y2="44" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round" opacity=".5"/>
-      <path class="flag" d="M100 46 L120 52 L100 58 Z" fill="var(--fuel)"/>
-      <g class="sail">
-        <path d="M104 50 C130 74 134 104 128 120 L104 120 Z" fill="var(--fuel)"/>
-        <path d="M96 58 C80 80 78 102 83 118 L96 118 Z" fill="var(--base)" opacity=".9"/>
-      </g>
-      <path d="M52 124 Q100 116 148 124 Q142 158 100 162 Q58 158 52 124 Z" fill="var(--base)"/>
-      <g class="face">
-        <g class="eyes">
-          <circle cx="91" cy="139" r="5.4" fill="#fff"/><circle cx="92" cy="140" r="2.5" fill="#15242b"/>
-          <circle cx="109" cy="139" r="5.4" fill="#fff"/><circle cx="110" cy="140" r="2.5" fill="#15242b"/>
-        </g>
-        <circle cx="80" cy="149" r="4" fill="#e98a7a" opacity=".5"/>
-        <circle cx="120" cy="149" r="4" fill="#e98a7a" opacity=".5"/>
-        <path d="M94 149 Q100 156 106 149" fill="none" stroke="#15242b" stroke-width="2" stroke-linecap="round"/>
-      </g>
+      <path d="M42 30 L42 81 L15 81 Q25 52 42 30 Z" fill="#B8CCFF"/>
+      <path d="M48 15 L48 81 L81 81 Q73 46 48 15 Z" fill="#FFFFFF"/>
     </g>
+    <path class="wave" d="M6 94 q10 -6 21 0 t21 0 t21 0 t21 0" fill="none" stroke="#B8CCFF" stroke-width="3" stroke-linecap="round" opacity=".7"/>
   </svg>
   <p class="hi" id="splashHi"></p>
 </div>
 <div class="wrap">
-  <header class="top"><span class="app">Companion</span><span class="stamp" id="stamp"></span></header>
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="15 15 66 66" aria-hidden="true"><path d="M42 30 L42 81 L15 81 Q25 52 42 30 Z" fill="var(--jib)"/><path d="M48 15 L48 81 L81 81 Q73 46 48 15 Z" fill="var(--main)"/></svg>
+      <span class="app">Vela<small>Companion</small></span>
+    </div>
+    <details class="acct" id="acct" hidden>
+      <summary aria-label="Your account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></summary>
+      <div class="menu">
+        <span class="who" id="acctWho"></span>
+        <button type="button" onclick="signOut()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>Sign out</button>
+      </div>
+    </details>
+  </header>
 
   <!-- LOGIN -->
   <main id="login" hidden>
@@ -72,6 +69,12 @@
     <!-- TODAY -->
     <section data-view="today">
       <h2 class="section-h" id="greet">Good morning</h2>
+      <p class="section-s" id="todayLine">Here's your week, your profile, and today's check-in.</p>
+      <div class="today-grid">
+        <div class="card sumcard" id="plancard"><p class="hintline">Loading your plan…</p></div>
+        <div class="card sumcard" id="profcard"><p class="hintline">Loading your profile…</p></div>
+      </div>
+      <h3 class="sublabel">Morning check-in</h3>
       <p class="section-s">A few taps and I'll suggest how to take today — a nudge, never an order. You can always just tell me you'd rather rest and we'll move it.</p>
       <div class="checkcard">
         <div class="frows" id="amrows"></div>
@@ -85,25 +88,11 @@
         </details>
         <div class="readout" id="amout">Tap through the four above for today's read.</div>
       </div>
-    </section>
-
-    <!-- PROFILE -->
-    <section data-view="movement" hidden>
-      <h2 class="section-h">Your movement profile</h2>
-      <p class="section-s">Scored 0–5 from a short running-gait clip. <span id="moStamp" class="stamp"></span> Re-filmed at the taper to show your progress.</p>
-      <details class="watch" style="margin:0 0 16px">
-        <summary>How to film your clip (about 10 min)</summary>
-        <div style="margin-top:10px;font-size:.9rem;color:var(--muted);line-height:1.5">
-          <p style="margin:0 0 8px"><b>Wear</b> running shoes, fitted leggings/shorts and a fitted top (so hips, knees, ankles show), hair tied back.</p>
-          <p style="margin:0 0 8px"><b>Phone</b> on slow-motion if easy (iPhone: Camera → Slo-mo; Android: Camera → More → Slow motion). Hold it sideways, wipe the lens, good light, not toward a window.</p>
-          <p style="margin:0 0 8px"><b>Who holds it:</b> prop it at hip height, or hand it to your child — "both hands, keep Mummy in the middle, stay still, count slowly to twenty."</p>
-          <p style="margin:0 0 4px"><b>Two angles, ~15–20 s each:</b></p>
-          <p style="margin:0 0 4px">1. <b>Side</b> — camera level and square, hip height, whole body in frame; one side then the other.</p>
-          <p style="margin:0 0 8px">2. <b>Behind</b> — centred right behind you, level, hip height (hips down to heels).</p>
-          <p style="margin:0"><b>Mark the spot</b> (a tile or tape) so your taper re-film sits in the same place. <b>Safety:</b> settle at the pace first, never look down at the phone while running.</p>
-        </div>
-      </details>
-      <div class="card"><div id="myRadar"></div><p class="focus" id="myFocus"></p></div>
+      <a class="card qcard" href="nutrition.html">
+        <span class="qi"><svg viewBox="0 0 24 24"><path d="M9 3h6"/><path d="M10 3v3.5L5.5 17A2.5 2.5 0 0 0 7.8 20.5h8.4a2.5 2.5 0 0 0 2.3-3.5L14 6.5V3"/><path d="M7.5 14h9"/></svg></span>
+        <span class="qt"><b>Energy &amp; nutrition check</b><span>A short questionnaire on fuelling, iron and vitamin D — about 3 minutes. Stays between you and your coach.</span></span>
+        <span class="go">Start →</span>
+      </a>
     </section>
 
     <!-- FUEL -->
@@ -195,18 +184,31 @@
       <div id="learnout"></div>
     </section>
 
-    <div class="card" style="text-align:center;margin-top:16px"><button class="chip" onclick="signOut()">Sign out</button></div>
+    <!-- the filming guide, shown inside the profile card on Today -->
+    <template id="filmGuide"><details class="watch">
+        <summary>How to film your clip (about 10 min)</summary>
+        <div style="margin-top:10px;font-size:.9rem;color:var(--muted);line-height:1.5">
+          <p style="margin:0 0 8px"><b>Wear</b> running shoes, fitted leggings/shorts and a fitted top (so hips, knees, ankles show), hair tied back.</p>
+          <p style="margin:0 0 8px"><b>Phone</b> on slow-motion if easy (iPhone: Camera → Slo-mo; Android: Camera → More → Slow motion). Hold it sideways, wipe the lens, good light, not toward a window.</p>
+          <p style="margin:0 0 8px"><b>Who holds it:</b> prop it at hip height, or hand it to your child — "both hands, keep Mummy in the middle, stay still, count slowly to twenty."</p>
+          <p style="margin:0 0 4px"><b>Two angles, ~15–20 s each:</b></p>
+          <p style="margin:0 0 4px">1. <b>Side</b> — camera level and square, hip height, whole body in frame; one side then the other.</p>
+          <p style="margin:0 0 8px">2. <b>Behind</b> — centred right behind you, level, hip height (hips down to heels).</p>
+          <p style="margin:0"><b>Mark the spot</b> (a tile or tape) so your taper re-film sits in the same place. <b>Safety:</b> settle at the pace first, never look down at the phone while running.</p>
+        </div>
+      </details></template>
   </main>
 </div>
 
-<nav class="tabs" id="tabs" hidden>
-  <button data-view="today" aria-current="true">Today</button>
-  <button data-view="movement">Profile</button>
-  <button data-view="fuel">Fuel</button>
-  <button data-view="strength">Strength</button>
-  <button data-view="routes">Routes</button>
-  <button data-view="progress">Progress</button>
-  <button data-view="learn">Learn</button>
+<nav class="tabs" id="tabs" hidden aria-label="Sections">
+  <div class="inner">
+    <button data-view="today" aria-current="true"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg></span>Today</button>
+    <button data-view="fuel"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6"/><path d="M10 2v2.5c0 .8-.4 1.5-1 2-1.3 1-2 2.3-2 3.9V20a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-9.6c0-1.6-.7-2.9-2-3.9-.6-.5-1-1.2-1-2V2"/><path d="M7 13h10"/></svg></span>Fuel</button>
+    <button data-view="strength"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5v11"/><path d="M17.5 6.5v11"/><path d="M3.5 9v6"/><path d="M20.5 9v6"/><path d="M6.5 12h11"/></svg></span>Strength</button>
+    <button data-view="routes"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5"/></svg></span>Routes</button>
+    <button data-view="progress"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-7"/></svg></span>Progress</button>
+    <button data-view="learn"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2Z"/><path d="M19 17v4H6"/><path d="M9 7h6"/></svg></span>Learn</button>
+  </div>
 </nav>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -217,11 +219,16 @@
 <script src="js/views.js"></script>
 <script>
 const $=(id)=>document.getElementById(id);
-$("stamp").textContent="updated just now";
+
+const acct=$("acct");
+document.addEventListener("click",(e)=>{ if(acct.open&&!acct.contains(e.target)) acct.open=false; });
+document.addEventListener("keydown",(e)=>{ if(e.key==="Escape"&&acct.open){ acct.open=false; acct.querySelector("summary").focus(); } });
 
 function show(view){
+  acct.open=false;
   document.querySelectorAll('#app section[data-view]').forEach(s=>s.hidden=s.dataset.view!==view);
-  [...$("tabs").children].forEach(b=>b.setAttribute("aria-current", b.dataset.view===view));
+  $("tabs").querySelectorAll("button").forEach(b=>b.setAttribute("aria-current", b.dataset.view===view));
+  window.scrollTo(0,0);
 }
 $("tabs").addEventListener("click",(e)=>{const b=e.target.closest("button");if(b)show(b.dataset.view);});
 
@@ -233,8 +240,9 @@ window.renderApp = async function(){
   const client = authed ? await myClient() : null;
   const ok = authed && !!client;
   $("login").hidden=authed; $("app").hidden=!ok; $("tabs").hidden=!ok; $("notClient").hidden=!(authed&&!client);
+  $("acct").hidden=!authed; $("acct").open=false; if(user) $("acctWho").textContent=user.email||"";
   if(ok){
-    await initToday(); await initProfile(); await initFuel(); await initStrength();
+    await initToday(); await initFuel(); await initStrength();
     await initRoutes(); await initProgress(); await initLearn();
     show("today");
   }

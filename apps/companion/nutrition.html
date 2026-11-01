@@ -4,33 +4,35 @@
 <meta charset="utf-8">
 <base href="/companion/">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1f6a92">
+<meta name="theme-color" content="#1B4FD8">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
 <title>Energy &amp; Nutrition Check</title>
 </head>
 <body>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
   /* On-demand energy & nutrition risk screen: LEAF-Q-informed energy module + simplified iron / vitamin D,
-     with a gentle food-first recommendation ladder. Same Vela endurance palette as the profile page. */
+     with a gentle food-first recommendation ladder. Vela "Poppy blue" palette, matching the companion. */
   :root{
-    --bg:#f1f3f3; --surface:#ffffff; --ink:#192a30; --muted:#556469;
-    --line:#e0e5e6; --grid:#d9e0e1; --ring:#eaeeee;
-    --accent:#1f6a92; --accent-fill:#1f6a92; --on-accent:#ffffff; --chip:#e7ecec;
-    --good:#2a7a50; --warn:#916619;
-    --d-ser:"Fraunces",Georgia,serif;
-    --d-body:"Hanken Grotesk","Segoe UI",system-ui,sans-serif;
+    --bg:#F2F6FF; --surface:#FFFFFF; --ink:#12172B; --muted:#57608A;
+    --line:#E3E8F4; --grid:#DDE3F2; --ring:#EDF1FB;
+    --accent:#1B4FD8; --accent-fill:#1B4FD8; --on-accent:#FFFFFF; --chip:#F3F5F9;
+    --good:#08744A; --warn:#8A5B00;
+    --d-ser:"Outfit","Avenir Next","Segoe UI",system-ui,sans-serif;
+    --d-body:"Plus Jakarta Sans","Segoe UI",system-ui,sans-serif;
   }
   @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-    --bg:#101d22; --surface:#182a30; --ink:#e8eef0; --muted:#94a5a9;
-    --line:#27393e; --grid:#2d4247; --ring:#1c2e33;
-    --accent:#5aa6d4; --accent-fill:#2f6f98; --on-accent:#ffffff; --chip:#223436;
-    --good:#6cc79a; --warn:#d6a94f; color-scheme:dark;
+    --bg:#0E1220; --surface:#171C2E; --ink:#EEF2FF; --muted:#A9B3D4;
+    --line:#2A3150; --grid:#2A3150; --ring:#1E2438;
+    --accent:#8FAEFF; --accent-fill:#3B6BE8; --on-accent:#FFFFFF; --chip:#232A42;
+    --good:#3ACB8E; --warn:#E8A200; color-scheme:dark;
   }}
   :root[data-theme="dark"]{
-    --bg:#101d22; --surface:#182a30; --ink:#e8eef0; --muted:#94a5a9;
-    --line:#27393e; --grid:#2d4247; --ring:#1c2e33;
-    --accent:#5aa6d4; --accent-fill:#2f6f98; --on-accent:#ffffff; --chip:#223436;
-    --good:#6cc79a; --warn:#d6a94f; color-scheme:dark;
+    --bg:#0E1220; --surface:#171C2E; --ink:#EEF2FF; --muted:#A9B3D4;
+    --line:#2A3150; --grid:#2A3150; --ring:#1E2438;
+    --accent:#8FAEFF; --accent-fill:#3B6BE8; --on-accent:#FFFFFF; --chip:#232A42;
+    --good:#3ACB8E; --warn:#E8A200; color-scheme:dark;
   }
   *{box-sizing:border-box}
   body{background:var(--bg);color:var(--ink);font-family:var(--d-body);line-height:1.5;-webkit-font-smoothing:antialiased}
@@ -39,11 +41,11 @@
     padding-right:max(16px,env(safe-area-inset-right,0px));
     padding-block:28px 48px}
   .eyebrow{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 6px}
-  h1{font-family:var(--d-ser);font-weight:500;font-size:clamp(1.9rem,5vw,2.6rem);line-height:1.05;margin:0 0 10px;text-wrap:balance;letter-spacing:-.01em}
+  h1{font-family:var(--d-ser);font-weight:600;font-size:clamp(1.9rem,5vw,2.6rem);line-height:1.08;margin:0 0 10px;text-wrap:balance;letter-spacing:-.02em}
   .lede{margin:0;max-width:60ch;color:var(--muted);font-size:1.02rem}
   .when{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:13px 15px;margin:18px 0 6px;font-size:.9rem;color:var(--muted)}
   .when b{color:var(--ink)}
-  .mod{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:16px}
+  .mod{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:18px;margin-top:16px}
   .mod h2{font-family:var(--d-ser);font-weight:500;font-size:1.3rem;margin:0 0 3px}
   .mod .intro{margin:0 0 10px;font-size:.88rem;color:var(--muted)}
   .qrow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-top:1px solid var(--line)}

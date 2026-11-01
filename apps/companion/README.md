@@ -1,7 +1,7 @@
 # Vela Companion
 
-The athletes' web companion: a mobile-first, installable PWA in plain HTML/CSS/JS. Seven
-tabs — Today, Profile, Fuel, Strength, Routes, Progress, Learn. Its design notes, spec and
+The athletes' web companion: a mobile-first, installable PWA in plain HTML/CSS/JS. Six
+tabs — Today (plan, profile, check-in), Fuel, Strength, Routes, Progress, Learn. Its design notes, spec and
 roadmap are in [`docs/`](docs/); start with [`docs/HANDOFF.md`](docs/HANDOFF.md).
 
 This folder is the source. The portal (`apps/web`) hosts it at

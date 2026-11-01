@@ -30,6 +30,7 @@ async function signOut() {
 // Re-render when auth state changes (link clicked, code entered, sign-out). Token
 // refreshes change nothing on screen, so they don't rebuild every tab.
 window.db && window.db.auth.onAuthStateChange((event) => {
-  if (event === "TOKEN_REFRESHED") return;
+  // INITIAL_SESSION fires on registration, and index.html already renders once on load.
+  if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") return;
   if (window.renderApp) window.renderApp();
 });

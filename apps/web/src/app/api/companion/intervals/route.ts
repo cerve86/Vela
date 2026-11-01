@@ -9,9 +9,11 @@ import { clientIdFor, notAClient, requireUser } from '@/lib/apiRoute';
  * the athlete's page calls here with her own Supabase token, and this route reads her
  * intervals.icu id (from companion_profiles, under her own RLS) and fetches with the key.
  *
- * Answers 404 while intervals.icu is not connected for her — no key on the deployment, or
- * no id on file — and the companion then reads the same things from Vela instead (Strava
- * runs, Apple Health HRV, her programme). So this route can ship before the coach has a key.
+ * Answers an empty list while intervals.icu is not connected for her — no key on the
+ * deployment, or no id on file — and the companion then reads the same things from Vela
+ * instead (Strava runs, Apple Health HRV, her programme). Empty rather than 404, because
+ * "not connected yet" is the normal state, not an error to log on every page load. So
+ * this route can ship before the coach has a key.
  *
  * Env: INTERVALS_API_KEY (Settings → Developer Settings on intervals.icu). A coach key
  * reads an athlete once she has accepted the coaching request.
@@ -35,7 +37,9 @@ export async function GET(req: Request) {
   if (!clientId) return notAClient('read their intervals.icu data');
 
   const key = process.env.INTERVALS_API_KEY;
-  if (!key) return NextResponse.json({ error: 'intervals.icu is not connected' }, { status: 404 });
+  const notConnected = (why: string) =>
+    NextResponse.json([], { headers: { 'x-intervals-status': why } });
+  if (!key) return notConnected('no-key');
 
   const { data: profile } = await supabase
     .from('companion_profiles')
@@ -44,9 +48,7 @@ export async function GET(req: Request) {
     .maybeSingle();
   const icuId = profile?.intervals_icu_id?.trim();
   // The id goes into a path: accept intervals.icu's own shapes only ("i12345" or digits).
-  if (!icuId || !/^i?\d+$/.test(icuId)) {
-    return NextResponse.json({ error: 'no intervals.icu id on file' }, { status: 404 });
-  }
+  if (!icuId || !/^i?\d+$/.test(icuId)) return notConnected('no-athlete-id');
 
   const params = new URL(req.url).searchParams;
   const metricParam = params.get('metric') ?? 'wellness';

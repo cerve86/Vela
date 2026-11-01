@@ -15,11 +15,38 @@ async function myClient() {
   const user = await currentUser();
   if (!user) return null;
   const { data } = await window.db.from("clients")
-    .select("id, coach_id").eq("profile_id", user.id).maybeSingle();
+    .select("id, coach_id, goal").eq("profile_id", user.id).maybeSingle();
   _me = data || null;
   return _me;
 }
 async function myClientId() { const c = await myClient(); return c ? c.id : null; }
+
+// Her live programme and this week, Monday to Sunday: {name, week, weeks, days:[{date, sessions}]}.
+// Week 1 is the Monday-start week holding the start date, as the Vela app counts it.
+async function myPlan() {
+  const id = await myClientId(); if (!id) return null;
+  const now = new Date(), mon = new Date(now);
+  mon.setDate(now.getDate() - ((now.getDay() + 6) % 7)); mon.setHours(0, 0, 0, 0);
+  const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return ymdLocal(d); });
+  const [{ data: asg }, { data: ss }] = await Promise.all([
+    window.db.from("assignments").select("start_date, programs(name, duration_weeks, kind, body)")
+      .eq("client_id", id).eq("status", "active").order("start_date", { ascending: false }).limit(1).maybeSingle(),
+    // Prescribed sessions only: a Strava run Vela could not match is stored as a session
+    // too, and is not part of the plan.
+    window.db.from("sessions").select("title, scheduled_date, status").eq("client_id", id)
+      .not("program_day_id", "is", null).gte("scheduled_date", days[0]).lte("scheduled_date", days[6]).order("scheduled_date")
+  ]);
+  let week = null, weeks = null, name = null, body = null;
+  if (asg && asg.programs) {
+    name = asg.programs.name; weeks = asg.programs.duration_weeks;
+    // A descriptive programme is its text: it has no days, and assigning it makes no sessions.
+    if (asg.programs.kind === "descriptive") body = asg.programs.body;
+    const s = new Date(asg.start_date + "T00:00:00"); s.setDate(s.getDate() - ((s.getDay() + 6) % 7));
+    week = Math.round((mon - s) / (7 * 864e5)) + 1; // round: a DST week is an hour short or long
+    if (week < 1 || week > weeks) week = null;
+  }
+  return { name, week, weeks, body, days: days.map(d => ({ date: d, sessions: (ss || []).filter(x => x.scheduled_date === d) })) };
+}
 
 async function myProfile() {
   const id = await myClientId(); if (!id) return null;
@@ -121,7 +148,7 @@ async function velaPlanned(days) {
   const id = await myClientId(); if (!id) return [];
   const { data } = await window.db.from("sessions")
     .select("id,scheduled_date,status").eq("client_id", id)
-    .gte("scheduled_date", daysAgo(days)).lte("scheduled_date", today())
+    .not("program_day_id", "is", null).gte("scheduled_date", daysAgo(days)).lte("scheduled_date", today())
     .order("scheduled_date");
   return (data || []).map(s => ({
     category: "WORKOUT", start_date_local: s.scheduled_date,

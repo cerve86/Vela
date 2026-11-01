@@ -11,6 +11,7 @@ async function initToday(){
   const baseinfo = document.getElementById('baseinfo');
   if(!rows||!out) return;
 
+  renderPlanCard(); renderProfileCard();
   const hr = new Date().getHours();
   const hello = hr<12?"Buongiorno":hr<18?"Buon pomeriggio":"Buonasera";
   const flavours=["bella!","principessa!","campionessa!","cara!"];
@@ -137,35 +138,71 @@ function mkRadar(cfg){
   const p=[];
   p.push('<svg class="radar" viewBox="0 0 '+cfg.size[0]+' '+cfg.size[1]+'" role="img" aria-label="'+(cfg.label||'radar')+'">');
   for(let l=1;l<=LV;l++){const r=[];for(let i=0;i<n;i++){const q=pt(i,l);r.push(q[0].toFixed(1)+','+q[1].toFixed(1));}
-    p.push('<polygon points="'+r.join(' ')+'" fill="none" stroke="var(--ring)" stroke-width="1"/>');}
+    p.push('<polygon points="'+r.join(' ')+'" fill="none" stroke="var(--grid)" stroke-width="1"/>');}
+  // the scale, up the first spoke: 1–5
+  for(let l=1;l<=LV;l++){const q=pt(0,l);p.push('<text x="'+(q[0]+3).toFixed(1)+'" y="'+(q[1]+2.5).toFixed(1)+'" font-size="8" fill="var(--muted)">'+l+'</text>');}
   for(let i=0;i<n;i++){const q=pt(i,LV);p.push('<line x1="'+CX+'" y1="'+CY+'" x2="'+q[0].toFixed(1)+'" y2="'+q[1].toFixed(1)+'" stroke="var(--grid)" stroke-width="1"/>');}
   const poly=cfg.vals.map((v,i)=>{const q=pt(i,Math.max(v,.0001));return q[0].toFixed(1)+','+q[1].toFixed(1);}).join(' ');
   p.push('<polygon points="'+poly+'" fill="'+cfg.fill+'" stroke="'+cfg.stroke+'" stroke-width="2" stroke-linejoin="round"/>');
   cfg.vals.forEach((v,i)=>{const q=pt(i,Math.max(v,.0001));p.push('<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="2.4" fill="'+cfg.stroke+'"/>');});
   cfg.labels.forEach((lines,i)=>{
     const lp=pt(i,LV);let lx=lp[0],ly=lp[1],anchor='middle',dx=0;
-    const ang=(start+i*(360/n)+360)%360;
-    if(ang>5&&ang<175){anchor='start';dx=6;} else if(ang>185&&ang<355){anchor='end';dx=-6;}
-    if(ang<=5||ang>=355){ly-=9;} if(ang>=85&&ang<=95){ly+=13;}
-    const cnt=lines.length,sy=ly-(cnt-1)*4.4+2;
-    const ts=lines.map((ln,k)=>'<tspan x="'+(lx+dx).toFixed(1)+'" y="'+(sy+k*8.8).toFixed(1)+'">'+ln+'</tspan>').join('');
-    p.push('<text text-anchor="'+anchor+'" font-size="8.2" font-weight="600">'+ts+'</text>');
+    const a=(start+i*(360/n))*Math.PI/180, c=Math.cos(a), sn=Math.sin(a);
+    if(c>0.1){anchor='start';dx=6;} else if(c<-0.1){anchor='end';dx=-6;}
+    const half=(cfg.scores?lines.length:lines.length-1)*4.4;
+    if(sn<-0.9){ly-=half+8;} if(sn>0.9){ly+=half+10;}
+    const all=cfg.scores?lines.concat([cfg.vals[i]+'/'+LV]):lines;
+    const cnt=all.length,sy=ly-(cnt-1)*4.4+2;
+    const ts=all.map((ln,k)=>'<tspan x="'+(lx+dx).toFixed(1)+'" y="'+(sy+k*8.8).toFixed(1)+'"'+(cfg.scores&&k===cnt-1?' fill="var(--accent)" font-weight="700"':'')+'>'+ln+'</tspan>').join('');
+    p.push('<text text-anchor="'+anchor+'" font-size="8.2" font-weight="600" fill="var(--ink)">'+ts+'</text>');
   });
   p.push('</svg>');return p.join('');
 }
 const MLAB=[["Foot &","ankle"],["Lateral","hip"],["Rotation /","diagonal"],["Posterior","chain"],["Trunk /","pelvic floor"],["Upper","body"]];
 const MDOM=["Foot & ankle","Lateral hip","Rotation / diagonal","Posterior chain","Trunk / pelvic floor","Upper body"];
-async function initProfile(){
-  const slot=document.getElementById('myRadar'); const stamp=document.getElementById('moStamp');
-  const focus=document.getElementById('myFocus'); if(!slot) return;
-  const m=await latestMovement();
-  if(!m||!m.scores){ slot.innerHTML='<p class="hintline">Your first clip sets your starting shape — film ~45&nbsp;s of easy running and send it over.</p>';
-    if(stamp)stamp.textContent="not assessed yet"; return; }
+const escH=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtDay=d=>new Date(d+'T00:00:00').toLocaleDateString(undefined,{day:'numeric',month:'short'});
+
+// Today's profile summary: her goal, the movement radar and its focus line, and how to film.
+async function renderProfileCard(){
+  const box=document.getElementById('profcard'); if(!box) return;
+  const [m, client]=await Promise.all([latestMovement(), myClient()]);
+  const film=(document.getElementById('filmGuide')||{}).innerHTML||'';
+  const goal=client&&client.goal?`<p class="goal">${escH(client.goal)}</p>`:'';
+  if(!m||!m.scores){
+    box.innerHTML=`<div class="sumhead"><h3>Your profile</h3><span class="stamp">not assessed yet</span></div>${goal}
+      <p class="hintline">Your first clip sets your starting shape — film about 45 seconds of easy running and send it over.</p>${film}`;
+    return;
+  }
   const vals=MDOM.map(d=> (m.scores[d]!=null?Number(m.scores[d]):0));
-  slot.innerHTML=mkRadar({n:6,levels:5,cx:130,cy:128,R:82,start:-90,vals,
-    fill:'var(--base-fill)',stroke:'var(--base)',labels:MLAB,size:[260,256],label:'Your movement radar'});
-  if(stamp)stamp.textContent="assessed "+m.assessed_at;
-  if(focus&&m.focus) focus.textContent=m.focus;
+  box.innerHTML=`<div class="sumhead"><h3>Your profile</h3><span class="stamp">assessed ${escH(fmtDay(m.assessed_at))}</span></div>${goal}
+    <div class="radarwrap">${mkRadar({n:6,levels:5,cx:130,cy:132,R:78,start:-90,vals,scores:true,
+      fill:'var(--base-fill)',stroke:'var(--base)',labels:MLAB,size:[260,268],label:'Your movement profile, scored 0 to 5'})}</div>
+    ${m.focus?`<p class="focus"><b>Focus:</b> ${escH(m.focus)}</p>`:''}
+    ${film.replace('How to film your clip','Re-filming at the taper? How to film')}`;
+}
+
+// Today's plan summary: her programme, which week it is, and this week day by day.
+async function renderPlanCard(){
+  const box=document.getElementById('plancard'); if(!box) return;
+  const plan=await myPlan();
+  if(!plan||!plan.name&&plan.days.every(d=>!d.sessions.length)){
+    box.innerHTML='<div class="sumhead"><h3>Your plan</h3></div><p class="hintline">Your coach is putting your plan together — it shows up here as soon as it starts.</p>';
+    return;
+  }
+  const t=today();
+  const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const rows=plan.days.map((d,i)=>{
+    const ss=d.sessions, isToday=d.date===t, past=d.date<t;
+    if(!ss.length) return `<li class="rest${isToday?' today':''}"><span class="dow">${DOW[i]}</span><span class="ttl">Rest</span><span></span></li>`;
+    const done=ss.every(x=>x.status==='completed'), skipped=ss.some(x=>x.status==='skipped');
+    const chip=done?'<span class="st done">Done</span>':isToday?'<span class="st next">Today</span>':skipped?'<span class="st missed">Skipped</span>':past?'<span class="st planned">Not logged</span>':'<span class="st planned">Planned</span>';
+    return `<li class="${isToday?'today':''}"><span class="dow">${DOW[i]}</span><span class="ttl">${escH(ss.map(x=>x.title).join(' + '))}</span>${chip}</li>`;
+  }).join('');
+  const wk=plan.week&&plan.weeks?`Week ${plan.week} of ${plan.weeks}`:'';
+  box.innerHTML=`<div class="sumhead"><h3>Your plan</h3>${wk?`<span class="stamp">${wk}</span>`:''}</div>
+    ${plan.name?`<p class="goal">${escH(plan.name)}</p>`:''}
+    ${plan.body?`<p class="planbody">${escH(plan.body)}</p>`:`<ul class="planweek">${rows}</ul>`}`;
 }
 
 /* ============ STRENGTH — the athlete's own items ============ */
@@ -239,7 +276,8 @@ async function initProgress(){
   const longList=wkList.map(w=>({k:w.k,km:longByWeek[w.k]||0}));
 
   // ---- HRV baseline vs range (same method as Today's card) ----
-  const hseries=wells.map(w=>w.hrv).filter(v=>v!=null&&!isNaN(v));
+  const hwells=wells.filter(w=>w.hrv!=null&&!isNaN(w.hrv));
+  const hseries=hwells.map(w=>Number(w.hrv)), hdates=hwells.map(w=>String(w.date).slice(0,10));
   const rseries=wells.map(w=>w.restingHR).filter(v=>v!=null&&!isNaN(v));
   let hrvPanel='';
   if(hseries.length>=14){
@@ -252,7 +290,7 @@ async function initProgress(){
     else line="Your 7-day recovery trend has eased below your usual range. Often just a hard week or a short night or two—keep easy days easy and it tends to come back. Your coach is watching it with you.";
     hrvPanel=`<div class="card pcard">
       <h3 class="pgh">Recovery trend (HRV)</h3>
-      ${sparkBand(hseries, lo, hi, m)}
+      ${sparkBand(hseries, lo, hi, m, hdates)}
       <p class="pgnote">Baseline ~${Math.round(m)} ms · your normal range ${Math.round(lo)}–${Math.round(hi)} ms · 7-day average ${Math.round(roll7)} ms${rbit}.</p>
       <p class="pgline">${line}</p>
       <details class="watch"><summary>What this is</summary>
@@ -307,32 +345,61 @@ async function initProgress(){
   box.innerHTML = adherence + volPanel + longPanel + hrvPanel;
 }
 
-// mini bar chart (inline SVG, matches app style). data:[{k,km}]
-function barChart(data,key){
-  const W=300,H=110,pad=18,n=data.length,max=Math.max(1,...data.map(d=>d[key]));
-  const bw=(W-pad*2)/n*0.64, gap=(W-pad*2)/n;
-  const bars=data.map((d,i)=>{
-    const h=(H-pad*1.5)*(d[key]/max), x=pad+i*gap+(gap-bw)/2, y=H-pad-h;
-    const lbl=d.k.slice(5).replace('-','/');
-    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(h,0.5).toFixed(1)}" rx="3" fill="var(--base)"/>`+
-           `<text x="${(x+bw/2).toFixed(1)}" y="${H-5}" font-size="7" text-anchor="middle" fill="var(--muted)">${lbl}</text>`;
-  }).join('');
-  return `<svg class="pgchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly ${key} bar chart">`+
-    `<line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="var(--grid)" stroke-width="1"/>`+bars+`</svg>`;
+// A "nice" axis maximum and step for ticks: 1, 2, 2.5 or 5 times a power of ten.
+function niceAxis(max,ticks=4){
+  const raw=Math.max(max,1)/ticks, mag=Math.pow(10,Math.floor(Math.log10(raw)));
+  const step=[1,2,2.5,5,10].map(f=>f*mag).find(v=>v>=raw);
+  return {step, top:step*Math.ceil(Math.max(max,1)/step)};
 }
-// HRV sparkline with normal band shaded. series newest-last.
-function sparkBand(series,lo,hi,base){
-  const W=300,H=96,pad=10,n=series.length,lo2=Math.min(...series,lo),hi2=Math.max(...series,hi);
-  const span=(hi2-lo2)||1;
-  const x=i=>pad+(W-pad*2)*(i/(Math.max(1,n-1)));
-  const y=v=>H-pad-(H-pad*2)*((v-lo2)/span);
-  const bandTop=y(hi),bandBot=y(lo);
-  const pts=series.map((v,i)=>x(i).toFixed(1)+','+y(v).toFixed(1)).join(' ');
-  return `<svg class="pgchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="HRV trend with normal range">`+
-    `<rect x="${pad}" y="${bandTop.toFixed(1)}" width="${W-pad*2}" height="${(bandBot-bandTop).toFixed(1)}" fill="var(--base-fill)"/>`+
-    `<line x1="${pad}" y1="${y(base).toFixed(1)}" x2="${W-pad}" y2="${y(base).toFixed(1)}" stroke="var(--grid)" stroke-dasharray="3 3" stroke-width="1"/>`+
-    `<polyline points="${pts}" fill="none" stroke="var(--base)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`+
-    `<circle cx="${x(n-1).toFixed(1)}" cy="${y(series[n-1]).toFixed(1)}" r="3" fill="var(--base)"/></svg>`;
+// bar chart with a km axis (Y) and week-start dates (X). data:[{k:'YYYY-MM-DD', km}]
+function barChart(data,key){
+  const W=320,H=180,L=34,R=10,T=28,B=36,n=data.length;
+  const {step,top}=niceAxis(Math.max(...data.map(d=>d[key])));
+  const y=v=>T+(H-T-B)*(1-v/top), gap=(W-L-R)/n, bw=gap*0.62;
+  const out=[];
+  for(let v=0;v<=top+1e-9;v+=step){
+    out.push(`<line x1="${L}" y1="${y(v).toFixed(1)}" x2="${W-R}" y2="${y(v).toFixed(1)}" stroke="var(--grid)" stroke-width="${v?0.6:1}"/>`);
+    out.push(`<text class="axt" x="${L-4}" y="${(y(v)+3.5).toFixed(1)}" text-anchor="end">${+v.toFixed(1)}</text>`);
+  }
+  data.forEach((d,i)=>{
+    const h=(H-T-B)*(d[key]/top), x=L+i*gap+(gap-bw)/2;
+    out.push(`<rect x="${x.toFixed(1)}" y="${(H-B-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(h,0.5).toFixed(1)}" rx="3" fill="var(--base)"><title>${fmtDay(d.k)}: ${d[key].toFixed(1)} ${key}</title></rect>`);
+    if((n-1-i)%2===0) out.push(`<text class="axt" x="${(x+bw/2).toFixed(1)}" y="${H-B+14}" text-anchor="middle">${fmtDay(d.k)}</text>`);
+  });
+  out.push(`<text class="axtitle" x="2" y="12">${key}</text>`);
+  out.push(`<text class="axtitle" x="${(L+(W-R))/2}" y="${H-3}" text-anchor="middle">week starting</text>`);
+  return `<svg class="pgchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly ${key}, last ${n} weeks">${out.join('')}</svg>`;
+}
+// HRV line with the normal band shaded: ms axis (Y), dates (X). series newest-last.
+function sparkBand(series,lo,hi,base,dates){
+  const W=320,H=180,L=34,R=10,T=28,B=36,n=series.length;
+  const minV=Math.min(...series,lo), maxV=Math.max(...series,hi);
+  const {step}=niceAxis(maxV-minV,4);
+  const y0=Math.floor(minV/step)*step, y1=Math.ceil(maxV/step)*step, span=(y1-y0)||1;
+  // x follows the calendar when dates are given, so a gap in readings shows as a gap
+  const dated=dates&&dates.length===n, ms=d=>new Date(d+'T00:00:00').getTime();
+  const t0=dated?ms(dates[0]):0, tN=dated?ms(dates[n-1]):1;
+  const x=i=>L+(W-L-R)*(dated?(ms(dates[i])-t0)/((tN-t0)||1):i/(Math.max(1,n-1)));
+  const y=v=>T+(H-T-B)*(1-(v-y0)/span);
+  const out=[];
+  for(let v=y0;v<=y1+1e-9;v+=step){
+    out.push(`<line x1="${L}" y1="${y(v).toFixed(1)}" x2="${W-R}" y2="${y(v).toFixed(1)}" stroke="var(--grid)" stroke-width="0.6"/>`);
+    out.push(`<text class="axt" x="${L-4}" y="${(y(v)+3.5).toFixed(1)}" text-anchor="end">${+v.toFixed(2)}</text>`);
+  }
+  out.push(`<rect x="${L}" y="${y(hi).toFixed(1)}" width="${W-L-R}" height="${(y(lo)-y(hi)).toFixed(1)}" fill="var(--base-fill)"/>`);
+  out.push(`<line x1="${L}" y1="${y(base).toFixed(1)}" x2="${W-R}" y2="${y(base).toFixed(1)}" stroke="var(--muted)" stroke-dasharray="3 3" stroke-width="0.8"/>`);
+  out.push(`<polyline points="${series.map((v,i)=>x(i).toFixed(1)+','+y(v).toFixed(1)).join(' ')}" fill="none" stroke="var(--base)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`);
+  out.push(`<circle cx="${x(n-1).toFixed(1)}" cy="${y(series[n-1]).toFixed(1)}" r="3.2" fill="var(--base)"/>`);
+  if(dated){
+    // first, middle and last day of the window, placed on the same time scale
+    const mid=new Date((t0+tN)/2), midD=ymdLocal(mid), xm=L+(W-L-R)*((ms(midD)-t0)/((tN-t0)||1));
+    out.push(`<text class="axt" x="${x(0).toFixed(1)}" y="${H-B+14}" text-anchor="start">${fmtDay(dates[0])}</text>`);
+    out.push(`<text class="axt" x="${xm.toFixed(1)}" y="${H-B+14}" text-anchor="middle">${fmtDay(midD)}</text>`);
+    out.push(`<text class="axt" x="${x(n-1).toFixed(1)}" y="${H-B+14}" text-anchor="end">${fmtDay(dates[n-1])}</text>`);
+  }
+  out.push(`<text class="axtitle" x="2" y="12">ms</text>`);
+  out.push(`<text class="axtitle" x="${(L+(W-R))/2}" y="${H-3}" text-anchor="middle">shaded band = your normal range</text>`);
+  return `<svg class="pgchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="HRV over the last ${n} days against your normal range">${out.join('')}</svg>`;
 }
 // simple percentage donut
 function donutPct(pct){
