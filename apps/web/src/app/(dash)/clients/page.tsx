@@ -44,6 +44,7 @@ export default async function ClientsPage() {
     { data: metrics },
     { data: reads },
     { count: logged },
+    { data: shares },
   ] = await Promise.all([
     supabase
       .from('clients')
@@ -69,6 +70,11 @@ export default async function ClientsPage() {
       .from('sessions')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'completed'),
+    supabase
+      .from('companion_nutrition_shares')
+      .select('client_id, created_at, energy, periods_flag')
+      .gte('created_at', `${since28}T00:00:00Z`)
+      .order('created_at', { ascending: false }),
   ]);
 
   const rows = (clients ?? []).map<RosterClient & { email: string; createdAt: string }>((c) => ({
@@ -126,6 +132,14 @@ export default async function ClientsPage() {
   const openFlags = await listFlags(supabase, { open: true });
   const names = Object.fromEntries(rows.map((c) => [c.id, c.name]));
 
+  // An energy flag from a nutrition check she chose to share from the companion. Only her
+  // latest share counts: a clear check after a flag means the flag is no longer current.
+  const latestShare = new Map<string, NonNullable<typeof shares>[number]>();
+  for (const s of shares ?? []) if (!latestShare.has(s.client_id)) latestShare.set(s.client_id, s);
+  const energyFlags = [...latestShare.values()].filter(
+    (s) => s.energy === 'flag' && names[s.client_id],
+  );
+
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 md:p-8">
       <header className="mb-6 flex items-end justify-between">
@@ -157,6 +171,35 @@ export default async function ClientsPage() {
         <div className="mb-6">
           <FlagsPanel flags={openFlags} names={names} />
         </div>
+      )}
+
+      {energyFlags.length > 0 && (
+        <Card
+          title="Nutrition check"
+          className="mb-6"
+          action={<span className="text-xs ink-3">Shared from the companion · last 4 weeks</span>}
+        >
+          <ul className="space-y-1">
+            {energyFlags.map((s) => (
+              <li key={s.client_id}>
+                <Link
+                  href={`/clients/${s.client_id}`}
+                  className="flex flex-wrap items-center gap-3 rounded-[16px] p-3.5 transition-colors hover:bg-[var(--ghost)]"
+                >
+                  <Avatar name={names[s.client_id]!} size={28} />
+                  <span className="text-sm font-semibold">{names[s.client_id]}</span>
+                  <StatusPill tone="critical">Low energy flagged</StatusPill>
+                  <span className="min-w-0 flex-1 text-xs ink-2">
+                    {s.periods_flag ? 'Periods stopped or irregular. ' : ''}Suggests a GP visit.
+                  </span>
+                  <span className="text-xs ink-3">
+                    Shared {sinceWords(daysBetween(s.created_at, today))}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
 
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -307,10 +350,13 @@ function cap(s: string): string {
 }
 
 function invitedWords(createdAt: string, today: string): string {
-  const days = Math.floor(
+  return sinceWords(daysBetween(createdAt, today));
+}
+
+function daysBetween(timestamp: string, today: string): number {
+  return Math.floor(
     (new Date(`${today}T00:00:00Z`).getTime() -
-      new Date(`${createdAt.slice(0, 10)}T00:00:00Z`).getTime()) /
+      new Date(`${timestamp.slice(0, 10)}T00:00:00Z`).getTime()) /
       86_400_000,
   );
-  return sinceWords(days);
 }

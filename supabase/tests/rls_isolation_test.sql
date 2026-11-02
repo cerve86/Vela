@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (221);
+  plan (237);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -2291,6 +2291,140 @@ select is (
   (select count(*) from public.companion_readiness where client_id = '00000000-0000-4000-8000-0000000000f1'),
   0::bigint,
   'another coach sees none of her morning checks'
+);
+
+reset role;
+
+-- The companion UX pass (2 November 2026) -------------------------------------
+-- A nutrition share is hers to send and her coach's to read, nobody else's, and it is
+-- never edited after the fact. Her coach sets the race; she reads it. The verdict she was
+-- shown is saved with her check and her coach reads it.
+reset role;
+
+insert into public.companion_profiles (client_id) values ('00000000-0000-4000-8000-0000000000f1')
+on conflict (client_id) do nothing;
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select lives_ok (
+  $$insert into public.companion_nutrition_shares (client_id, energy, iron, vitamin_d, periods_flag)
+    values ('00000000-0000-4000-8000-0000000000f1', 'flag', 'clear', 'watch', true)$$,
+  'she shares her nutrition results with her coach'
+);
+
+select is (
+  (select count(*) from public.companion_nutrition_shares),
+  1::bigint,
+  'and reads her share back'
+);
+
+select throws_ok (
+  $$insert into public.companion_nutrition_shares (client_id, energy, iron, vitamin_d)
+    values ('00000000-0000-4000-8000-0000000000f2', 'clear', 'clear', 'clear')$$,
+  '42501',
+  null,
+  'but cannot share on behalf of another client'
+);
+
+select throws_ok (
+  $$update public.companion_nutrition_shares set energy = 'clear'$$,
+  '42501',
+  null,
+  'and cannot change a share once it is sent'
+);
+
+select throws_ok (
+  $$insert into public.companion_nutrition_shares (client_id, energy, iron, vitamin_d)
+    values ('00000000-0000-4000-8000-0000000000f1', 'fine', 'clear', 'clear')$$,
+  '23514',
+  null,
+  'a share holds only clear, watch or flag'
+);
+
+select lives_ok (
+  $$update public.companion_readiness set verdict = 'ease'
+    where client_id = '00000000-0000-4000-8000-0000000000f1'$$,
+  'her check keeps the verdict it showed her'
+);
+
+select throws_ok (
+  $$update public.companion_readiness set verdict = 'push'
+    where client_id = '00000000-0000-4000-8000-0000000000f1'$$,
+  '23514',
+  null,
+  'and only go, ease or easy'
+);
+
+select results_eq (
+  $$with u as (
+      update public.companion_profiles set race_name = 'Her own race'
+      where client_id = '00000000-0000-4000-8000-0000000000f1'
+      returning 1
+    ) select count(*) from u$$,
+  $$values (0::bigint)$$,
+  'the race is her coach''s to set'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c2';
+
+select is (
+  (select count(*) from public.companion_nutrition_shares),
+  0::bigint,
+  'another client sees none of her shares'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select is (
+  (select energy from public.companion_nutrition_shares
+    where client_id = '00000000-0000-4000-8000-0000000000f1'),
+  'flag',
+  'her coach reads her share'
+);
+
+select is (
+  (select verdict from public.companion_readiness
+    where client_id = '00000000-0000-4000-8000-0000000000f1'),
+  'ease',
+  'and the verdict she was shown'
+);
+
+select lives_ok (
+  $$update public.companion_profiles set race_name = 'Angkor Wat Half', race_date = '2026-12-06'
+    where client_id = '00000000-0000-4000-8000-0000000000f1'$$,
+  'her coach sets her race'
+);
+
+select throws_ok (
+  $$update public.companion_nutrition_shares set energy = 'clear'$$,
+  '42501',
+  null,
+  'but cannot rewrite her share'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select race_name from public.companion_profiles
+    where client_id = '00000000-0000-4000-8000-0000000000f1'),
+  'Angkor Wat Half',
+  'she reads the race her coach set'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+
+select is (
+  (select count(*) from public.companion_nutrition_shares),
+  0::bigint,
+  'another coach sees none of her shares'
+);
+
+select is (
+  (select count(*) from public.companion_profiles
+    where client_id = '00000000-0000-4000-8000-0000000000f1'),
+  0::bigint,
+  'nor her race'
 );
 
 reset role;

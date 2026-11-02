@@ -1,0 +1,95 @@
+/* Fuel tab (js/fuel.js): the bottle and today's plan, the optional check-off and energy
+   floor, the fuel guide and the nutrition-check card. Shared pieces (.card, .seg, .frows,
+   .fields, .watch, buttons) are in styles.css. */
+#fuel>.card+.card,#fuel>.card+section,#fuel>section+section{margin-top:var(--sp-4)}
+
+/* the bottle and today's plan */
+.fuelcard{display:flex;flex-direction:column;gap:var(--sp-4)}
+/* The bottle beside the day, so the first screen holds both. */
+.fuel-top{display:grid;grid-template-columns:120px 1fr;gap:var(--sp-3);align-items:center}
+@media(min-width:620px){.fuel-top{grid-template-columns:150px 1fr;gap:var(--sp-5)}}
+.fuel-head{min-width:0;display:flex;flex-direction:column;gap:var(--sp-3)}
+.fuelcard .viz{display:flex;flex-direction:column;align-items:center;gap:6px}
+.fuelcard .viz svg{width:100%;max-width:140px;height:auto}
+.fuelcard .viz .cap{margin:0;font-size:var(--fs-1);text-align:center;font-weight:600;line-height:1.3}
+@media(min-width:620px){.fuelcard .viz .cap{font-size:var(--fs-2)}}
+.fuelmain{min-width:0;display:flex;flex-direction:column;gap:14px}
+.selgroup{display:flex;flex-wrap:wrap;gap:6px}
+.selgroup[hidden]{display:none}
+.selgroup .lbl{flex-basis:100%;font-size:var(--fs-1);color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:600}
+.selgroup .seg{flex-basis:100%}
+.fuel-day p{margin:0}
+.fuel-day{display:flex;flex-direction:column;align-items:flex-start}
+.fuel-dayline{font-family:var(--d-ser);font-size:var(--fs-5);font-weight:600;line-height:1.25;letter-spacing:-.01em}
+.fuel-change{font-size:var(--fs-2);padding-inline:0}
+.fuel-from{font-size:var(--fs-2);margin-top:2px!important}
+.fuel-plan:empty{display:none}
+.fuel-plan{background:var(--fuel-soft);border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4)}
+.fuel-carbs{margin:0 0 var(--sp-2);font-weight:600}
+.fuel-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:var(--fs-2);line-height:1.45}
+.fuel-steps li{display:grid;grid-template-columns:4.5em 1fr;gap:var(--sp-2)}
+.fuel-steps b{color:var(--fuel-ink);font-weight:700}
+.fuel-phase{margin:var(--sp-2) 0 0;font-size:var(--fs-2);color:var(--muted)}
+
+/* the optional check-off */
+.fuel-log{border-top:1px solid var(--line);padding-top:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-3)}
+.fuel-h3{font-family:var(--d-ser);font-weight:600;font-size:var(--fs-4);margin:0;line-height:1.25}
+.fuel-h3 .muted{font-weight:500;font-size:var(--fs-2)}
+.fuel-log .hintline{margin:0}
+.frow .na{margin:0}
+.feedback{background:var(--fuel-soft);border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--sp-3) 14px;font-size:var(--fs-2)}
+.feedback:empty{display:none}
+.feedback b{color:var(--ink);font-weight:700}
+.fuel-clear{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2) var(--sp-3)}
+.fuel-toast{display:flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-2);font-weight:600}
+.fuel-toast:empty{display:none}
+@media (prefers-reduced-motion:no-preference){.fuel-toast:not(:empty){animation:fuel-in .2s ease-out}}
+@keyframes fuel-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* the optional energy floor */
+.fuel-est{padding-top:var(--sp-2);padding-bottom:var(--sp-2)}
+.estbox{display:flex;flex-direction:column;gap:var(--sp-3);padding:var(--sp-2) 0 var(--sp-2)}
+.fuel-met{display:flex;flex-direction:column;gap:var(--sp-3)}
+.fuel-met[hidden],.estbox .fields[hidden]{display:none}
+.estout{margin:0;font-family:var(--d-ser);font-size:var(--fs-4);font-weight:500;line-height:1.35}
+.estout b{color:var(--fuel-ink);font-weight:700}
+.estout .estsub{display:block;margin-top:var(--sp-1);font-family:var(--d-body);font-size:var(--fs-2);color:var(--muted)}
+
+/* the fuel guide: one card, sections that open and close */
+.fuel-guide .section-h3{margin-top:0}
+.fg{border-top:1px solid var(--line)}
+.fg:last-child{border-bottom:0}
+.fg summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
+  min-height:var(--tap);padding:var(--sp-2) 0;font-weight:600;font-size:var(--fs-3)}
+.fg summary::-webkit-details-marker{display:none}
+.fg summary::after{content:"";flex:none;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg) translate(-2px,-2px)}
+.fg[open] summary::after{transform:rotate(-135deg) translate(-2px,-2px)}
+.fg summary:focus-visible{outline-offset:-2px;border-radius:var(--r-sm)}
+.fg p{margin:0 0 var(--sp-3);font-size:var(--fs-2);line-height:1.5;color:var(--muted)}
+.fg p b{color:var(--ink)}
+
+/* plate bars: four distinct colours with their names inside; a smaller plate is a shorter
+   bar, so there is no empty track to mistake for a food */
+.plate{--plate-carb:var(--fuel);--plate-carb-ink:#fff;--plate-pro:#4F6BD0;--plate-pro-ink:#fff;
+  --plate-fat:#F2B544;--plate-fat-ink:#3A2A00;--plate-veg:#A9D46F;--plate-veg-ink:#1F3300;
+  display:flex;flex-direction:column;gap:14px;margin:var(--sp-2) 0 var(--sp-4)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .plate{--plate-carb:#12A377;--plate-carb-ink:#04140D;
+  --plate-pro:#8FA6FF;--plate-pro-ink:#0B1433;--plate-fat:#F2C063;--plate-fat-ink:#2A1E00;--plate-veg:#B8E08A;--plate-veg-ink:#16260A}}
+:root[data-theme="dark"] .plate{--plate-carb:#12A377;--plate-carb-ink:#04140D;
+  --plate-pro:#8FA6FF;--plate-pro-ink:#0B1433;--plate-fat:#F2C063;--plate-fat-ink:#2A1E00;--plate-veg:#B8E08A;--plate-veg-ink:#16260A}
+.prow .plabel{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:2px var(--sp-2);margin-bottom:5px}
+.prow .plabel b{font-weight:600;font-size:var(--fs-2)}
+.prow .desc{color:var(--muted);font-size:var(--fs-2)}
+.bar{display:flex;height:32px;border-radius:var(--sp-2);overflow:hidden;gap:2px;max-width:100%}
+.bar i{display:flex;align-items:center;justify-content:center;flex-basis:0;min-width:0;height:100%;overflow:hidden;
+  font-style:normal;font-size:var(--fs-1);font-weight:700;white-space:nowrap}
+.bar .carb{background:var(--plate-carb);color:var(--plate-carb-ink)}
+.bar .pro{background:var(--plate-pro);color:var(--plate-pro-ink)}
+.bar .fat{background:var(--plate-fat);color:var(--plate-fat-ink)}
+.bar .veg{background:var(--plate-veg);color:var(--plate-veg-ink)}
+
+/* the energy & nutrition check */
+.fuel-check{display:flex;flex-direction:column;align-items:flex-start;gap:var(--sp-2)}
+.fuel-check p{margin:0;font-size:var(--fs-2);color:var(--muted);line-height:1.5}
+.fuel-check .fuel-when{color:var(--ink);font-weight:600}
+.fuel-check .btn-secondary{margin-top:var(--sp-1)}

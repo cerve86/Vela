@@ -1,8 +1,10 @@
 # Vela Companion
 
-The athletes' web companion: a mobile-first, installable PWA in plain HTML/CSS/JS. Six
-tabs — Today (plan, profile, check-in), Fuel, Strength, Routes, Progress, Learn. Its design notes, spec and
-roadmap are in [`docs/`](docs/); start with [`docs/HANDOFF.md`](docs/HANDOFF.md).
+The athletes' web companion: a mobile-first, installable PWA in plain HTML/CSS/JS. Four
+tabs — **Today** (today's session, the check-in, the week), **Fuel**, **Strength** (her
+movement profile, filming guide and exercises) and **Library** (Routes, Learn, Progress) —
+plus the energy and nutrition check (`nutrition.html`). Its design notes, spec and roadmap
+are in [`docs/`](docs/); start with [`docs/HANDOFF.md`](docs/HANDOFF.md).
 
 This folder is the source. The portal (`apps/web`) hosts it at
 **`https://www.vela-coaching.com/companion`**: `apps/web/scripts/copy-companion.mjs` copies
@@ -14,17 +16,26 @@ left out). Edit here, never in `public/companion` — that copy is gitignored an
 The handoff's open decision (§3) is settled: **it uses the existing Vela Supabase project**,
 additively.
 
-- **One account.** An athlete is a Vela client and signs in with the email she uses in the
-  Vela app. The sign-in email carries a six-digit code (Vela's own template); the companion
-  asks for it, which also works when it is installed on the home screen, where a tapped
-  link would open the browser instead. Unknown emails are refused, never signed up.
+- **One account.** An athlete is a Vela client and signs in as she does in the Vela app:
+  email and password. "Email me a code instead" sends a six-digit code (Vela's own
+  template), which also works when the companion is installed on the home screen, where a
+  tapped link would open the browser instead. "Forgot password?" emails a reset link back to
+  `/companion`, where she chooses a new password. Unknown emails are refused, never signed up.
 - **Its own tables, Vela's access rules.** `supabase/migrations/20261101000000_companion.sql`
   adds `companion_profiles` (intervals.icu id, weight), `companion_readiness` (the morning
   taps), `companion_movement_profiles` (the radar), `companion_routes` and
-  `companion_resources` (the coach's lists). Every row keys on `clients.id` or
-  `coaches.id` and uses `is_the_client` / `is_coach_of`, like the rest of the schema. No
-  existing table or policy changed. `fuel_days` was not carried over: Fuel stays on the
-  device, as the handoff describes.
+  `companion_resources` (the coach's lists). `20261102000000_companion_ux.sql` adds the
+  race (`companion_profiles.race_name`, `race_date`), the verdict she was shown
+  (`companion_readiness.verdict`) and `companion_nutrition_shares` (the three results she
+  chose to share, never her answers). Every row keys on `clients.id` or `coaches.id` and
+  uses `is_the_client` / `is_coach_of`, like the rest of the schema. No existing table or
+  policy changed.
+- **Writes into Vela where Vela already has the place for it.** A check-in also files the
+  Vela app's daily read (`daily_reads`), "I'll rest today" asks her coach to move the session
+  through `request_session_move` (with Take it back), and "Message <coach>" writes to
+  `messages`, the thread the Vela app shows. Clips are sent in the Vela app's messages; the
+  companion has no upload. `fuel_days` was not carried over: Fuel stays on the device, as
+  the handoff describes.
 - **Reads what Vela already holds instead of copying it.**
   - Strength = the movements the coach marked for her in the library (priority → Focus,
     the rest → Race-ready), via `companion_my_strength()`; ungated only.
@@ -35,14 +46,63 @@ additively.
   (`apps/web/src/app/companion/js/config.js/route.ts`) with the portal's own Supabase URL
   and anon key.
 
+## How the code is laid out
+
+No build step and no framework: scripts load in order with `<script>` tags and their
+functions are globals.
+
+- `index.html` is only the shell: header and account menu, sign-in (`js/signin.js`), the
+  "not an athlete" and "couldn't reach Vela" screens, one empty `<section>` per tab
+  (`#today`, `#fuel`, `#strength`, `#library`) and the tab bar.
+- Load order: supabase-js → `js/config.js` → `js/supabaseClient.js` → `js/core.js` →
+  `js/data.js` and `js/data-*.js` → `js/auth.js` → the four tab files → `js/signin.js`; the
+  shell boots on `DOMContentLoaded`. A top-level `const` with the same name in two files
+  stops the later file, so module-private names carry a prefix (`_fuel…`, `TD_…`, `lib…`).
+- `js/core.js` holds the shared helpers and the shell: `esc`, local-date helpers, who she
+  is (`firstName()`, `coachName()`, `showCalories()`), `cached()` for offline copies,
+  `loadInto()` for loading / empty / error states, `segmented()` (the one pick-one
+  control), `announce()`, the "today changed" hook and the hash router (`#today`,
+  `#library-routes`, …), so the phone's back gesture moves between tabs.
+- Each tab renders itself: `js/today.js`, `fuel.js`, `strength.js`, `library.js` export
+  `initToday(el)` etc., with their styles in `css/today.css`, `fuel.css`, … .
+- `nutrition.html` is its own page (`js/nutrition.js`, `css/nutrition.css`). It loads
+  `core.js`, `data.js` and `auth.js` like the shell, but core.js doesn't boot there. Her
+  answers stay on the phone (`vela-nutrition-v2`); Fuel and Today read that key for "Last
+  done". The only write is `shareNutritionResults()`, when she taps Share.
+- Every Supabase call is a named async function in `js/data.js` (shared reads) or
+  `js/data-<tab>.js`, and throws when Vela can't be reached, so "couldn't load" and "there
+  is nothing" never look the same. `styles.css` is the design system: type scale, spacing,
+  three buttons, three cards, `.seg`, readiness colours.
+- `service-worker.js` keeps the shell working offline (bump `CACHE` and add the file to
+  `SHELL` whenever a page, stylesheet or script is added); her data's offline copy is
+  `cached()` in localStorage, per user. Sign-out clears every `vela-` and `rb-` key on the
+  phone (the check-in, Fuel's taps, the nutrition check), so name new per-person keys that way.
+- Calories and amounts follow her coach's switches in Vela: no kcal unless
+  `clients.calorie_tracking` is on, and no amounts at all, grams included, when
+  `clients.restrictive_pattern` is set (`showCalories()`, `showAmounts()`).
+
+## Voice
+
+The app speaks as Vela and names the coach by her first name (`coachName()`, "your coach"
+until it is known). "I" appears only in text the coach writes herself (routes, Learn
+tiles, focus notes). Never promise something the app doesn't do: no "your coach confirms",
+"we'll move it" or "stays between you and your coach" unless a real button or screen is
+behind it. Plain, warm and short, British spelling, no jargon ("second half of your
+cycle", not "luteal"; "side hips", not "lateral hip"). The greeting keeps one Italian
+touch as a signature: "Buongiorno, Marta", marked `lang="it"`.
+
 ## Coach content
 
-Until there are portal screens for it, the coach's content goes in through the Supabase
-table editor:
+The race and what she shares are on the athlete's page in the portal (`/clients/<id>`, the
+Companion card): the coach sets the race name and date there, and sees the companion
+check-ins (her four answers and the verdict she was shown) and any nutrition check she
+shared. A shared energy flag also shows on the clients list for four weeks. The rest still
+goes in through the Supabase table editor:
 
 | What | Table | Notes |
 |------|-------|-------|
-| Movement radar | `companion_movement_profiles` | `scores` keys: `Foot & ankle`, `Lateral hip`, `Rotation / diagonal`, `Posterior chain`, `Trunk / pelvic floor`, `Upper body` (0–5); `focus` is the line under it |
+| Race | `companion_profiles.race_name`, `race_date` | set in the portal; drives the countdown on Today and Progress, and the 21.1 km line for a half |
+| Movement profile | `companion_movement_profiles` | `scores` (0–5) for feet and ankles, side hips, twisting, glutes and back of the legs, core and pelvic floor, upper body. Keys are matched by their words, so `Foot & ankle`, `Lateral hip`, `Side hips`, `Trunk / pelvic floor` and `Trunk & pelvic floor` all work; `focus` is the line above the bars |
 | Routes | `companion_routes` | `coach_id` = the coach's user id; links must be `https://` |
 | Learn tiles | `companion_resources` | same; `audience` is `client` or `public` |
 | intervals.icu | `companion_profiles.intervals_icu_id` | once she has accepted the coaching request |

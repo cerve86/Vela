@@ -746,22 +746,66 @@ export type Database = {
           },
         ]
       }
+      companion_nutrition_shares: {
+        Row: {
+          client_id: string
+          created_at: string
+          energy: string
+          id: string
+          iron: string
+          periods_flag: boolean
+          vitamin_d: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          energy: string
+          id?: string
+          iron: string
+          periods_flag?: boolean
+          vitamin_d: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          energy?: string
+          id?: string
+          iron?: string
+          periods_flag?: boolean
+          vitamin_d?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companion_nutrition_shares_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companion_profiles: {
         Row: {
           client_id: string
           intervals_icu_id: string | null
+          race_date: string | null
+          race_name: string | null
           updated_at: string
           weight_kg: number | null
         }
         Insert: {
           client_id: string
           intervals_icu_id?: string | null
+          race_date?: string | null
+          race_name?: string | null
           updated_at?: string
           weight_kg?: number | null
         }
         Update: {
           client_id?: string
           intervals_icu_id?: string | null
+          race_date?: string | null
+          race_name?: string | null
           updated_at?: string
           weight_kg?: number | null
         }
@@ -787,6 +831,7 @@ export type Database = {
           log_date: string
           rhr: number | null
           sleep: number | null
+          verdict: string | null
         }
         Insert: {
           client_id: string
@@ -799,6 +844,7 @@ export type Database = {
           log_date?: string
           rhr?: number | null
           sleep?: number | null
+          verdict?: string | null
         }
         Update: {
           client_id?: string
@@ -811,6 +857,7 @@ export type Database = {
           log_date?: string
           rhr?: number | null
           sleep?: number | null
+          verdict?: string | null
         }
         Relationships: [
           {

@@ -23,9 +23,11 @@ intervals.icu and adds interpretation, feedback and the coach's own content.
 
 ## 2. Stack (resolved)
 - **Frontend:** vanilla HTML/CSS/JS, no framework. PWA (`manifest.webmanifest` +
-  `service-worker.js`). One `init*()` per tab in `js/views.js`, wired in `index.html`'s
-  `renderApp()`.
-- **Auth:** Supabase **email magic-link** (`js/auth.js`). Not OAuth — see §4.
+  `service-worker.js`). Each tab renders itself (`initToday` etc. in `js/today.js`,
+  `fuel.js`, `strength.js`, `library.js`), called by the shell in `js/core.js`. The current
+  layout is in `../README.md`.
+- **Auth:** her Vela account: email and password, or an emailed six-digit code
+  (`js/auth.js`, `js/signin.js`). Not OAuth — see §4.
 - **Wearable/training data:** **intervals.icu**, read **server-side** by `api/intervals.js`
   (a Vercel serverless function) using **one coach API key** (HTTP Basic, username
   `API_KEY`), keyed by `athletes.intervals_icu_id`. The key never reaches the browser.
@@ -110,7 +112,8 @@ security-definer helper reading `public.coaches`.
 ## 7. What changed in this handoff pass
 `schema.sql` (+routes, +resources, −planned_sessions), `api/intervals.js` (browser-like
 UA; `events` metric added), `js/data.js` (+`intervalsActivities`, `intervalsEvents`,
-`myRoutes`, `myResources`), `js/views.js` (+`initRoutes`, `initProgress`, `initLearn` and
+`myRoutes`, `myResources`), `js/views.js` (since split into one file per tab; see
+`../README.md`) (+`initRoutes`, `initProgress`, `initLearn` and
 their inline-SVG charts), `index.html` (3 new sections + nav buttons + `renderApp` wiring),
 `styles.css` (route/learn/progress components; 7-tab nav fits to 375px), `service-worker.js`
 (cache bumped to v2; `/api` bypasses cache), `js/config.js` (template), `BUILD-SPEC.md`
