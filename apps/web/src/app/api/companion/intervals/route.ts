@@ -56,8 +56,14 @@ export async function GET(req: Request) {
   const days = Math.min(Math.max(parseInt(params.get('days') ?? '30', 10) || 30, 1), 120);
   const now = Date.now();
 
+  // intervals.icu files each day under the athlete's own date, and this server runs in UTC:
+  // at 6:30am in Singapore it is still yesterday here, and newest=<UTC today> would leave
+  // out the reading she took this morning. Pad the window by a day at both ends; the
+  // companion keys everything on her local date, so the extra day costs nothing.
+  const oldest = ymd(now - (days + 1) * 864e5);
+  const newest = ymd(now + 864e5);
   const r = await fetch(
-    `${ICU}/athlete/${icuId}/${metric}?oldest=${ymd(now - days * 864e5)}&newest=${ymd(now)}`,
+    `${ICU}/athlete/${icuId}/${metric}?oldest=${oldest}&newest=${newest}`,
     {
       headers: {
         Authorization: 'Basic ' + Buffer.from('API_KEY:' + key).toString('base64'),

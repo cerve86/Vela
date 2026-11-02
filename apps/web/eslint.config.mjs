@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // A copy of apps/companion made before dev and build (scripts/copy-companion.mjs).
+    "public/companion/**",
   ]),
 ]);
 

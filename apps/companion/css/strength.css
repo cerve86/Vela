@@ -1,0 +1,35 @@
+/* Strength tab (js/strength.js): her movement profile, the filming guide and her exercises. */
+
+/* movement profile */
+.stprof{margin-bottom:var(--sp-2)}
+.sthead{display:flex;justify-content:space-between;align-items:baseline;gap:var(--sp-2);flex-wrap:wrap}
+.stprof .section-h3{margin:0}
+.stfocus{margin:var(--sp-2) 0 0;font-size:var(--fs-3);line-height:1.45}
+.mvlist{list-style:none;margin:var(--sp-3) 0 var(--sp-2);padding:0;display:flex;flex-direction:column;gap:10px}
+.mvrow{display:grid;grid-template-columns:minmax(0,9.5rem) 1fr 3rem;align-items:center;gap:var(--sp-3)}
+.mvname{font-size:var(--fs-2);font-weight:600;line-height:1.25}
+.mvbar{height:10px;border-radius:999px;background:var(--ring);overflow:hidden}
+.mvbar>span{display:block;height:100%;border-radius:999px;background:var(--base)}
+.mvscore{font-family:var(--d-ser);font-size:var(--fs-3);font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.mvscore .muted{font-family:var(--d-body);font-size:var(--fs-1);font-weight:600}
+@media (max-width:360px){.mvrow{grid-template-columns:1fr 3rem}.mvbar{grid-column:1/-1;grid-row:2}}
+.stfilm{margin-top:var(--sp-2)}
+.filmguide{margin-top:var(--sp-1);font-size:var(--fs-2);color:var(--ink);line-height:1.5}
+.filmguide p{margin:0 0 var(--sp-2)}
+.filmguide ol{margin:0 0 var(--sp-2);padding-left:var(--sp-5)}
+.filmguide li{margin-bottom:var(--sp-1)}
+
+/* exercises: text first, a dose label, a photo only when there is one */
+.stgroup{margin-top:var(--sp-5)}
+.stgroup .section-h3{margin:0 0 2px}
+.stgroup .gs{font-size:var(--fs-2);color:var(--muted);margin:0 0 var(--sp-2)}
+.stlist{list-style:none;margin:0;padding:0}
+.stitem{padding:var(--sp-4) 0;border-top:1px solid var(--line);display:flow-root}
+.stitem .exphoto{float:right;width:72px;height:72px;object-fit:cover;border-radius:var(--r-sm);margin:0 0 var(--sp-2) var(--sp-3);border:1px solid var(--line)}
+.stname{font-family:var(--d-ser);font-size:var(--fs-4);font-weight:600;line-height:1.25;margin:0}
+.stitem .dose{display:inline-block;margin:6px 0 0;padding:2px 10px;border-radius:999px;background:var(--base-soft);color:var(--ink);font-size:var(--fs-2);font-weight:600;font-variant-numeric:tabular-nums}
+.stitem .works{margin:6px 0 0;font-size:var(--fs-1);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.stitem .desc{margin:var(--sp-2) 0 0;font-size:var(--fs-2);color:var(--muted);line-height:1.45}
+.stitem .cues{margin:var(--sp-2) 0 0;padding-left:var(--sp-4)}
+.stitem .cues li{font-size:var(--fs-2);line-height:1.45}
+.stitem .stvid{margin-top:var(--sp-3);font-size:var(--fs-2)}

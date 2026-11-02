@@ -1,18 +1,45 @@
-// Minimal offline shell. Bump CACHE when the SHELL list changes.
-const CACHE = "vela-companion-v3";
+// Offline shell: the pages, styles and scripts work with no signal. Her data is not cached
+// here — Supabase and /api always go to the network, and the app keeps its own per-user
+// copy (cached() in js/core.js), which signOut clears. Bump CACHE when SHELL changes.
+const CACHE = "vela-companion-v5";
 const SHELL = [
+  "./",
   "./index.html",
+  "./nutrition.html",
+  "./manifest.webmanifest",
   "./styles.css",
+  "./css/today.css",
+  "./css/fuel.css",
+  "./css/strength.css",
+  "./css/library.css",
+  "./css/nutrition.css",
+  "./js/config.js",
   "./js/supabaseClient.js",
+  "./js/core.js",
   "./js/auth.js",
   "./js/data.js",
-  "./js/views.js",
-  "./manifest.webmanifest",
-  "./nutrition.html"
+  "./js/data-today.js",
+  "./js/data-fuel.js",
+  "./js/data-strength.js",
+  "./js/data-library.js",
+  "./js/today.js",
+  "./js/fuel.js",
+  "./js/strength.js",
+  "./js/library.js",
+  "./js/signin.js",
+  "./js/nutrition.js",
+  "./assets/exercises/exercises.json",
+  "./icons/icon-192.png",
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"
 ];
+// Third-party files the shell needs offline: the pinned supabase-js build and the fonts.
+const CDN = ["cdn.jsdelivr.net", "fonts.googleapis.com", "fonts.gstatic.com"];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // One missing file must not stop the rest from being saved.
+  e.waitUntil(caches.open(CACHE)
+    .then((c) => Promise.all(SHELL.map((u) => c.add(u).catch(() => {}))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {
@@ -23,21 +50,32 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-// Supabase and /api always go to the network; the shell is network-first with an offline copy.
 self.addEventListener("fetch", (e) => {
-  const url = new URL(e.request.url);
-  if (url.hostname.endsWith("supabase.co")) return; // let live data go to network
-  if (url.pathname.startsWith("/api/")) return;     // serverless fns (intervals.icu) always live
   if (e.request.method !== "GET") return;
-  // Network first, cache as the offline fallback: a deploy reaches her on the next open,
-  // instead of waiting for someone to remember to bump CACHE.
-  e.respondWith(
-    fetch(e.request).then((res) => {
-      if (res.ok && url.origin === self.location.origin) {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
-      }
-      return res;
-    }).catch(() => caches.match(e.request))
-  );
+  const url = new URL(e.request.url);
+  const same = url.origin === self.location.origin;
+  // Live data never comes from here: /api (intervals.icu) and anything not ours or the CDN
+  // list (Supabase, wherever it is hosted) go straight to the network.
+  if (same && url.pathname.startsWith("/api/")) return;
+  if (!same && CDN.indexOf(url.hostname) < 0) return;
+  if (same && !url.pathname.startsWith("/companion/")) return;
+  e.respondWith(networkFirst(e.request));
 });
+
+// Network first, so a deploy reaches her on the next open; the saved copy when there's no
+// signal, or when the network takes longer than 4 s and a copy exists.
+async function networkFirst(req) {
+  const cache = await caches.open(CACHE);
+  const net = fetch(req).then((res) => {
+    if (res.ok || res.type === "opaque") cache.put(req, res.clone());
+    return res;
+  });
+  const saved = await cache.match(req, { ignoreSearch: req.mode === "navigate" });
+  const fallback = () => saved || (req.mode === "navigate" ? cache.match("./index.html") : undefined);
+  if (!saved) {
+    try { return await net; }
+    catch (e) { const f = await fallback(); if (f) return f; throw e; }
+  }
+  const slow = new Promise((resolve) => setTimeout(() => resolve(saved), 4000));
+  return Promise.race([net.catch(() => saved), slow]);
+}

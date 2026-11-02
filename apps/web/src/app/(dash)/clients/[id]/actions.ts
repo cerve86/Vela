@@ -198,3 +198,31 @@ export async function setPowerLevelAction(
   revalidatePath(`/clients/${clientId}`);
   return { ok: true };
 }
+
+/**
+ * Her race, for the countdown on the companion's Progress. Both empty clears it. Upserted
+ * with only these columns, so her intervals.icu id and weight on the same row are kept.
+ */
+export async function saveCompanionRaceAction(
+  clientId: string,
+  race: { name: string; date: string },
+): Promise<Result> {
+  const name = race.name.trim().slice(0, 80) || null;
+  const date = race.date.trim() || null;
+  if (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))))
+    return { ok: false, error: 'That date does not look right.' };
+  if (name && !date) return { ok: false, error: 'Add the race date too, for the countdown.' };
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.from('companion_profiles').upsert(
+    {
+      client_id: clientId,
+      race_name: name,
+      race_date: date,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'client_id' },
+  );
+  if (error) return { ok: false, error: friendlyError(error.message) };
+  revalidatePath(`/clients/${clientId}`);
+  return { ok: true };
+}

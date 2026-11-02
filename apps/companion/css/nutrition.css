@@ -1,0 +1,94 @@
+/* The energy & nutrition check (nutrition.html, js/nutrition.js). Built from the shared
+   pieces in styles.css: .card, .inset, .list, the three buttons and .seg for every answer.
+   Results use the readiness colours (go green, ease blue, easy amber), never red: a flag
+   here is a reason to book a visit, not an alarm. */
+
+/* No tab bar on this page, so no room kept for one at the bottom. */
+.wrap.nut{padding-block:var(--sp-4) calc(var(--sp-6) + env(safe-area-inset-bottom,0px))}
+.nut-back{margin:0 0 var(--sp-2)}
+.nut-back .btn-text{padding-left:0;font-family:var(--d-body);font-size:var(--fs-2)}
+.nut .eyebrow{margin:var(--sp-3) 0 var(--sp-1)}
+.nut-h1{font-family:var(--d-ser);font-weight:600;font-size:var(--fs-6);line-height:1.15;letter-spacing:-.02em;margin:0 0 var(--sp-2)}
+.nut-lede{font-size:var(--fs-3);margin-bottom:var(--sp-2)}
+.nut-privacy{margin:0 0 var(--sp-4);font-size:var(--fs-2);color:var(--ink);font-weight:600}
+.nut-foot .nut-privacy{margin:0;font-size:inherit;font-weight:inherit;color:inherit}
+
+/* "Last done 2 Nov · Start a new check", or when to run it. */
+.nut-status{display:flex;flex-direction:column;align-items:flex-start;gap:var(--sp-2);font-size:var(--fs-2);color:var(--muted)}
+.nut-status p{margin:0}
+.nut-status b{color:var(--ink)}
+.nut-status .btn-text{padding-left:0}
+
+/* Progress: Energy · Iron · Vitamin D. Each one jumps to its section. */
+.nut-dots{display:flex;flex-wrap:wrap;gap:var(--sp-1);list-style:none;margin:var(--sp-4) 0 0;padding:0}
+.nut-dots:empty{display:none}
+.nut-dots li{display:flex;align-items:center}
+.nut-dots li+li::before{content:"·";color:var(--muted);margin:0 var(--sp-1)}
+.nut-dots button{display:inline-flex;align-items:center;gap:var(--sp-2);min-height:var(--tap);padding:0 var(--sp-2);border:0;border-radius:999px;
+  background:none;color:var(--muted);font-size:var(--fs-2);font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.nut-dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--field-line);flex:none}
+.nut-dots .is-part .nut-dot{background:linear-gradient(90deg,var(--accent) 50%,transparent 50%);border-color:var(--accent)}
+.nut-dots .is-done .nut-dot{background:var(--accent);border-color:var(--accent)}
+.nut-dots .is-part button,.nut-dots .is-done button{color:var(--ink)}
+
+/* A section: its questions, how many are answered, and its result once all are. */
+.nut-mod{margin-top:var(--sp-4);scroll-margin-top:var(--sp-4)}
+.nut-mod-h{margin-top:0}
+.nut-mod-h:focus{outline:none}
+.nut-mod-h:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:6px}
+.nut-intro{margin:0 0 var(--sp-2)}
+.nut-count{margin:0 0 var(--sp-1);font-size:var(--fs-1);font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-variant-numeric:tabular-nums}
+.nut-q{padding:var(--sp-3) 0;border-top:1px solid var(--line)}
+.nut-qt{margin:0 0 var(--sp-2);font-size:var(--fs-3);line-height:1.4}
+.nut-q .seg{max-width:240px}
+.nut-q.nut-q3 .seg{max-width:400px}
+.nut-hint{margin:var(--sp-3) 0 0;padding-top:var(--sp-3);border-top:1px solid var(--line)}
+.nut-hint+.nut-q{border-top:0;padding-top:var(--sp-2)}
+
+.nut-verdict:empty{display:none}
+.nut-verdict{margin-top:var(--sp-3);background:var(--chip);border-left:4px solid var(--line);border-radius:var(--r-sm);padding:var(--sp-3) var(--sp-4);font-size:var(--fs-2)}
+.nut-verdict p{margin:0}
+.nut-pill{display:inline-block;margin-bottom:var(--sp-2)!important;font-size:var(--fs-1);font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  padding:2px 10px;border-radius:999px;border:1px solid currentColor}
+.nut-verdict.is-clear{border-left-color:var(--ready-go-fill)} .nut-verdict.is-clear .nut-pill{color:var(--ready-go-ink)}
+.nut-verdict.is-watch{border-left-color:var(--ready-ease-fill)} .nut-verdict.is-watch .nut-pill{color:var(--ready-ease-ink)}
+.nut-verdict.is-flag{border-left-color:var(--ready-easy-fill)} .nut-verdict.is-flag .nut-pill{color:var(--ready-easy-ink)}
+
+/* Results, next steps, sharing. */
+.nut-summary{margin-top:var(--sp-5)}
+.nut-summary>.section-h3:first-child{margin-top:0}
+.nut-results{margin:var(--sp-2) 0 0}
+.nut-res{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3)}
+.nut-res b{font-size:var(--fs-2);text-align:right}
+.nut-res.is-clear b{color:var(--ready-go-ink)} .nut-res.is-watch b{color:var(--ready-ease-ink)} .nut-res.is-flag b{color:var(--ready-easy-ink)}
+
+.nut-gp{margin-top:var(--sp-4);border-left:4px solid var(--ready-easy-fill)}
+.nut-gp h3{font-family:var(--d-ser);font-weight:600;font-size:var(--fs-4);margin:0 0 var(--sp-2)}
+.nut-gp p{margin:0 0 var(--sp-3);font-size:var(--fs-2);line-height:1.5}
+.nut-support{padding-top:var(--sp-3);border-top:1px solid var(--line);color:var(--muted)}
+.nut-support b{color:var(--ink)}
+.nut-gp .nut-support{margin:var(--sp-3) 0 0}
+
+.nut-allclear{margin:var(--sp-3) 0 0;font-size:var(--fs-3)}
+.nut-next-h{font-size:var(--fs-4)}
+.nut-steps{list-style:none;margin:0;padding:0;counter-reset:nut}
+.nut-steps li{position:relative;padding:var(--sp-3) 0 var(--sp-3) 40px;border-top:1px solid var(--line);counter-increment:nut}
+.nut-steps li:first-child{border-top:0}
+.nut-steps li::before{content:counter(nut);position:absolute;left:0;top:var(--sp-3);width:28px;height:28px;border-radius:50%;
+  background:var(--chip);color:var(--accent);font-weight:700;font-size:var(--fs-2);display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.nut-steps h4{margin:0 0 2px;font-size:var(--fs-3);font-weight:700}
+.nut-steps p{margin:0;font-size:var(--fs-2);color:var(--muted);line-height:1.5}
+.nut-steps p b{color:var(--ink);font-weight:600}
+
+.nut-sharebox{margin-top:var(--sp-2)}
+.nut-sharebox .hintline{margin:var(--sp-2) 0 0}
+.nut-sharebox .savestate{margin-top:var(--sp-2)}
+.nut-summary>.nut-privacy{margin-bottom:var(--sp-2)}
+.nut-shared{margin:0;font-size:var(--fs-3);font-weight:600;color:var(--ready-go-ink)}
+.nut-shared:focus{outline:none}
+.btn-primary[disabled]{opacity:.6;cursor:default}
+.nut-done{margin-top:var(--sp-5)}
+.nut-foot{max-width:66ch}
+.nut-foot strong{color:var(--ink)}
+/* "Doesn't apply" is the longest label: give it the room, not the two short ones. */
+.nut-q3 .seg button:last-child{flex-grow:1.6}

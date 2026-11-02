@@ -1,5 +1,5 @@
 {
-  "_note": "Movement -> photo + description + cues. Drop your own photo into photos/<slug>.jpg (see PHOTO-GUIDE.md); the app shows it automatically. Until then a 'photo coming' placeholder shows.",
+  "_note": "Movement -> photo + description + cues. Drop your own photo into photos/<slug>.jpg (see PHOTO-GUIDE.md); the app shows it automatically. Until then the exercise shows as text only.",
   "Heel-raised hold over the toe (hands on wall)": {
     "photo": "assets/exercises/photos/heel-raised-hold-over-the-toe-hands-on-wall.jpg",
     "domain": "Foot & ankle",

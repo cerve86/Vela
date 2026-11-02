@@ -39,6 +39,8 @@ import { MovementGatesCard } from './MovementGatesCard';
 import { FuelSettingsCard } from './FuelSettingsCard';
 import { PowerLadderCard } from './PowerLadderCard';
 import { FlagsPanel } from '@/components/flags/FlagsPanel';
+import { CompanionCard } from './CompanionCard';
+import { loadCompanion } from './companion';
 
 const VITALS: MetricType[] = ['weight_kg', 'resting_hr', 'hrv_ms', 'steps'];
 
@@ -98,6 +100,7 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
     gated,
     fuelSettings,
     ladder,
+    companion,
   ] = await Promise.all([
     listSessions(supabase, { clientId: id, from: since28 }),
     listMetrics(supabase, {
@@ -115,6 +118,7 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
     gatedInBlock(supabase, id),
     getFuelSettings(supabase, id),
     getPowerLadder(supabase, id),
+    loadCompanion(supabase, id, daysBack(13)),
   ]);
   const firstName = client.first_name_hint?.trim() || client.email.split('@')[0] || 'her';
 
@@ -378,6 +382,15 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
     ['Heaviness', 'Dragging', 'Leaking'].includes(r.symptom),
   );
 
+  const companionCard = {
+    // Promoted for four weeks, the same window as the roster's alert; after that the flag
+    // still shows inside the card, in its usual place.
+    urgent: companion.share?.energy === 'flag' && companion.share.sharedAt.slice(0, 10) >= since28,
+    node: (
+      <CompanionCard clientId={id} firstName={firstName} data={companion} todayIso={todayIso} />
+    ),
+  };
+
   const recent = sessions
     .filter((s) => s.status !== 'scheduled' || s.scheduledDate < todayIso)
     .slice(-6)
@@ -418,6 +431,9 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
       )}
 
       <FlagsPanel flags={flags} />
+
+      {/* An energy flag from her nutrition check belongs up here with the other decisions. */}
+      {companionCard.urgent && companionCard.node}
 
       <WeeklyPlanCard
         clientId={id}
@@ -489,6 +505,8 @@ export default async function ClientOverview({ params }: { params: Promise<{ id:
           )}
         </Card>
       </div>
+
+      {!companionCard.urgent && companionCard.node}
 
       <ReadingGroup title="Training" hint="Last 7 days · trends over 4 weeks">
         <Reading
