@@ -11,7 +11,7 @@
 begin;
 
 select
-  plan (237);
+  plan (249);
 
 -- Fixtures -----------------------------------------------------------------
 -- Token columns must be '' rather than NULL or GoTrue cannot scan the row.
@@ -2425,6 +2425,118 @@ select is (
     where client_id = '00000000-0000-4000-8000-0000000000f1'),
   0::bigint,
   'nor her race'
+);
+
+reset role;
+
+-- The companion, round two (3 November 2026) -----------------------------------
+-- The coach's WhatsApp link: hers to set, her clients' to read, nobody else's, and only a
+-- real WhatsApp link. Today's movements: the client's own sessions or her coach's, never
+-- another's, with a movement behind a gate she hasn't cleared left out.
+reset role;
+
+-- Her own session on the day that holds a gated movement and a circuit. An explicit id, as
+-- a later test calls as client two with client one's session, where a subquery would be
+-- filtered to NULL and pass for the wrong reason. (The moved block's sessions went when a
+-- later block replaced it.)
+insert into public.sessions (id, client_id, title, scheduled_date, program_day_id)
+values ('00000000-0000-4000-8000-00000000e9a1', '00000000-0000-4000-8000-0000000000f1', 'Strength', current_date,
+  '00000000-0000-4000-8000-0000000000e1');
+update public.clients set cleared_gates = '{shin}' where id = '00000000-0000-4000-8000-0000000000f1';
+select set_config('test.mv_session', '00000000-0000-4000-8000-00000000e9a1', true);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1';
+
+select lives_ok (
+  $$update public.profiles set whatsapp_url = 'https://wa.me/6591234567'
+    where id = '00000000-0000-4000-8000-0000000000a1'$$,
+  'a coach sets her own WhatsApp link'
+);
+
+select throws_ok (
+  $$update public.profiles set whatsapp_url = 'https://evil.example/?u=https://wa.me/1'
+    where id = '00000000-0000-4000-8000-0000000000a1'$$,
+  '23514',
+  null,
+  'and only a WhatsApp link'
+);
+
+select is (
+  (select array_agg(exercise_name order by order_index)
+   from public.companion_session_movements(array[current_setting('test.mv_session')::uuid])),
+  array['Depth drop', 'Bun Burner 20'],
+  'a coach reads the movements in her client''s session'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a2';
+
+select lives_ok (
+  $$update public.profiles set whatsapp_url = 'https://chat.whatsapp.com/GroupInvite42'
+    where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  'another coach sets a group invite as hers'
+);
+
+select throws_ok (
+  format('select * from public.companion_session_movements(array[%L]::uuid[])', current_setting('test.mv_session')),
+  '42501',
+  null,
+  'but cannot read the movements in a session that is not her client''s'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c1';
+
+select is (
+  (select whatsapp_url from public.profiles where id = '00000000-0000-4000-8000-0000000000a1'),
+  'https://wa.me/6591234567',
+  'a client reads her own coach''s WhatsApp link'
+);
+
+select is (
+  (select count(*) from public.profiles where id = '00000000-0000-4000-8000-0000000000a2'),
+  0::bigint,
+  'and not another coach''s'
+);
+
+select throws_ok (
+  $$update public.profiles set whatsapp_url = 'https://wa.me/6500000000'
+    where id = '00000000-0000-4000-8000-0000000000c1'$$,
+  '23514',
+  null,
+  'a WhatsApp link is a coach''s, not a client''s'
+);
+
+select is (
+  (select array_agg(exercise_name order by order_index)
+   from public.companion_session_movements(array[current_setting('test.mv_session')::uuid])),
+  array['Depth drop', 'Bun Burner 20'],
+  'a client reads the movements in her own session'
+);
+
+reset role;
+update public.clients set cleared_gates = '{}' where id = '00000000-0000-4000-8000-0000000000f1';
+set local role authenticated;
+
+select is (
+  (select array_agg(exercise_name order by order_index)
+   from public.companion_session_movements(array[current_setting('test.mv_session')::uuid])),
+  array['Bun Burner 20'],
+  'a movement behind a gate she has not cleared is left out'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000c2';
+
+select is (
+  (select whatsapp_url from public.profiles where id = '00000000-0000-4000-8000-0000000000a2'),
+  'https://chat.whatsapp.com/GroupInvite42',
+  'the other client reads her own coach''s link'
+);
+
+select throws_ok (
+  format('select * from public.companion_session_movements(array[%L]::uuid[])', current_setting('test.mv_session')),
+  '42501',
+  null,
+  'but cannot read the movements in another client''s session'
 );
 
 reset role;

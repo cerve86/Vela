@@ -27,18 +27,36 @@ additively.
   `companion_resources` (the coach's lists). `20261102000000_companion_ux.sql` adds the
   race (`companion_profiles.race_name`, `race_date`), the verdict she was shown
   (`companion_readiness.verdict`) and `companion_nutrition_shares` (the three results she
-  chose to share, never her answers). Every row keys on `clients.id` or `coaches.id` and
+  chose to share, never her answers). `20261103000000_companion_round2.sql` adds the
+  coach's WhatsApp link (`profiles.whatsapp_url`, coaches only, checked against the three
+  WhatsApp link shapes) and `companion_session_movements(uuid[])` (the movements in her
+  sessions with the library card; same ownership rule as `get_session_plans`, gated
+  movements she isn't cleared for left out). Every row keys on `clients.id` or `coaches.id` and
   uses `is_the_client` / `is_coach_of`, like the rest of the schema. No existing table or
   policy changed.
 - **Writes into Vela where Vela already has the place for it.** A check-in also files the
   Vela app's daily read (`daily_reads`), "I'll rest today" asks her coach to move the session
-  through `request_session_move` (with Take it back), and "Message <coach>" writes to
-  `messages`, the thread the Vela app shows. Clips are sent in the Vela app's messages; the
-  companion has no upload. `fuel_days` was not carried over: Fuel stays on the device, as
+  through `request_session_move` (with Take it back).
+- **WhatsApp is the channel; the companion writes no messages.** Contact buttons ("WhatsApp
+  <coach>", the filming guide's "Send on WhatsApp", the look-back's prefilled summary) open
+  the coach's link, `coachWhatsApp()` / `whatsAppHref(text)` in `core.js`; with no link set
+  there is no contact button. Per-run feedback lives in intervals.icu activity comments.
+  The companion has no upload. `fuel_days` was not carried over: Fuel stays on the device, as
   the handoff describes.
 - **Reads what Vela already holds instead of copying it.**
   - Strength = the movements the coach marked for her in the library (priority → Focus,
     the rest → Race-ready), via `companion_my_strength()`; ungated only.
+  - Today's movements = `companion_session_movements()` for today's prescribed sessions,
+    matched to `assets/exercises/exercises.json` by `exMatch()` (tolerant of qualifiers
+    like "(heavy)", never across a variant such as jumps or single leg), which Strength
+    uses too.
+  - "Last session felt" is prefilled from the effort she logged after her last session
+    (`lastSessionEffort()`: intervals.icu `icu_rpe` from her watch, else Vela's
+    `sessions.session_rpe`); her tap overrides it. Progress's Training load chart is
+    effort × minutes by week (`sessionLoads()`), shown once 3 sessions carry an effort.
+  - Fuel turns a rest or easy day before a long or KEY session into a top-up day
+    (`fuelTopUp()` in `fuel.js`, reading tomorrow from Vela, else intervals.icu events with
+    `ahead`).
   - Progress and Today's HRV read intervals.icu first, through
     `apps/web/src/app/api/companion/intervals/route.ts`, and fall back to her Strava runs,
     Apple Health HRV / resting HR and her programme's sessions in Vela.
@@ -59,7 +77,8 @@ functions are globals.
   shell boots on `DOMContentLoaded`. A top-level `const` with the same name in two files
   stops the later file, so module-private names carry a prefix (`_fuel…`, `TD_…`, `lib…`).
 - `js/core.js` holds the shared helpers and the shell: `esc`, local-date helpers, who she
-  is (`firstName()`, `coachName()`, `showCalories()`), `cached()` for offline copies,
+  is (`firstName()`, `coachName()`, `coachWhatsApp()`, `showCalories()`), the exercise
+  library (`exerciseLibrary()`, `exMatch()`), `STRAVA_RUN_MAPS`, `cached()` for offline copies,
   `loadInto()` for loading / empty / error states, `segmented()` (the one pick-one
   control), `announce()`, the "today changed" hook and the hash router (`#today`,
   `#library-routes`, …), so the phone's back gesture moves between tabs.
@@ -103,7 +122,8 @@ goes in through the Supabase table editor:
 |------|-------|-------|
 | Race | `companion_profiles.race_name`, `race_date` | set in the portal; drives the countdown on Today and Progress, and the 21.1 km line for a half |
 | Movement profile | `companion_movement_profiles` | `scores` (0–5) for feet and ankles, side hips, twisting, glutes and back of the legs, core and pelvic floor, upper body. Keys are matched by their words, so `Foot & ankle`, `Lateral hip`, `Side hips`, `Trunk / pelvic floor` and `Trunk & pelvic floor` all work; `focus` is the line above the bars |
-| Routes | `companion_routes` | `coach_id` = the coach's user id; links must be `https://` |
+| WhatsApp link | `profiles.whatsapp_url` (the coach's own row) | set in portal Settings → WhatsApp: a wa.me link, a group invite or her number; empty clears it and the companion shows no contact button |
+| Routes | `companion_routes` | `coach_id` = the coach's user id; links must be `https://`. A route with neither `map_url` nor `strava_url` links to Strava's run-map explorer, and the section always offers it |
 | Learn tiles | `companion_resources` | same; `audience` is `client` or `public` |
 | intervals.icu | `companion_profiles.intervals_icu_id` | once she has accepted the coaching request |
 

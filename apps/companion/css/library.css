@@ -60,3 +60,6 @@ a.ltile:hover{border-color:var(--accent)}
 .pgtable th,.pgtable td{padding:6px var(--sp-2);border-top:1px solid var(--line);text-align:right}
 .pgtable th:first-child{text-align:left;font-weight:600}
 .pgtable thead th{border-top:0;font-size:var(--fs-1);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+/* the section-level link to Strava's run-map explorer, under the list (or its empty state) */
+.rexplore{margin:var(--sp-2) 0 0}
+.rexplore .btn-secondary{font-size:var(--fs-2)}

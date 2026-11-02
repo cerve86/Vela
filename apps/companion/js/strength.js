@@ -20,10 +20,12 @@ const STR_MATCH = [0, 2, 3, 4, 5, 1];
 const strArea = (key) => { const k = String(key || ""); const i = STR_MATCH.find(j => STR_DOMAINS[j][0].test(k)); return i == null ? -1 : i; };
 const strPlain = (key) => { const i = strArea(key); return i < 0 ? "" : STR_DOMAINS[i][1]; };
 
-// The filming guide. Clips go to the coach through the Vela app's messages: the companion
-// has no upload, so it says where to send them rather than "send it over".
+// The filming guide. Clips go to the coach on WhatsApp: the companion has no upload, so it
+// says where to send them rather than "send it over". With no WhatsApp link set, it just
+// says who to send them to; with a group invite, never the group (everyone would see them).
 function strFilmGuide(summary) {
-  const coach = esc(coachName());
+  const coach = esc(coachName()), group = coachWhatsAppIsGroup();
+  const wa = group ? "" : whatsAppHref("My running clips: from the side, then from behind.");
   return `<details class="watch stfilm">
   <summary>${esc(summary)}</summary>
   <div class="filmguide">
@@ -36,8 +38,8 @@ function strFilmGuide(summary) {
     <p><b>What to wear:</b> fitted shorts or leggings and a fitted top, so hips, knees and ankles show. Hair tied back.</p>
     <p><b>Phone settings:</b> slow motion if it's easy to find. Hold it sideways, wipe the lens, and film in good light, not facing a window.</p>
     <p><b>Mark the spot</b> with a tile or some tape, so a re-film before your race is in the same place. Settle into your pace before filming starts, and don't look at the phone as you pass.</p>
-    <p><b>Then send both clips to ${coach}</b> in the Vela app.</p>
-    <p><a class="btn-secondary" href="vela://messages">Open messages in the Vela app</a></p>
+    <p><b>Then send both clips to ${coach}${wa ? " on WhatsApp" : group ? " directly, not in the group" : ""}.</b></p>
+    ${wa ? `<p><a class="btn-secondary" href="${esc(wa)}" target="_blank" rel="noopener">Send on WhatsApp<span class="sr-only"> (opens WhatsApp)</span></a></p>` : ""}
   </div>
 </details>`;
 }
@@ -54,15 +56,6 @@ function strMarkup() {
   <p class="note">The dose is where you start. ${esc(coachName({ start: true }))} sets the load and when to progress. Your strength sessions themselves are in your plan in the Vela app.</p>`;
 }
 
-// exercises.json can still supply a photo dropped in by name. The photo stays hidden until it
-// has loaded, so a file not there yet never flashes a broken image.
-let _strExLib;
-async function strExerciseLibrary() {
-  if (_strExLib) return _strExLib;
-  try { _strExLib = await (await fetch("assets/exercises/exercises.json")).json(); } catch (e) { _strExLib = {}; }
-  return _strExLib;
-}
-
 // The six scores as labelled bars, a real list so a screen reader hears "Side hips, 2 out of 5".
 function strProfile() {
   const box = $("stprofile"), when = $("st-prof-when"); if (!box) return;
@@ -71,7 +64,7 @@ function strProfile() {
     render: (m) => {
       if (!m || !m.scores || typeof m.scores !== "object") {
         if (when) when.textContent = "Not assessed yet";
-        box.innerHTML = `<p class="hintline">Your first running clip sets your starting point. Film it with the guide below and send it to ${esc(coachName())} in the Vela app.</p>
+        box.innerHTML = `<p class="hintline">Your first running clip sets your starting point. Film it with the guide below and send it to ${esc(coachName())}${coachWhatsApp() && !coachWhatsAppIsGroup() ? " on WhatsApp" : ""}.</p>
           ${strFilmGuide("How to film your running clip")}`;
         return;
       }
@@ -97,11 +90,13 @@ function strProfile() {
 
 async function strExercises() {
   const box = $("stout"); if (!box) return;
-  const LIB = await strExerciseLibrary();
+  // exercises.json (core.js) can still supply a photo dropped in by name, found by the same
+  // tolerant match Today uses, so "Split Squat (Dumbbell)" still finds its card.
+  const LIB = await exerciseLibrary();
   // Text first: name, dose, what it's for, the cues. A photo only when one exists, and a
   // demo link only when the coach has added a video; no placeholder boxes.
   const item = (it) => {
-    const meta = LIB[it.movement] || {};
+    const meta = exMatch(LIB, it.movement) || {};
     const photo = meta.photo || "";
     const desc = it.why || meta.description || "";
     const cues = (it.cues && it.cues.length) ? it.cues : (meta.cues || []);

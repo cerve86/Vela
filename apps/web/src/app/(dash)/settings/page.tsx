@@ -1,14 +1,16 @@
 import { Card } from '@/components/ui';
 import { adminClient } from '@/lib/impersonate';
 import { atCapacity, connectedAthletes, stravaConfig } from '@/lib/strava';
-import { loadApiKeys } from './actions';
+import { loadApiKeys, loadWhatsApp } from './actions';
 import { ApiKeys } from './ApiKeys';
+import { WhatsApp } from './WhatsApp';
 
 export const metadata = { title: 'Settings — Vela' };
 
 export default async function SettingsPage() {
   const keys = await loadApiKeys();
   const strava = await loadStravaCapacity();
+  const whatsapp = await loadWhatsApp();
 
   return (
     <div className="mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
@@ -25,6 +27,14 @@ export default async function SettingsPage() {
           assign it. Keys expire after six months; revoke one the moment you stop using it.
         </p>
         <ApiKeys keys={keys} />
+      </Card>
+
+      <Card title="WhatsApp" className="mt-6">
+        <p className="mb-4 text-sm ink-2">
+          Your WhatsApp link for athletes. The companion&rsquo;s contact buttons open it, so a
+          message about a session or a filming clip reaches you where you already talk.
+        </p>
+        <WhatsApp url={whatsapp} />
       </Card>
 
       {strava && (

@@ -4,7 +4,12 @@
    do I do with today's session? Everything else (the week, the look-back, the nutrition
    check) sits below and only shows when it has something to say.
 
-   The movement radar and the filming guide live on Strength now (strength.js). */
+   The session card shows today's movements (with library photos and cues) and, before a
+   long run, KEY session or race, a top-up line to Fuel. With no plan in Vela at all, her
+   intervals.icu calendar is the plan. Reaching the coach is WhatsApp (coachWhatsApp in
+   core.js): nothing here writes a message.
+
+   The movement radar and the full filming guide live on Strength (strength.js). */
 
 /* ============ pure logic (no DOM): the check-in's rules ============ */
 
@@ -194,9 +199,69 @@ function tdDayStatus(ss, d, t) {
   return d < t ? "notlogged" : "planned";
 }
 const TD_STATUS = { rest: "Rest", done: "Done", skipped: "Skipped", today: "Today", notlogged: "Not logged", planned: "Planned" };
-// The Vela app (apps/mobile/app.json scheme "vela"): a session's own screen, or the thread.
+// The Vela app (apps/mobile/app.json scheme "vela"): a session's own screen. Only for Vela's
+// own sessions: one from the intervals.icu calendar has no id there.
 const tdAppSession = (id) => "vela://session/" + encodeURIComponent(id);
-const TD_APP_MESSAGES = "vela://messages";
+
+// The effort she logged after her last session (RPE 1–10) as a "Last session felt" answer:
+// 7 and up is Hard, 4 to 6 Moderate, 3 and under Easy.
+const tdEffortAnswer = (rpe) => (rpe >= 7 ? 0 : rpe >= 4 ? 1 : 2);
+
+// An intervals.icu calendar event in the shape Today reads, for an athlete with no plan in
+// Vela at all: the calendar is then her plan. id null, so nothing links to the Vela app.
+// race: the event is in a RACE category (RACE_A/B/C), whatever its name.
+function tdIcuSession(e) {
+  const disc = /^(Run|VirtualRun|TrailRun)$/.test(e.type || "") ? "run" : e.type === "WeightTraining" ? "strength" : "cross";
+  return {
+    id: null, icu: true, title: e.name || "Session", date: String(e.start_date_local || "").slice(0, 10),
+    status: e.paired_activity_id ? "completed" : "scheduled", discipline: disc, race: /^RACE/i.test(e.category || ""),
+    duration_sec: Number(e.moving_time) || null, fuel_type: null, description: e.description || ""
+  };
+}
+// A session as fuel.js reads it (fuelPlanSessions rows, plus the planned duration: without
+// a fuelling type, fuelTopUp counts 75 minutes or more on the run as long).
+function tdFuelRow(s) {
+  return { title: s.title, discipline: s.discipline, scheduled_date: s.date, status: s.status, duration_sec: s.duration_sec, race: !!s.race, program_days: { fuel_type: s.fuel_type } };
+}
+// The Today line for a top-up day, worded for what tomorrow holds (fuelTopUp's kind).
+function tdTopUpText(t) {
+  const k = t && t.kind;
+  return (k === "race" ? "Race" : k === "key" ? "KEY session" : t.run === false ? "Long session" : "Long run") + " tomorrow — top up carbs today.";
+}
+
+// The movements an intervals.icu workout names, best effort: each line of its description
+// with any bullet and set/rep notation ("3x8", "- ", "•") taken off, kept only when it names a
+// movement in her exercise library. → [{name, dose, meta}]
+function tdIcuMovements(desc, lib) {
+  const out = [], seen = {};
+  String(desc || "").split(/\r?\n/).forEach((line) => {
+    let t = line.replace(/^[\s\-–—•*·>]+/, "");
+    const dose = (/\d+\s*[x×]\s*[\d:]+\s*(?:s|sec|secs|reps?|m|min)?\b/i.exec(t) || [""])[0].trim();
+    t = t.replace(/^\d+\s*[x×]\s*[\d:]+\s*(?:s|sec|secs|reps?|m|min)?\b\s*/i, "")
+      .replace(/\s*[-–—:@,]?\s*\d+\s*[x×]\s*[\d:]+.*$/i, "").trim();
+    const meta = t && exMatch(lib, t);
+    if (!meta) return;
+    // Her coach's words for it, always: the library only adds the cues and photo.
+    const name = t;
+    if (seen[name.toLowerCase()]) return;
+    seen[name.toLowerCase()] = 1; out.push({ name, dose, meta });
+  });
+  return out;
+}
+// One movement on Today, compact: the name and dose, the cues, a photo when the library has
+// one (hidden until it loads), and the demo when the coach has added a video.
+//   m {name, dose, desc, note (the coach's, on this session), cues[], photo, video}
+function tdMoveHtml(m) {
+  const video = safeUrl(m.video);
+  return '<li class="tdmove">' +
+    (m.photo ? '<img class="tdmovephoto" loading="lazy" alt="" src="' + esc(m.photo) + '" hidden onload="this.hidden=false" onerror="this.remove()">' : "") +
+    '<p class="tdmovename">' + esc(m.name) + (m.dose ? ' <span class="tddose"><span class="sr-only">Dose: </span>' + esc(m.dose) + "</span>" : "") + "</p>" +
+    (m.desc ? '<p class="tdmovedesc">' + esc(m.desc) + "</p>" : "") +
+    (m.note ? '<p class="tdmovenote"><span class="sr-only">Note from your coach: </span>' + esc(m.note) + "</p>" : "") +
+    (m.cues && m.cues.length ? '<ul class="tdcues" aria-label="Cues">' + m.cues.map((c) => "<li>" + esc(c) + "</li>").join("") + "</ul>" : "") +
+    (video ? '<a class="btn-text tdmovevid" href="' + esc(video) + '" target="_blank" rel="noopener noreferrer">Watch the demo<span class="sr-only"> of ' + esc(m.name) + " (opens in a new tab)</span></a>" : "") +
+    "</li>";
+}
 
 /* ============ small per-phone memories (vela-*: cleared on sign-out) ============ */
 const _tdGet = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
@@ -219,7 +284,7 @@ function tdWelcomeBack(uid, day) {
 
 function tdMarkup(o) {
   const hello = o.hr < 12 ? "Buongiorno" : o.hr < 18 ? "Buon pomeriggio" : "Buonasera";
-  const name = firstName(), coach = esc(coachName());
+  const name = firstName(), coach = esc(coachName()), wa = coachWhatsApp();
   return `
     <h2 class="section-h tab-h" tabindex="-1"><span lang="it">${hello}</span>${name ? ", " + esc(name) : ""}</h2>
     <div id="tdBack"></div>
@@ -249,16 +314,8 @@ function tdMarkup(o) {
       <div id="tdActs" class="tdactswrap" hidden>
         <div class="tdacts">
           <span id="tdRestWrap"></span>
-          <button type="button" class="btn-secondary" id="tdMsgBtn" aria-expanded="false" aria-controls="tdCompose">Message ${coach}</button>
+          ${wa ? `<a class="btn-secondary" href="${esc(wa)}" target="_blank" rel="noopener">${coachWhatsAppIsGroup() ? "Open the WhatsApp group" : "WhatsApp " + coach}<span class="sr-only"> (opens WhatsApp)</span></a>` : ""}
         </div>
-        <form id="tdCompose" class="tdcompose" hidden>
-          <label for="tdMsgBody">Your message to ${coach}</label>
-          <textarea id="tdMsgBody" rows="3" maxlength="2000"></textarea>
-          <div class="tdcomposebtns">
-            <button type="submit" class="btn-primary">Send to ${coach}</button>
-            <button type="button" class="btn-text" id="tdMsgCancel">Cancel</button>
-          </div>
-        </form>
         <p class="tdactout" id="tdActOut" role="status"></p>
       </div>
       <div id="tdSave" class="tdsave" role="status"></div>
@@ -290,7 +347,11 @@ async function initToday(el) {
   const S = {
     week: null, ctx: null, profile: null, hist: [], watch: { rhr: null, hrv: null }, watchTouched: false,
     folded: false, editing: false, checkedAt: null, vela: null, velaFromApp: false, velaRow: null,
-    lastBand: null, pending: [], back
+    lastBand: null, pending: [], back,
+    // The effort logged after her last session, and whether "Last session felt" is still the
+    // answer filled in from it (lsAuto) and not yet saved (lsUnsaved).
+    effort: null, readyLoaded: false, lsAuto: false, lsUnsaved: false,
+    moves: {}, topUp: null
   };
   const segs = {};
   const keys = () => (S.ctx && S.ctx.rest ? TD_REST_KEYS : TD_AM.map((a) => a.k));
@@ -342,6 +403,8 @@ async function initToday(el) {
         labelledBy: id, options: it.opts, value: st[it.k] >= 0 ? st[it.k] : null,
         onChange: (i) => {
           const was = answered(); st[it.k] = i;
+          // Her tap on the filled-in answer makes it hers.
+          if (it.k === "last_session" && S.lsAuto) { S.lsAuto = false; updEffortHint(); }
           if (!was && answered() && !S.checkedAt) S.checkedAt = Date.now();
           // Finished just now: fold to one line and keep focus on something that stays.
           if (!was && answered() && !S.editing) { S.folded = true; render({ speak: true }); const c = $("tdChange"); if (c) c.focus(); }
@@ -349,8 +412,36 @@ async function initToday(el) {
           persist();
         }
       });
-      row.appendChild(segs[it.k]); rows.appendChild(row);
+      row.appendChild(segs[it.k]);
+      if (it.k === "last_session") row.insertAdjacentHTML("beforeend", '<p class="hintline tdeffort" id="tdEffort" hidden></p>');
+      rows.appendChild(row);
     });
+  }
+  /* ---- "Last session felt", filled in from the effort she logged after it ---- */
+  function effortText() {
+    const e = S.effort; if (!e) return "";
+    const after = e.date && e.title ? tdFullDay(e.date) + "'s " + e.title : e.date ? "your session on " + tdFullDay(e.date) : "your last session";
+    return "Filled in from the effort you logged after " + after + " (" + e.rpe + "/10). Tap to change.";
+  }
+  function updEffortHint() {
+    const p = $("tdEffort"); if (!p) return;
+    p.textContent = S.lsAuto ? effortText() : "";
+    p.hidden = !S.lsAuto;
+    // A screen reader hears that the checked answer was filled in, not chosen by her.
+    const g = segs.last_session;
+    if (g) { if (S.lsAuto) g.setAttribute("aria-describedby", "tdEffort"); else g.removeAttribute("aria-describedby"); }
+  }
+  // Only into an empty answer, and only once her saved check-in has loaded, so a saved or
+  // tapped answer always wins. Writes nothing: it is saved with her next tap, like any answer.
+  function applyEffort() {
+    const e = S.effort;
+    if (!S.readyLoaded || !e || S.effortTried || !alive()) return;
+    S.effortTried = true;
+    if (st.last_session >= 0 || !(e.rpe >= 1 && e.rpe <= 10)) return;
+    st.last_session = tdEffortAnswer(e.rpe); segs.last_session.setValue(st.last_session);
+    S.lsAuto = true; S.lsUnsaved = true; updEffortHint();
+    if (answered() && !S.editing) S.folded = true;
+    render();
   }
   function summaryText() {
     return keys().map((k) => {
@@ -370,6 +461,7 @@ async function initToday(el) {
     $("tdDoneWrap").hidden = !(done && S.editing);
     if (showFold) {
       fold.innerHTML = '<p class="tdsum">' + esc(summaryText()) + "</p>" +
+        (S.lsAuto && ks.indexOf("last_session") >= 0 ? '<p class="hintline">' + esc(effortText().replace(/ Tap to change\.$/, "")) + "</p>" : "") +
         '<p class="tdsumwhen">' + (S.checkedAt ? "Checked in " + esc(fmtTime(S.checkedAt)) + " · " : "") +
         '<button type="button" class="btn-text" id="tdChange">Change<span class="sr-only"> your check-in</span></button></p>';
       $("tdChange").addEventListener("click", () => {
@@ -399,7 +491,10 @@ async function initToday(el) {
     // was saved and change what she sees: keep the saved verdict in step with the screen.
     // Only once the plan and the history are in: before that the verdict is provisional,
     // and opening the app would save it and then save it again a moment later.
-    if (done && S.week && S.histReady && S.savedVerdict !== undefined && S.verdict !== S.savedVerdict) persist();
+    // Not while "Last session felt" is an unsaved filled-in answer: opening the app writes
+    // nothing on its own; it is saved with her next tap.
+    const autoOnly = S.lsUnsaved && ks.indexOf("last_session") >= 0;
+    if (done && S.week && S.histReady && S.savedVerdict !== undefined && S.verdict !== S.savedVerdict && !autoOnly) persist();
     $("tdActs").hidden = false; renderRest();
     // Read the new suggestion aloud only when her own tap or number changed it.
     if (o.speak && (S.lastBand !== r.band + r.msg)) announce(r.pill + ". " + r.msg);
@@ -416,11 +511,14 @@ async function initToday(el) {
     if (today() !== day) { initToday(el); return; }
     const fields = {};
     TD_AM.forEach((a) => { if (st[a.k] >= 0) fields[a.k] = st[a.k]; });
+    // A filled-in "Last session felt" she never saw (a rest day hides it) isn't hers to save.
+    if (S.lsAuto && keys().indexOf("last_session") < 0) delete fields.last_session;
     if (S.watchTouched) { fields.hrv = S.watch.hrv; fields.rhr = S.watch.rhr; }
     if (answered() && S.verdict) fields.verdict = S.verdict;
     if (!Object.keys(fields).length) return;
     const { error } = await saveReadiness(fields);
     if (!error && fields.verdict) S.savedVerdict = fields.verdict;
+    if (!error && fields.last_session != null) S.lsUnsaved = false;
     setSave(!error);
     if (!error && answered()) syncVelaRead();
   }
@@ -467,9 +565,9 @@ async function initToday(el) {
     inp.addEventListener("change", commitWatch);
   });
 
-  /* ---- under the verdict: rest today, or message the coach ---- */
+  /* ---- under the verdict: rest today, or WhatsApp the coach (a plain link, in the markup) ---- */
   function freeDay() {
-    if (!S.week) return null;
+    if (!S.week || S.week.icu) return null;
     const busy = {}; S.week.sessions.forEach((s) => { busy[s.date] = 1; });
     const last = _tdAddDays(S.week.monday, 20);
     for (let d = _tdAddDays(day, 1); d <= last; d = _tdAddDays(d, 1)) if (!busy[d]) return d;
@@ -511,27 +609,7 @@ async function initToday(el) {
     renderRest(); renderSession(); actOut("Taken back. Today's session stays where it is.");
     const r = $("tdRest"); if (r) r.focus();
   }
-  function actOut(text, html) { const p = $("tdActOut"); if (p) p.innerHTML = esc(text) + (html || ""); }
-  const msgBtn = $("tdMsgBtn"), compose = $("tdCompose"), body = $("tdMsgBody");
-  const closeCompose = () => { compose.hidden = true; msgBtn.setAttribute("aria-expanded", "false"); };
-  msgBtn.addEventListener("click", () => {
-    const open = compose.hidden; compose.hidden = !open; msgBtn.setAttribute("aria-expanded", String(open));
-    if (open) body.focus();
-  });
-  $("tdMsgCancel").addEventListener("click", () => { closeCompose(); msgBtn.focus(); });
-  compose.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const text = body.value.trim();
-    if (!text) { actOut("Write a message first."); body.focus(); return; }
-    const send = compose.querySelector('[type="submit"]'); send.disabled = true;
-    const ms = movable();
-    const { error } = await sendMessageToCoach(text, ms.length ? ms[0].id : null);
-    send.disabled = false;
-    if (!alive()) return;
-    if (error) { actOut("Not sent. Couldn't reach Vela. Your message is still here, so try again when you have signal."); return; }
-    body.value = ""; closeCompose(); msgBtn.focus();
-    actOut("Sent to " + coach + ". Replies come to the Vela app. ", '<a class="btn-text" href="' + TD_APP_MESSAGES + '">Open messages</a>');
-  });
+  function actOut(text) { const p = $("tdActOut"); if (p) p.textContent = text; }
 
   /* ---- after midday, once checked in: how did you fuel? ---- */
   function updNudge() {
@@ -568,7 +646,7 @@ async function initToday(el) {
     m.hidden = !parts.length && !goal;
   }
   function chip(s) {
-    if (S.pending.some((p) => p.session_id === s.id)) return '<span class="st planned">Asked to move</span>';
+    if (s.id && S.pending.some((p) => p.session_id === s.id)) return '<span class="st planned">Asked to move</span>';
     return s.status === "completed" ? '<span class="st done">Done</span>' : s.status === "skipped" ? '<span class="st missed">Skipped</span>' : "";
   }
   function renderSession() {
@@ -579,12 +657,26 @@ async function initToday(el) {
   function sessionHtml(c) {
     if (!c.plan) return '<p class="state state-empty">No plan yet. ' + esc(Coach) + " is putting it together, and it shows here as soon as it starts.</p>";
     if (c.descriptive) return '<p class="tdsess">' + esc(S.week.name || "Your programme") + '</p><p class="hintline">Your programme is written out under This week.</p>';
-    if (c.rest) return '<p class="tdsess">Rest day</p>';
-    return '<ul class="tdsesslist">' + c.sessions.map((s) => {
+    if (c.rest) return '<p class="tdsess">Rest day</p>' + topUpHtml();
+    return '<ul class="tdsesslist">' + c.sessions.map((s, i) => {
       const min = s.duration_sec && !/\bmin\b/i.test(s.title) ? " · " + Math.round(s.duration_sec / 60) + " min" : "";
-      const app = s.status !== "completed" ? '<a class="btn-text tdapp" href="' + tdAppSession(s.id) + '">Open in the Vela app<span class="sr-only"> to log ' + esc(s.title) + "</span></a>" : "";
-      return '<li><p class="tdsess">' + esc(s.title) + '<span class="tdmin">' + esc(min) + "</span> " + chip(s) + "</p>" + app + "</li>";
-    }).join("") + "</ul>";
+      const app = s.id && s.status !== "completed" ? '<a class="btn-text tdapp" href="' + tdAppSession(s.id) + '">Open in the Vela app<span class="sr-only"> to log ' + esc(s.title) + "</span></a>" : "";
+      return '<li><p class="tdsess">' + esc(s.title) + '<span class="tdmin">' + esc(min) + "</span> " + chip(s) + "</p>" + app + movesHtml(s, i) + "</li>";
+    }).join("") + "</ul>" +
+      (S.week.icu ? '<p class="hintline">From your intervals.icu calendar.</p>' : "") + topUpHtml();
+  }
+  // A rest or easy day before a long run, KEY session or race: one line, to Fuel.
+  function topUpHtml() {
+    return S.topUp ? '<p class="tdtopup"><a href="#fuel">' + esc(tdTopUpText(S.topUp)) + "</a></p>" : "";
+  }
+  // Today's movements under a session: open while it's still to do, folded once it's done.
+  function movesHtml(s, i) {
+    const list = S.moves[s.id || "icu" + i];
+    if (!list || !list.length) return "";
+    return '<details class="tdmoves"' + (s.status === "completed" ? "" : " open") + ">" +
+      "<summary>Today's movements <span class=\"tdmovesn\">(" + list.length + ")</span></summary>" +
+      '<ul class="tdmovelist">' + list.map(tdMoveHtml).join("") + "</ul>" +
+      '<a class="btn-text tdapp" href="#strength">Your strength work</a></details>';
   }
   function renderWeek() {
     const card = $("tdWeekCard"), box = $("tdWeek"), w = S.week; if (!card || !w) return;
@@ -603,7 +695,7 @@ async function initToday(el) {
       if (!ss.length) h += '<p class="muted">Nothing planned.</p>';
       ss.forEach((x) => {
         h += "<p>" + esc(x.title) + "</p>";
-        if (x.status !== "completed" && d <= day) h += '<a class="btn-text tdapp" href="' + tdAppSession(x.id) + '">' + (d < day ? "Log it in the Vela app" : "Open in the Vela app") + '<span class="sr-only">: ' + esc(x.title) + "</span></a> ";
+        if (x.id && x.status !== "completed" && d <= day) h += '<a class="btn-text tdapp" href="' + tdAppSession(x.id) + '">' + (d < day ? "Log it in the Vela app" : "Open in the Vela app") + '<span class="sr-only">: ' + esc(x.title) + "</span></a> ";
         if (tdKind(x) === "strength") h += '<a class="btn-text" href="#strength">Your strength work</a>';
       });
       $("tdDay").innerHTML = h;
@@ -624,27 +716,20 @@ async function initToday(el) {
   }
 
   /* ---- the first running clip (until the coach has assessed her) ---- */
+  // Clips go to the coach on WhatsApp (the companion has no upload); with no link set, the
+  // card just says who to send them to. Never to a group invite: the whole group would see
+  // them. It goes once she has been assessed.
   function renderFilm(m) {
     const box = $("tdFilm"); if (!box || m) { if (box) box.innerHTML = ""; return; }
-    const K = "vela-film-told-" + uid, told = _tdGet(K);
-    if (told && told !== day) { box.innerHTML = ""; return; }
+    const group = coachWhatsAppIsGroup(), wa = group ? "" : whatsAppHref("My running clips: from the side, then from behind.");
     box.innerHTML = '<section class="card tdfilm" aria-labelledby="tdFilmH"><h3 class="section-h3" id="tdFilmH">Film your first running clip</h3>' +
       "<p>It shows " + esc(coach) + " how you move, and sets your starting point.</p>" +
       '<ol class="tdsteps"><li>Ask someone to hold the phone steady, sideways, at hip height.</li>' +
       "<li>Film two angles, about 20 seconds each: from the side, then from behind.</li>" +
-      "<li>Send both clips to " + esc(coach) + " in the Vela app messages.</li></ol>" +
-      '<div class="tdacts"><a class="btn-secondary" href="' + TD_APP_MESSAGES + '">Open messages in the Vela app</a>' +
-      (told ? "" : '<button type="button" class="btn-text" id="tdFilmTell">Tell ' + esc(coach) + " it's on its way</button>") +
-      '<a class="btn-text" href="#strength">How to film</a></div><p class="tdactout" id="tdFilmOut" role="status">' +
-      (told ? "Sent to " + esc(coach) + "." : "") + "</p></section>";
-    const b = $("tdFilmTell");
-    if (b) b.addEventListener("click", async () => {
-      b.disabled = true;
-      const { error } = await sendMessageToCoach("My running clips are on their way: two angles, from the side and from behind.");
-      if (!alive()) return;
-      if (error) { b.disabled = false; $("tdFilmOut").textContent = "Not sent. Couldn't reach Vela."; return; }
-      _tdSet(K, day); b.remove(); $("tdFilmOut").textContent = "Sent to " + coach + ".";
-    });
+      "<li>Send both clips to " + esc(coach) + (wa ? " on WhatsApp." : group ? " directly, not in the group." : ".") + "</li></ol>" +
+      '<div class="tdacts">' +
+      (wa ? '<a class="btn-secondary" href="' + esc(wa) + '" target="_blank" rel="noopener">Send on WhatsApp<span class="sr-only"> (opens WhatsApp)</span></a>' : "") +
+      '<a class="btn-text" href="#strength">How to film</a></div></section>';
   }
 
   /* ---- Sunday and Monday: the week, looked back on ---- */
@@ -664,30 +749,24 @@ async function initToday(el) {
     if (ss.length) nums.push("<b>" + done + " of " + ss.length + "</b> sessions done");
     if (km) nums.push("<b>" + k1(km) + "</b> run");
     if (longest) nums.push("longest <b>" + k1(longest) + "</b>");
-    const SK = "vela-week-sent-" + uid + "-" + from, sent = _tdGet(SK);
+    // Her answer becomes a WhatsApp message to the coach, typed in for her to send. Only a
+    // chat link can carry one: with a group invite or no link, the card is just the numbers,
+    // since a question that goes nowhere would read as if her coach had been told.
+    const canSend = !!coachWhatsApp() && !coachWhatsAppIsGroup() && whatsAppHref("x") !== coachWhatsApp();
     box.innerHTML = '<section class="card tdlook" aria-labelledby="tdLookH"><h3 class="section-h3" id="tdLookH">' + (dow === 1 ? "Last week" : "Your week") + "</h3>" +
       '<p class="tdlooknums">' + nums.join(" · ") + "</p>" +
-      (sent ? '<p class="tdactout">Sent to ' + esc(coach) + ".</p>" :
-        '<p class="tdlookq" id="tdLookQ">How did it feel?</p><div id="tdLookSeg"></div><div id="tdLookSend"></div><p class="tdactout" id="tdLookOut" role="status"></p>') + "</section>";
-    if (sent) return;
+      (canSend ? '<p class="tdlookq" id="tdLookQ">How did it feel?</p><div id="tdLookSeg"></div><div id="tdLookSend" role="status"></div>' : "") + "</section>";
+    if (!canSend) return;
     const FEEL = ["hard going", "about right", "good"];
     $("tdLookSeg").appendChild(segmented({
       labelledBy: "tdLookQ", options: ["Hard going", "About right", "Felt good"], value: null,
       onChange: (i) => {
-        const sb = $("tdLookSend");
-        if (sb.firstChild) { sb.firstChild._feel = i; return; }
-        sb.innerHTML = '<button type="button" class="btn-secondary">Send to ' + esc(coach) + "</button>";
-        const b = sb.firstChild; b._feel = i;
-        b.addEventListener("click", async () => {
-          b.disabled = true;
-          const text = (dow === 1 ? "Last week" : "My week") + " (" + fmtDay(from) + " to " + fmtDay(to) + "): " +
-            (ss.length ? done + " of " + ss.length + " sessions done" : "") + (km ? (ss.length ? ", " : "") + k1(km) + " run" : "") +
-            ". It felt " + FEEL[b._feel] + ".";
-          const { error } = await sendMessageToCoach(text);
-          if (!alive()) return;
-          if (error) { b.disabled = false; $("tdLookOut").textContent = "Not sent. Couldn't reach Vela."; return; }
-          _tdSet(SK, Date.now()); b.remove(); $("tdLookOut").textContent = "Sent to " + coach + ".";
-        });
+        const text = (dow === 1 ? "Last week" : "My week") + " (" + fmtDay(from) + " to " + fmtDay(to) + "): " +
+          (ss.length ? done + " of " + ss.length + " sessions done" : "") + (km ? (ss.length ? ", " : "") + k1(km) + " run" : "") +
+          ". It felt " + FEEL[i] + ".";
+        const href = whatsAppHref(text), sb = $("tdLookSend");
+        if (!sb || !href || href === coachWhatsApp()) return; // no summary in it: no send
+        sb.innerHTML = '<a class="btn-secondary" href="' + esc(href) + '" target="_blank" rel="noopener">Send to ' + esc(coach) + ' on WhatsApp<span class="sr-only"> (opens WhatsApp with your summary typed in)</span></a>';
       }
     }));
   }
@@ -752,22 +831,93 @@ async function initToday(el) {
 
   function loadWeek() {
     renderLoading($("tdSession"), "Loading today's session…");
-    return cached("today-week", todayWeek).then((r) => {
+    return cached("today-week", todayWeek).then(async (r) => {
       if (!alive()) return;
-      S.weekMeta = r; S.week = r.data || { sessions: [] }; S.ctx = tdCtx(S.week, day);
+      let w = r.data || { sessions: [] };
+      // No programme and no sessions in Vela: her intervals.icu calendar is the plan.
+      if (!w.name && !w.body && !(w.sessions || []).length) w = (await icuWeek(w)) || w;
+      if (!alive()) return;
+      S.weekMeta = r; S.week = w; S.ctx = tdCtx(S.week, day);
       renderSession(); renderWeek(); updMeta(); render();
       const ids = movable().map((s) => s.id);
       if (ids.length && !r.stale) pendingMoves(ids).then((p) => { if (!alive()) return; S.pending = p; renderSession(); renderRest(); }).catch(() => {});
+      loadMoves(); loadTopUp();
     }).catch((e) => {
       console.warn("[companion] today-week", e);
       if (alive()) renderError($("tdSession"), () => loadWeek().then(() => { if (alive()) { renderLook(); renderNut(S.shareAt); } }));
     });
   }
+  // This week from the intervals.icu calendar (last Monday to Sunday, as todayWeek reads
+  // Vela), or null when it has nothing: workouts and races, not notes.
+  async function icuWeek(w) {
+    const monday = w.monday || _tdAddDays(day, -((new Date(day + "T12:00:00").getDay() + 6) % 7));
+    const back = tdDaysTo(day, _tdAddDays(monday, -7)), ahead = tdDaysTo(_tdAddDays(monday, 6), day);
+    let ev = [];
+    try { ev = await intervalsEvents(back, ahead); } catch (e) { return null; }
+    const ss = (ev || []).filter((e) => e && e.name && /^(WORKOUT|RACE)/i.test(e.category || "WORKOUT"))
+      .map(tdIcuSession).filter((s) => s.date).sort((a, b) => a.date.localeCompare(b.date));
+    return ss.length ? { name: null, week: null, weeks: null, body: null, monday, sessions: ss, icu: true } : null;
+  }
+
+  // Today's movements: what the coach prescribed in today's Vela sessions, matched to the
+  // exercise library for photos (and cues when Vela has none). For a calendar session, the
+  // lines of its description that name a library movement.
+  async function loadMoves() {
+    const c = S.ctx; if (!c || !c.sessions || !c.sessions.length) return;
+    let lib = {};
+    try { lib = await exerciseLibrary(); } catch (e) {}
+    const moves = {};
+    const ids = c.sessions.filter((s) => s.id).map((s) => s.id);
+    if (ids.length) {
+      let rows = [];
+      try { rows = (await sessionMovements(ids)) || []; } catch (e) { console.warn("[companion] movements", e); }
+      rows.slice().sort((a, b) => (a.order_index || 0) - (b.order_index || 0)).forEach((x) => {
+        const meta = exMatch(lib, x.exercise_name) || {};
+        const dose = x.sets && x.reps ? x.sets + " × " + x.reps : x.sets ? x.sets + " sets" : x.reps || "";
+        (moves[x.session_id] = moves[x.session_id] || []).push({
+          name: x.exercise_name, dose: dose + (x.tempo ? (dose ? " · " : "") + "tempo " + x.tempo : ""),
+          desc: x.why || meta.description || "", note: x.notes || "",
+          cues: x.cues && x.cues.length ? x.cues : meta.cues || [], photo: meta.photo || "", video: x.video_url
+        });
+      });
+    }
+    c.sessions.forEach((s, i) => {
+      if (s.id || !s.description) return;
+      const list = tdIcuMovements(s.description, lib);
+      if (list.length) moves["icu" + i] = list.map((m) => ({ name: m.name, dose: m.dose, desc: m.meta.description || "", cues: m.meta.cues || [], photo: m.meta.photo || "" }));
+    });
+    if (!alive() || S.ctx !== c) return;
+    S.moves = moves; renderSession();
+  }
+
+  // Tomorrow is a long run, a KEY session or a race: on a rest or easy day, Today says to top
+  // up carbs. Fuel's own day model decides (fuelTopUpToday), so the line only shows when the
+  // Fuel tab it links to says top-up too. Vela's plan first; with no session in it tomorrow,
+  // the intervals.icu calendar.
+  async function loadTopUp() {
+    if (typeof fuelTopUpToday !== "function" || !S.week || S.week.body) return;
+    const c = S.ctx, tom = _tdAddDays(day, 1);
+    let rows = S.week.sessions.filter((s) => s.date === day || s.date === tom).map(tdFuelRow);
+    if (!rows.some((s) => s.scheduled_date === tom)) {
+      let ev = [];
+      try { ev = await intervalsEvents(1, 2); } catch (e) {}
+      rows = rows.concat((ev || []).filter((e) => e && e.name && /^(WORKOUT|RACE)/i.test(e.category || "WORKOUT"))
+        .map(tdIcuSession).filter((s) => s.date === tom).map(tdFuelRow));
+    }
+    let t = null;
+    try { t = fuelTopUpToday(rows, day); } catch (e) { console.warn("[companion] top-up", e); }
+    if (!alive() || S.ctx !== c) return;
+    S.topUp = t; if (t) renderSession();
+  }
+
   const weekP = loadWeek();
   const profP = cached("today-profile", myProfile).then((r) => { S.profile = r.data; updMeta(); }).catch((e) => console.warn("[companion] profile", e));
   Promise.all([weekP, profP]).then(() => { if (alive()) { renderLook(); updMeta(); } });
 
-  Promise.all([todayReadiness().catch(() => null), todayVelaRead().catch(() => null)]).then(([existing, vr]) => {
+  // readyOk: her saved check-in was actually read. A failed read leaves "Last session felt"
+  // alone, so a filled-in guess can never overwrite an answer she saved earlier today.
+  let readyOk = true;
+  Promise.all([todayReadiness().catch(() => { readyOk = false; return null; }), todayVelaRead().catch(() => null)]).then(([existing, vr]) => {
     if (!alive()) return;
     if (existing) {
       // Only where she hasn't already tapped while this was loading.
@@ -791,8 +941,12 @@ async function initToday(el) {
       }
     }
     if (answered() && !S.editing) S.folded = true;
-    render();
+    S.readyLoaded = readyOk;
+    render(); applyEffort();
   });
+  // The effort she logged after her last session (her watch through intervals.icu, or the
+  // Vela app), to fill in "Last session felt" when she hasn't answered it.
+  lastSessionEffort().catch(() => null).then((e) => { S.effort = e; applyEffort(); });
 
   cached("movement", latestMovement).then((r) => { if (alive()) renderFilm(r.data); }).catch(() => {});
   Promise.all([weekP, profP]).then(() => lastNutritionShare().catch(() => null)).then((at) => { S.shareAt = at; if (alive()) renderNut(at); });

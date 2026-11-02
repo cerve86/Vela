@@ -30,6 +30,8 @@
 .fuel-steps li{display:grid;grid-template-columns:4.5em 1fr;gap:var(--sp-2)}
 .fuel-steps b{color:var(--fuel-ink);font-weight:700}
 .fuel-phase{margin:var(--sp-2) 0 0;font-size:var(--fs-2);color:var(--muted)}
+/* "This is a top-up, not race-week carb-loading." under a top-up day's steps */
+.fuel-note{margin:var(--sp-2) 0 0;font-size:var(--fs-2);color:var(--muted);font-style:italic}
 
 /* the optional check-off */
 .fuel-log{border-top:1px solid var(--line);padding-top:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-3)}

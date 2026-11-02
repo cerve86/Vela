@@ -18,3 +18,14 @@ async function fuelPlanSessions() {
     .order("scheduled_date"));
   return { date, sessions: rows || [] };
 }
+
+// intervals.icu calendar events from yesterday to two days ahead, for a top-up when Vela
+// has no session tomorrow. intervals() answers [] when intervals.icu isn't connected; the
+// catch also covers a build whose intervals() can't look ahead yet. Never throws: no
+// events just means no top-up.
+async function fuelTomorrowEvents() {
+  try {
+    const events = await intervals("events", 1, 2);
+    return Array.isArray(events) ? events : [];
+  } catch (e) { return []; }
+}
