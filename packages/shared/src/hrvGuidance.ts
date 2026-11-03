@@ -81,6 +81,16 @@ export interface HrvGuidance {
   note: string;
   /** The reading in a few words — "HRV below your range · swinging day to day · a bigger week than usual". */
   summary: string;
+  /**
+   * The morning left out of the read because it alone was tipping the week (see
+   * hrvGuidance), or null. The figures are then the week without it.
+   */
+  oneOff: DayValue | null;
+  /**
+   * False when the week has only MIN_WEEK_DAYS readings, so the read can't be checked
+   * without its most unusual morning: show it, but as a hint, not a call.
+   */
+  firm: boolean;
   figures: {
     /** This week's mean of ln(HRV), and the normal range it is read against. */
     weekMean: number;
@@ -102,12 +112,46 @@ const WEEK = 7;
 /** The baseline is the three weeks before this one. */
 const BASELINE_WEEKS = 3;
 
+/** How far a stance is from "train to plan", for choosing the calmer of two reads. */
+const STANCE_DISTANCE: Record<Stance, number> = { hold: 0, push: 1, check: 1, ease: 2, rest: 3 };
+
 /**
  * Read the week. Null while there is not enough HRV to read it against — a range needs
  * MIN_BASELINE_DAYS of history and the week MIN_WEEK_DAYS of readings — in which case
  * the caller shows what it showed before.
+ *
+ * A single morning never decides it. The week's mean, and even its log, can be tipped by
+ * one reading far from her usual: in simulated steady weeks with ordinary day-to-day
+ * noise, one morning a quarter under her usual turned the read to ease or rest almost
+ * every time. So the week is read again without its most unusual morning (the one furthest
+ * from her baseline, in ln), and when that read is calmer, it stands and `oneOff` names
+ * the morning left out. A real shift across the week survives the second read. With only
+ * MIN_WEEK_DAYS readings there is nothing to leave out, and `firm` is false.
  */
 export function hrvGuidance(input: HrvGuidanceInput): HrvGuidance | null {
+  const full = readWeek(input);
+  if (!full) return null;
+  const weekStart = shiftDay(input.today, -(WEEK - 1));
+  const mid = (full.figures.rangeLow + full.figures.rangeHigh) / 2;
+  const week = input.hrv.filter((v) => v.value > 0 && v.day >= weekStart && v.day <= input.today);
+  const far = (v: DayValue) => Math.abs(Math.log(v.value) - mid);
+  const odd = week.reduce((a, v) => (far(v) > far(a) ? v : a), week[0]!);
+  const without = readWeek({ ...input, hrv: input.hrv.filter((v) => v !== odd) });
+  if (!without) {
+    return {
+      ...full,
+      firm: false,
+      summary: `${full.summary} · only ${MIN_WEEK_DAYS} readings this week`,
+    };
+  }
+  if (STANCE_DISTANCE[without.stance] < STANCE_DISTANCE[full.stance]) {
+    return { ...without, oneOff: odd, summary: `${without.summary} · one unusual morning left out` };
+  }
+  return full;
+}
+
+/** The tree on the week as given: hrvGuidance, before the single-morning check. */
+function readWeek(input: HrvGuidanceInput): HrvGuidance | null {
   const { today } = input;
   const weekStart = shiftDay(today, -(WEEK - 1));
   const baselineStart = shiftDay(today, -(WEEK * (BASELINE_WEEKS + 1) - 1));
@@ -173,6 +217,8 @@ export function hrvGuidance(input: HrvGuidanceInput): HrvGuidance | null {
     advice: ADVICE[outcome],
     note: noteFor(stance, input.readiness),
     summary: summaryFor(hrv, variability, phase, restingLow),
+    oneOff: null,
+    firm: true,
     figures: {
       weekMean,
       rangeLow,

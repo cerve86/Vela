@@ -245,3 +245,61 @@ test('training phase from load, and the block from the sessions', () => {
     'volume',
   );
 });
+
+test('one unusual morning never decides the week', () => {
+  const read = (hrv: DayValue[]) =>
+    hrvGuidance({
+      today: TODAY,
+      hrv,
+      restingHr: series(restingSteady, restingSteady),
+      load: steadyLoad,
+      sessions: [],
+      readiness: 3,
+    })!;
+  const steady = series(baseHrv, sameWeek);
+  // A morning far under her usual (60 → 35 ms) today: left out, the week reads as before.
+  const low = steady.map((v) => (v.day === TODAY ? { ...v, value: 35 } : v));
+  const g = read(low);
+  assert.equal(g.stance, 'hold');
+  assert.equal(g.hrv, 'within');
+  assert.deepEqual(g.oneOff, { day: TODAY, value: 35 });
+  assert.equal(g.firm, true);
+  assert.match(g.summary, /one unusual morning left out$/);
+  // A high one (60 → 95 ms) doesn't make the week a push either.
+  const high = read(steady.map((v) => (v.day === day(-3) ? { ...v, value: 95 } : v)));
+  assert.equal(high.stance, 'hold');
+  assert.equal(high.oneOff?.day, day(-3));
+  // An ordinary week has nothing left out.
+  assert.equal(read(steady).oneOff, null);
+});
+
+test('a real shift across the week still reads, with or without its odd morning', () => {
+  // The whole week 20% under her usual.
+  const g = hrvGuidance({
+    today: TODAY,
+    hrv: series(baseHrv, alt(48, 0.033)),
+    restingHr: series(restingSteady, restingSteady),
+    load: steadyLoad,
+    sessions: [],
+    readiness: 3,
+  })!;
+  assert.equal(g.hrv, 'below');
+  assert.equal(g.stance, 'ease');
+  assert.equal(g.oneOff, null);
+});
+
+test('a week of only four readings is a hint, not a call', () => {
+  const four = series(baseHrv, alt(48, 0.033)).filter((v) => v.day < day(-6) || v.day >= day(-3));
+  const g = hrvGuidance({
+    today: TODAY,
+    hrv: four,
+    restingHr: [],
+    load: steadyLoad,
+    sessions: [],
+    readiness: null,
+  })!;
+  assert.equal(g.figures.weekDays, 4);
+  assert.equal(g.firm, false);
+  assert.equal(g.oneOff, null);
+  assert.match(g.summary, /only 4 readings this week$/);
+});
