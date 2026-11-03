@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Served from the portal at /companion/; every relative URL below resolves from here.
+     So in-page moves are buttons, not href="#…" links, which would resolve to the companion. -->
+<base href="/companion/">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F2F6FF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1220" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+<title>Connect your watch</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="css/connect.css">
+</head>
+<body>
+<main class="wrap con">
+  <p class="con-back"><a class="btn-text" id="conBack" href="index.html#today">&larr; Back to Today</a></p>
+  <p class="eyebrow">About 5 minutes, once</p>
+  <h1 class="con-h1">Connect your watch</h1>
+  <p class="section-s con-lede">Your watch already knows how you slept and how your heart is recovering. Connect it once and Vela reads it every morning, so there are no numbers to type.</p>
+
+  <div id="conStatus"></div>
+
+  <div id="conGuide">
+    <div class="con-progress" id="conProgress"></div>
+    <section class="card con-step" id="conStep" aria-labelledby="conStepH">
+      <noscript><p class="state">This guide needs JavaScript turned on.</p></noscript>
+    </section>
+  </div>
+
+  <p class="note con-foot">Vela only reads what your watch sends: sleep, HRV, resting heart rate and your workouts. You can disconnect any of it in intervals.icu Settings at any time.</p>
+</main>
+
+<div id="announcer" class="sr-only" aria-live="polite"></div>
+
+<!-- The same client and session as the companion: signed in, it names her coach and
+     checks the connection live; signed out, it is the same guide, ready to send. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/core.js"></script>
+<script src="js/data.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/connect.js"></script>
+</body>
+</html>

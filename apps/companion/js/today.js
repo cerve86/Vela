@@ -341,6 +341,7 @@ function tdMarkup(o) {
         </div>
         <p class="estnote" id="tdWatchNote" role="status"></p>
         <p class="estnote" id="tdBase"></p>
+        <p class="estnote" id="tdConnect" hidden>Rather not type them? <a href="connect.html">Connect your watch</a> once and they arrive by themselves.</p>
       </details>
       <div class="readout" id="tdOut" hidden></div>
       <div id="tdActs" class="tdactswrap" hidden>
@@ -1008,11 +1009,16 @@ async function initToday(el) {
   (async () => {
     const treeP = todayTreeInputs().catch(() => ({ load: [], sessions: [] }));
     try { S.hist = await intervalsWellness(42); } catch (e) { S.hist = []; }
+    // Readings her watch sent (intervals.icu, or Apple Health through the Vela app), before
+    // her own typed-in ones are added: with none, the watch fold offers to connect it.
+    const synced = S.hist.some((d) => Number(d.hrv) > 0 || Number(d.restingHR) > 0);
     if (!S.hist.length) {
       try { const v = await recentVitals(42); S.hist = v.map((x) => ({ date: x.log_date, hrv: x.hrv, restingHR: x.rhr })); } catch (e) {}
     }
     S.tree = await treeP;
     S.histReady = true;
-    if (alive()) render();
+    if (!alive()) return;
+    const tc = $("tdConnect"); if (tc) tc.hidden = synced;
+    render();
   })();
 }

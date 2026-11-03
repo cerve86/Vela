@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server';
+import { icuHasReading, icuWithheld } from '@vela/shared';
 import { clientIdFor, notAClient, requireUser } from '@/lib/apiRoute';
+import { ICU_ID, icuCheck, icuGet, icuKey, icuWindow } from '@/lib/intervals';
 
 /**
- * GET /api/companion/intervals?metric=wellness|activities|events&days=N[&ahead=M]
+ * GET /api/companion/intervals?metric=wellness|activities|events|status&days=N[&ahead=M]
  *
  * `ahead` (events only, 0–14, default 0) reaches M days past tomorrow, so the companion's
  * fuel plan can see tomorrow's long run (and a little beyond) on the calendar.
+ *
+ * `status` is the setup guide's question, "is my watch reaching Vela?":
+ * {state: "no-key" | "no-athlete-id" | "denied" | "error" | "connected", conn?} with conn
+ * as `readIcuConnection` reads it (packages/shared intervalsConnection.ts).
  *
  * The companion's window onto intervals.icu, for the signed-in athlete only. intervals.icu
  * takes HTTP Basic auth with the COACH's API key, which must never reach a browser — so
@@ -18,19 +24,17 @@ import { clientIdFor, notAClient, requireUser } from '@/lib/apiRoute';
  * "not connected yet" is the normal state, not an error to log on every page load. So
  * this route can ship before the coach has a key.
  *
+ * Two things are left out on the way through, so the companion's "intervals.icu when it
+ * has something, Vela otherwise" means what it says:
+ * - activities intervals.icu withholds (Strava's, as stubs with no data), which would
+ *   otherwise stand in for the Strava runs Vela itself holds;
+ * - wellness days with no reading on them (intervals.icu writes a row for every training
+ *   day), which would otherwise stand in for her Apple Health HRV.
+ *
  * Env: INTERVALS_API_KEY (Settings → Developer Settings on intervals.icu). A coach key
  * reads an athlete once she has accepted the coaching request.
  */
-const ICU = 'https://intervals.icu/api/v1';
-
-// intervals.icu sits behind Cloudflare, which blocks non-browser user agents.
-const UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-  '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-
-const METRICS = new Set(['wellness', 'activities', 'events']);
-
-const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+const METRICS = new Set(['wellness', 'activities', 'events', 'status']);
 
 export async function GET(req: Request) {
   const { supabase, userId, refused } = await requireUser(req);
@@ -39,9 +43,15 @@ export async function GET(req: Request) {
   const clientId = await clientIdFor(supabase, userId);
   if (!clientId) return notAClient('read their intervals.icu data');
 
-  const key = process.env.INTERVALS_API_KEY;
-  const notConnected = (why: string) =>
-    NextResponse.json([], { headers: { 'x-intervals-status': why } });
+  const params = new URL(req.url).searchParams;
+  const metricParam = params.get('metric') ?? 'wellness';
+  const metric = METRICS.has(metricParam) ? metricParam : 'wellness';
+
+  const key = icuKey();
+  const notConnected = (why: 'no-key' | 'no-athlete-id') =>
+    metric === 'status'
+      ? NextResponse.json({ state: why })
+      : NextResponse.json([], { headers: { 'x-intervals-status': why } });
   if (!key) return notConnected('no-key');
 
   const { data: profile } = await supabase
@@ -50,47 +60,36 @@ export async function GET(req: Request) {
     .eq('client_id', clientId)
     .maybeSingle();
   const icuId = profile?.intervals_icu_id?.trim();
-  // The id goes into a path: accept intervals.icu's own shapes only ("i12345" or digits).
-  if (!icuId || !/^i?\d+$/.test(icuId)) return notConnected('no-athlete-id');
+  if (!icuId || !ICU_ID.test(icuId)) return notConnected('no-athlete-id');
 
-  const params = new URL(req.url).searchParams;
-  const metricParam = params.get('metric') ?? 'wellness';
-  const metric = METRICS.has(metricParam) ? metricParam : 'wellness';
+  if (metric === 'status') {
+    const check = await icuCheck(key, icuId);
+    // Her own name on intervals.icu adds nothing for her; the coach's portal shows it.
+    return NextResponse.json(
+      check.state === 'connected' ? { state: check.state, conn: check.conn } : check,
+    );
+  }
+
   const days = Math.min(Math.max(parseInt(params.get('days') ?? '30', 10) || 30, 1), 120);
   // Only the calendar has a future; wellness and activities stop at today.
   const ahead =
     metric === 'events'
       ? Math.min(Math.max(parseInt(params.get('ahead') ?? '0', 10) || 0, 0), 14)
       : 0;
-  const now = Date.now();
-
-  // intervals.icu files each day under the athlete's own date, and this server runs in UTC:
-  // at 6:30am in Singapore it is still yesterday here, and newest=<UTC today> would leave
-  // out the reading she took this morning. Pad the window by a day at both ends; the
-  // companion keys everything on her local date, so the extra day costs nothing.
-  const oldest = ymd(now - (days + 1) * 864e5);
-  const newest = ymd(now + (1 + ahead) * 864e5);
-  const r = await fetch(
-    `${ICU}/athlete/${icuId}/${metric}?oldest=${oldest}&newest=${newest}`,
-    {
-      headers: {
-        Authorization: 'Basic ' + Buffer.from('API_KEY:' + key).toString('base64'),
-        'User-Agent': UA,
-        Accept: 'application/json',
-      },
-      cache: 'no-store',
-    },
-  );
+  const r = await icuGet(key, `/athlete/${icuId}/${metric}?${icuWindow(days, ahead)}`);
   if (!r.ok) {
     console.error('[vela] intervals.icu', metric, r.status);
     return NextResponse.json({ error: `intervals.icu ${r.status}` }, { status: 502 });
   }
-  const data: unknown = await r.json();
+  const data = r.data;
 
-  // Wellness is normalised to what the companion reads; the rest passes through.
+  if (metric === 'activities' && Array.isArray(data)) {
+    return NextResponse.json(data.filter((a) => !icuWithheld(a)));
+  }
+  // Wellness is normalised to what the companion reads; the calendar passes through.
   if (metric === 'wellness' && Array.isArray(data)) {
     return NextResponse.json(
-      data.map((w: Record<string, unknown>) => ({
+      data.filter(icuHasReading).map((w: Record<string, unknown>) => ({
         date: w.id ?? w.date,
         hrv: w.hrv,
         restingHR: w.restingHR,

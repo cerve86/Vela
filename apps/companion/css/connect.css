@@ -1,0 +1,78 @@
+/* Connect your watch (connect.html, js/connect.js). Built from the shared pieces in
+   styles.css: .card, .inset, the three buttons. The live check uses the readiness colours
+   (go green, ease blue, easy amber), never red: a missing reading is a setting to tick,
+   not an alarm. */
+
+/* No tab bar on this page, so no room kept for one at the bottom. */
+.wrap.con{padding-block:var(--sp-4) calc(var(--sp-6) + env(safe-area-inset-bottom,0px))}
+.con-back{margin:0 0 var(--sp-2)}
+.con-back .btn-text{padding-left:0;font-family:var(--d-body);font-size:var(--fs-2)}
+.con .eyebrow{margin:var(--sp-3) 0 var(--sp-1)}
+.con-h1{font-family:var(--d-ser);font-weight:600;font-size:var(--fs-6);line-height:1.15;letter-spacing:-.02em;margin:0 0 var(--sp-2)}
+.con-lede{font-size:var(--fs-3);margin-bottom:var(--sp-2)}
+
+/* "Step 2 of 5 · Account" over a bar of five. */
+.con-progress{margin:var(--sp-4) 0 var(--sp-2)}
+.con-progress:empty{margin:var(--sp-4) 0 0}
+.con-progress p{margin:0 0 6px;font-size:var(--fs-1);font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-variant-numeric:tabular-nums}
+.con-bar{display:flex;gap:4px}
+.con-bar span{flex:1;height:4px;border-radius:2px;background:var(--line)}
+.con-bar span.on{background:var(--accent-fill)}
+@media (prefers-reduced-motion:no-preference){.con-bar span{transition:background-color .25s ease}}
+
+/* One step. */
+.con-step{scroll-margin-top:var(--sp-4)}
+.con-step>.section-h3:first-child{margin-top:0}
+.con-step .section-h3:focus{outline:none}
+.con-step .section-h3:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:6px}
+.con-step>p{margin:var(--sp-2) 0 0;line-height:1.5}
+.con-step>p.hintline{margin-top:var(--sp-3)}
+
+/* What she trains with: big tiles, two across on a phone. */
+.con-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2);margin-top:var(--sp-3)}
+@media (min-width:520px){.con-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.con-tile{min-height:56px;padding:var(--sp-3);border:1px solid var(--field-line);border-radius:var(--r-md);background:var(--surface);
+  color:var(--ink);font-family:var(--d-ser);font-weight:600;font-size:var(--fs-3);line-height:1.2;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.con-tile.quiet{font-family:var(--d-body);font-size:var(--fs-2);color:var(--muted)}
+.con-tile:hover{border-color:var(--accent)}
+.con-tile[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--base-soft);color:var(--ink)}
+@media (prefers-reduced-motion:no-preference){
+  .con-tile{transition:transform .15s cubic-bezier(.2,.7,.3,1),border-color .15s ease}
+  .con-tile:active{transform:scale(.97)}
+}
+
+/* Numbered instructions, each with its link where she needs it. */
+.con-list{list-style:none;margin:var(--sp-3) 0 0;padding:0;counter-reset:con}
+.con-list li{position:relative;padding:var(--sp-3) 0 var(--sp-3) 40px;border-top:1px solid var(--line);counter-increment:con}
+.con-list li:first-child{border-top:0;padding-top:var(--sp-1)}
+.con-list li::before{content:counter(con);position:absolute;left:0;top:var(--sp-3);width:28px;height:28px;border-radius:50%;
+  background:var(--chip);color:var(--accent);font-weight:700;font-size:var(--fs-2);display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.con-list li:first-child::before{top:var(--sp-1)}
+.con-list p{margin:0;line-height:1.5}
+.con-list b,.con-step b{font-weight:700}
+.con-ext{margin-top:var(--sp-2);font-size:var(--fs-2)}
+.con-step>.con-ext{margin-top:var(--sp-3)}
+.con-ext svg{width:16px;height:16px}
+.con-note{margin:var(--sp-3) 0 0;font-size:var(--fs-2);line-height:1.5}
+.con-wa{margin-top:var(--sp-3)}
+
+/* Back · Next. */
+.con-nav{display:flex;align-items:center;gap:var(--sp-2);margin-top:var(--sp-5)}
+.con-nav .btn-primary{flex:1;width:auto}
+.con-nav-col{flex-direction:column;align-items:stretch}
+.con-nav-col .btn-primary{width:100%}
+
+/* The live check: is her watch reaching Vela? */
+.con-live{margin-top:var(--sp-3);background:var(--chip);border-left:4px solid var(--line);border-radius:var(--r-sm);padding:var(--sp-3) var(--sp-4);font-size:var(--fs-2);line-height:1.5}
+.con-live p{margin:0}
+.con-live-h{font-size:var(--fs-3);font-weight:700;margin-bottom:2px!important}
+.con-live-acts{display:flex;flex-wrap:wrap;gap:0 var(--sp-3);margin-top:var(--sp-1)!important}
+.con-live-acts .btn-text{padding-left:0;font-family:var(--d-body);font-size:var(--fs-2)}
+.con-live.is-ok{border-left-color:var(--ready-go-fill)} .con-live.is-ok .con-live-h{color:var(--ready-go-ink)}
+.con-live.is-wait{border-left-color:var(--ready-ease-fill)} .con-live.is-wait .con-live-h{color:var(--ready-ease-ink)}
+.con-live.is-warn{border-left-color:var(--ready-easy-fill)} .con-live.is-warn .con-live-h{color:var(--ready-easy-ink)}
+.con-top .con-live{margin-top:var(--sp-4)}
+.con-open{padding-left:0;font-family:var(--d-body);font-size:var(--fs-2)}
+#conStatus>p{margin:var(--sp-2) 0 0}
+
+.con-foot{max-width:66ch}

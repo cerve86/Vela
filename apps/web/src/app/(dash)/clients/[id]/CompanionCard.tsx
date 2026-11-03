@@ -4,6 +4,7 @@ import { palette } from '@vela/shared/tokens';
 import { Card, StatusPill } from '@/components/ui';
 import type { CompanionData, CompanionVerdict, ShareResult } from './companion';
 import { CompanionRaceForm } from './CompanionRaceForm';
+import { IntervalsPanel } from './IntervalsPanel';
 
 /** The words she tapped, 0 → 2, as the companion shows them. */
 const ANSWERS = {
@@ -27,8 +28,9 @@ const RESULT: Record<ShareResult, { label: string; tone: 'good' | 'warning' | 'c
 };
 
 /**
- * What she told the companion: her morning checks with the verdict she was shown, the
- * nutrition results she chose to share, and the race you set for her countdown.
+ * What she told the companion: her morning checks with the verdict she was shown, whether
+ * her watch reaches it through intervals.icu, the nutrition results she chose to share,
+ * and the race you set for her countdown.
  *
  * An energy flag sits at the top of the card in the critical colour, because it is the one
  * result here that should change what happens next: it points to a GP visit, and she is
@@ -146,6 +148,8 @@ export function CompanionCard({
           </p>
         </div>
       )}
+
+      <IntervalsPanel clientId={clientId} firstName={firstName} icuId={data.icuId} />
 
       <div className="mt-5 border-t pt-4" style={{ borderColor: 'var(--border)' }}>
         <h3 className="text-xs font-medium ink-2">Nutrition check</h3>
