@@ -81,6 +81,10 @@ const TD_STANCE = {
   check: () => "HRV and resting HR are both unusually low: fine if you're feeling and performing well; if not, tell " + coachName() + "."
 };
 
+// The coach's Italian in the suggestion, marked so a screen reader says it in Italian.
+const TD_IT = ["Mamma mia!", "Forza!", "Piano piano.", "Goditela!", "Grande!"];
+const tdItHtml = (html) => TD_IT.reduce((h, p) => h.split(esc(p)).join('<span lang="it">' + esc(p) + "</span>"), html);
+
 // The suggestion: the full read, never a single number. Her morning check-in leads (sleep,
 // legs, energy, last session); then her HRV week through the Vela app's decision tree (this
 // week against the three before, the day-to-day swing, resting HR, training load) can make
@@ -140,9 +144,11 @@ function tdVerdict(o) {
   const T = c.title || "today's session";
   const smart = " A smart call, not a setback.";
   // A rough morning (how she feels, not her numbers) is met with empathy, never "enjoy":
-  // rest and gentle mobilisation come first, and the coach can swap the intensity (the
-  // coach's words, 3 Nov 2026).
-  const rough = "Some days don't start the way we wished for. ";
+  // rest and gentle mobilisation come first, and the coach can swap the intensity. A good
+  // one gets a "Forza!". The Italian is the coach's own voice (3 Nov 2026), and gender-
+  // neutral on purpose ("Grande", never "Brava"): the cohort is mixed. TD_IT marks it up.
+  const rough = "Mamma mia! Some days don't start the way we wished for. Let's turn it into a better one. ";
+  const forza = "Forza! This is a good day to get things done. ";
   const swap = " If you need to, ask " + coachName() + " to swap the intensity.";
   let msg;
   if (c.rest) {
@@ -151,26 +157,26 @@ function tdVerdict(o) {
       ? rough + "Prioritise rest and gentle mobilisation today" +
         (st.sleep === 0 ? ", and an early night: it will do more than anything." : st.energy === 0 ? ", with a proper meal and an early night." : ".") +
         " If the next sessions feel like too much, ask " + coachName() + " to swap the intensity."
-      : "Enjoy it.";
+      : "Goditela! Enjoy it.";
     return { band, cls: "rest", pill: "Rest day", msg, note };
   }
   if (c.done) {
-    msg = "Today's session is done. Nice work." + (b < 2 ? " Eat soon, and make tonight an early one." : "");
+    msg = "Grande! Today's session is done." + (b < 2 ? " Eat soon, and make tonight an early one." : "");
     return { band, cls: band, pill: PILL[b], msg, note };
   }
   const reps = /(\d+)\s*[x×]\s*([\d.]+\s*(?:min|km|m|s)?)/i.exec(T);
   const k = c.kind || "";
   if (b === 2) {
-    msg = {
-      quality: "Good to go for " + T + ". Warm up well and let the first rep tell you how it feels.",
-      long: "Good to go for " + T + ". Start slower than you think, and fuel as planned.",
-      easy: "Good to go. " + T + " as written, nice and relaxed.",
-      gentle: "Good to go. " + T + " as written.",
-      strength: "Good to go. " + T + " as written.",
-      run: "Good to go. " + T + " as written: start easy and let it build."
-    }[k] || "Body and legs are with you. Enjoy today's training as written.";
+    msg = forza + ({
+      quality: "Warm up well for " + T + " and let the first rep tell you how it feels.",
+      long: T + ": start slower than you think, and fuel as planned.",
+      easy: T + " as written, nice and relaxed.",
+      gentle: T + " as written.",
+      strength: T + " as written.",
+      run: T + " as written: start easy and let it build."
+    }[k] || "Body and legs are with you: today's training as written.");
   } else if (b === 1) {
-    msg = lead + ({
+    msg = "Piano piano. " + lead + ({
       quality: "For " + T + ", " + (reps && +reps[1] > 1 ? "do " + (reps[1] - 1) + " × " + reps[2].trim() + " instead of " + reps[1] : "do about two thirds of the work") + (c.swap ? ", or swap it with " + c.swap : "") + ".",
       long: "Keep " + T + " conversational, and cut it short if it isn't settling.",
       easy: T + " is already easy, so keep it that way: a relaxed pace" + (c.strides ? ", and skip the strides" : "") + ".",
@@ -528,7 +534,7 @@ async function initToday(el) {
     const r = tdVerdict({ st, keys: ks, ctx: S.ctx, hrv: v, back: S.back ? S.back.how || "pending" : null, vela: done ? null : S.vela });
     out.hidden = false;
     out.className = "readout " + r.cls;
-    out.innerHTML = '<span class="pill">' + esc(r.pill) + "</span><p>" + esc(r.msg) + (r.note ? " " + esc(r.note) : "") + "</p>" +
+    out.innerHTML = '<span class="pill">' + esc(r.pill) + "</span><p>" + tdItHtml(esc(r.msg)) + (r.note ? " " + esc(r.note) : "") + "</p>" +
       '<p class="suggest">' + esc(Coach) + " sees your check-in too." + (r.cls === "rest" ? "" : " Your plan only changes if you ask.") + "</p>";
     // Saved as she saw it, so a rest day reaches the coach as "Rest day", not "Good to go".
     S.verdict = r.cls === "rest" ? "rest" : r.band;
