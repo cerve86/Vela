@@ -122,10 +122,18 @@ function tdVerdict(o) {
   const lead = reasons.length ? reasons.join(", ").replace(/^./, (x) => x.toUpperCase()) + ". " : "";
   const T = c.title || "today's session";
   const smart = " A smart call, not a setback.";
+  // A rough morning is met with empathy, never "enjoy": rest and gentle mobilisation come
+  // first, and the coach can swap the intensity (the coach's words, 3 Nov 2026).
+  const rough = "Some days don't start the way we wished for. ";
+  const swap = " If you need to, ask " + coachName() + " to swap the intensity.";
   let msg;
   if (c.rest) {
     // The pill already says "Rest day".
-    msg = "Enjoy it." + (st.sleep === 0 ? " Sleep was short, so an early night will do more than anything." : st.energy === 0 ? " Low energy is worth a proper meal and an early night." : b < 2 ? " Take it properly easy: a good meal and an early night." : "");
+    msg = b < 2
+      ? rough + "Prioritise rest and gentle mobilisation today" +
+        (st.sleep === 0 ? ", and an early night: it will do more than anything." : st.energy === 0 ? ", with a proper meal and an early night." : ".") +
+        " If the next sessions feel like too much, ask " + coachName() + " to swap the intensity."
+      : "Enjoy it.";
     return { band, cls: "rest", pill: "Rest day", msg, note };
   }
   if (c.done) {
@@ -153,14 +161,14 @@ function tdVerdict(o) {
       run: "Take " + T + " a little shorter or slower and see how it feels."
     }[k] || "Trim today a little: a bit shorter, or a bit easier.");
   } else {
-    msg = lead + ({
-      quality: "Leave the hard work in " + T + " for another day: run easy instead, or rest." + smart,
-      long: "Make " + T + " a short, easy run today, or rest." + smart,
+    msg = rough + lead + ({
+      quality: "Leave the hard work in " + T + " for another day: prioritise rest or gentle mobilisation, or an easy run." + swap,
+      long: "Make " + T + " a short, easy run today, or rest and do some gentle mobilisation." + swap,
       easy: T + " is already easy. Keep it truly relaxed" + (c.strides ? " and skip the strides" : "") + ", or rest if you'd rather." + smart,
       gentle: T + " is gentle, a good fit for today. Or rest if you'd rather.",
-      strength: "Keep " + T + " light, or rest." + smart,
-      run: "Run easy and a little shorter today, or rest." + smart
-    }[k] || "Keep today easy and low-impact, or rest." + smart);
+      strength: "Keep " + T + " light, or rest and do some gentle mobilisation." + swap,
+      run: "Prioritise rest or gentle mobilisation, or run easy and a little shorter." + swap
+    }[k] || "Prioritise rest and gentle mobilisation, or keep today easy and low-impact." + swap);
   }
   return { band, cls: band, pill: PILL[b], msg, note };
 }
