@@ -131,7 +131,6 @@ const LIB_LOAD_WEEKS = 6, LIB_LOAD_MIN = 3;
 // so a fortnight without the watch doesn't stretch it back months.
 const LIB_HRV_DAYS = 42;
 const libMean = a => a.reduce((x, y) => x + y, 0) / a.length;
-const libSd = a => { const m = libMean(a); return Math.sqrt(libMean(a.map(v => (v - m) * (v - m)))); };
 // "YYYY-MM-DD" moved by n days, on her calendar.
 const libShift = (ymd, n) => { const d = new Date(ymd + "T00:00:00"); d.setDate(d.getDate() + n); return ymdLocal(d); };
 const libDays = (a, b) => Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 864e5);
@@ -185,15 +184,29 @@ function libHrvTrend(wells, end) {
   });
   const days = Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date));
   const pts = days.filter(p => p.hrv != null), rhrs = days.filter(p => p.rhr != null).map(p => p.rhr);
-  const t = { from, end, points: pts, enough: pts.length >= 14 };
-  pts.forEach(p => { const a = libShift(p.date, -6); p.avg7 = libMean(pts.filter(x => x.date >= a && x.date <= p.date).map(x => x.hrv)); });
+  // The same read as Today: the Vela app's HRV tree (js/hrv-guidance.js), this week against
+  // the three weeks before it, on log HRV so one high morning doesn't own the week. The line
+  // is each day's 7-day average taken the same way (the geometric mean), so the marked point
+  // is the tree's own week. Training load only changes the tree's advice, not the range, so
+  // none is passed here.
+  const weekFrom = libShift(end, -6), baseFrom = libShift(end, -27);
+  const read = hrvRead({
+    today: end, hrv: pts.map(p => ({ day: p.date, value: p.hrv })), restingHr: [], load: [], sessions: [], readiness: null
+  }), g = read.g;
+  const t = { from, end, points: pts, enough: !!g,
+    // A baseline without 4 readings this week: there is a range, just no week to read.
+    baseOnly: !g && pts.filter(p => p.date >= baseFrom && p.date < weekFrom).length >= (typeof VelaHrv !== "undefined" ? VelaHrv.MIN_BASELINE_DAYS : 10) };
+  const geo = (xs) => Math.exp(libMean(xs.map(Math.log)));
+  pts.forEach(p => { const a = libShift(p.date, -6); p.avg7 = geo(pts.filter(x => x.date >= a && x.date <= p.date).map(x => x.hrv)); });
   if (rhrs.length >= 14) t.rbase = libMean(rhrs);
   if (!t.enough) return t;
-  const vals = pts.map(p => p.hrv), m = libMean(vals), s = libSd(vals);
-  t.base = m; t.lo = m - 0.75 * s; t.hi = m + 0.75 * s;
-  const recent = pts.filter(p => p.date >= libShift(end, -6));
-  t.roll7 = recent.length >= 3 ? libMean(recent.map(p => p.hrv)) : null;
-  t.pos = t.roll7 == null ? null : t.roll7 < t.lo ? "below" : t.roll7 > t.hi ? "above" : "inside";
+  const f = g.figures;
+  t.lo = Math.exp(f.rangeLow); t.hi = Math.exp(f.rangeHigh); t.base = Math.exp((f.rangeLow + f.rangeHigh) / 2);
+  t.roll7 = Math.exp(f.weekMean);
+  t.pos = g.hrv === "within" ? "inside" : g.hrv;
+  t.swing = g.variability === "high";
+  t.oneOff = read.oneOff;
+  const m = t.base;
   // Whole numbers that never contradict the verdict: "range 49–54, average 49, below" can't
   // happen, because a value below the range is rounded down and the range's edge up.
   const r = Math.round;
@@ -318,7 +331,8 @@ function libProgressHtml(d) {
     if (t.pos === "inside") line = "Your 7-day average is inside your normal range. Steady, which is exactly what you want through a build.";
     else if (t.pos === "above") line = "Your 7-day average is a little above your normal range, a sign the training is being absorbed well.";
     else if (t.pos === "below") line = `Your 7-day average has dipped below your normal range. Often it's just a hard week or a short night or two. Keep easy days easy and it tends to come back. If it's still low next week, mention it to ${coach}.`;
-    else line = "Fewer than three readings in the last 7 days, so there's no trend to read this week.";
+    if (t.oneOff) line += ` One unusual morning (${Math.round(t.oneOff.value)} ms on ${fmtDay(t.oneOff.day)}) is left out of this week's read: one reading never decides it.`;
+    if (t.swing) line += " Your readings are also swinging more than usual from day to day: extra sleep and easy days help them settle.";
     hrvPanel = `<div class="card pcard">
       <h4 class="pgh">Recovery trend (HRV)</h4>
       ${libHrvChart(t)}
@@ -327,12 +341,12 @@ function libProgressHtml(d) {
       <p class="pgline">${line}</p>
       ${libNumbers("HRV readings in the last 6 weeks", ["Date", "Reading", "7-day average"], t.points.map(p => [fmtDay(p.date), Math.round(p.hrv) + " ms", Math.round(p.avg7) + " ms"]))}
       <details class="watch"><summary>What this is</summary>
-        <p class="estnote">Your normal range comes from your own readings over the last 6 weeks, and the line is the average of each 7 days, so one morning never decides it. It's never compared with anyone else, and a noisier watch just gives a slightly wider range. Read it alongside how you feel.</p>
+        <p class="estnote">Your normal range comes from your own readings in the three weeks before this one, and the line is the average of each 7 days, so one morning never decides it. It's the same read the Vela app and ${coach} use, and Today puts it together with your check-in. It's never compared with anyone else, and a noisier watch just gives a slightly wider range.</p>
       </details>
     </div>`;
   } else {
     hrvPanel = `<div class="card pcard"><h4 class="pgh">Recovery trend (HRV)</h4>
-      <p class="hintline">Building your recovery baseline. It needs about two weeks of readings. Until then, how you feel and your resting heart rate carry most of the same signal.</p></div>`;
+      <p class="hintline">${t.baseOnly ? "Fewer than four readings in the last 7 days, so there's no trend to read this week." : "Building your recovery baseline. It needs readings on 10 days in the three weeks before this one, and 4 this week. Until then, how you feel and your resting heart rate carry most of the same signal."}</p></div>`;
   }
 
   return strip + adherence + volPanel + longPanel + loadPanel + hrvPanel;

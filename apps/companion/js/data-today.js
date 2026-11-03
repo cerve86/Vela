@@ -43,6 +43,33 @@ async function todayWeek() {
   };
 }
 
+// What the HRV decision tree (js/hrv-guidance.js) reads besides HRV and resting HR, fed the
+// way the Vela app feeds it (apps/mobile lib/vitality.ts), so both apps read her week the
+// same: daily training load, the watch's cardio load where Vela has 3 or more days of it,
+// otherwise sets done; and the completed sessions with their effort. Four weeks: this one
+// and the three it is read against. {load:[{day, value}], sessions:[{day, discipline, rpe}]}
+async function todayTreeInputs() {
+  const id = await myClientId(); if (!id) return { load: [], sessions: [] };
+  const from = new Date(); from.setDate(from.getDate() - 27); from.setHours(0, 0, 0, 0);
+  const [cardio, ss] = await Promise.all([
+    q(window.db.from("metrics").select("recorded_at,value").eq("client_id", id)
+      .eq("type", "cardio_load").gte("recorded_at", from.toISOString()).limit(1000)),
+    q(window.db.from("sessions").select("scheduled_date, discipline, session_rpe, sets_done")
+      .eq("client_id", id).eq("status", "completed")
+      .gte("scheduled_date", daysAgo(27)).lte("scheduled_date", today()))
+  ]);
+  const sum = (rows, dayOf, valOf) => {
+    const by = {};
+    (rows || []).forEach((r) => { const v = Number(valOf(r)); if (isFinite(v)) by[dayOf(r)] = (by[dayOf(r)] || 0) + v; });
+    return Object.keys(by).map((day) => ({ day, value: by[day] }));
+  };
+  const load = sum(cardio, (m) => ymdLocal(new Date(m.recorded_at)), (m) => m.value);
+  return {
+    load: load.length >= 3 ? load : sum(ss, (s) => s.scheduled_date, (s) => s.sets_done || 0),
+    sessions: (ss || []).map((s) => ({ day: s.scheduled_date, discipline: s.discipline, rpe: s.session_rpe }))
+  };
+}
+
 // The Vela app's daily read for today, if she has done one (the latest window wins, as in
 // the app): {id, read_window, readiness 0–4, created_at} or null.
 async function todayVelaRead() {

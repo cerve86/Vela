@@ -187,13 +187,20 @@ async function velaWellness(days) {
     .select("recorded_at,type,value").eq("client_id", id)
     .in("type", ["hrv_ms", "resting_hr"]).gte("recorded_at", from.toISOString())
     .order("recorded_at", { ascending: false }).limit(1000));
-  const byDay = {};
+  // The day's mean, as the Vela app reads it (apps/mobile lib/vitality.ts meanByType): a
+  // manual entry beside the imported one must not decide the day on its own.
+  const acc = {};
   (data || []).forEach(m => {
-    const d = ymdLocal(new Date(m.recorded_at)), k = m.type === "hrv_ms" ? "hrv" : "restingHR";
-    const row = byDay[d] = byDay[d] || { date: d };
-    if (row[k] == null) row[k] = Number(m.value); // newest reading of the day wins
+    const d = ymdLocal(new Date(m.recorded_at)), k = m.type === "hrv_ms" ? "hrv" : "restingHR", v = Number(m.value);
+    if (!isFinite(v)) return;
+    const e = (acc[d] = acc[d] || {})[k] = acc[d][k] || { total: 0, n: 0 };
+    e.total += v; e.n += 1;
   });
-  return Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date));
+  return Object.keys(acc).sort().map(d => {
+    const row = { date: d };
+    Object.keys(acc[d]).forEach(k => { row[k] = acc[d][k].total / acc[d][k].n; });
+    return row;
+  });
 }
 // Runs synced from Strava: [{start_date_local, distance (m), type, name}].
 async function velaActivities(days) {
