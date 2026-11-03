@@ -83,7 +83,7 @@ functions are globals.
 - `js/core.js` holds the shared helpers and the shell: `esc`, local-date helpers, who she
   is (`firstName()`, `coachName()`, `coachWhatsApp()`, `showCalories()`), the exercise
   library (`exerciseLibrary()`, `exMatch()`), `STRAVA_RUN_MAPS`, `hrvRead()` (her HRV week
-  through the tree, read again without its most unusual morning), `cached()` for offline copies,
+  through the tree, which never lets one unusual morning decide it), `cached()` for offline copies,
   `loadInto()` for loading / empty / error states, `segmented()` (the one pick-one
   control), `announce()`, the "today changed" hook and the hash router (`#today`,
   `#library-routes`, …), so the phone's back gesture moves between tabs.

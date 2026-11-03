@@ -123,10 +123,11 @@ function tdVerdict(o) {
     let moved = false;
     if (firm && g.stance === "rest" && b > 0) { b = 0; moved = true; reasons.push("your HRV trend points to real fatigue"); }
     else if (firm && g.stance === "ease" && b === 2) { b = 1; moved = true; reasons.push("your HRV trend is asking for a little less"); }
-    // The tree's own summary of her week: "HRV below your range · steady day to day · a usual week".
-    note = "Your 7-day trend" + (v.oneOff ? ", leaving out one unusual morning" : "") + ": " + g.summary.replace(/ · /g, ", ") + "." +
+    // The tree's own summary of her week, which says so when a morning was left out or the
+    // week is thin: "HRV below your range · steady day to day · a usual week".
+    note = "Your 7-day trend: " + g.summary.replace(/ · /g, ", ") + "." +
       (moved && g.stance === "ease" ? "" : " " + TD_STANCE[g.stance]()) +
-      (firm ? "" : " Only four readings this week, so take it as a hint.");
+      (firm ? "" : " Take it as a hint for now.");
     if (v.enoughR && v.rUp) note += " Resting HR is up on your usual too.";
   } else if (v.enoughR && v.rUp && b === 2) { b = 1; reasons.push("your resting HR trend is up on your usual"); }
   // Back after a gap: the first day back starts gently, whatever the taps say.
@@ -405,7 +406,7 @@ async function initToday(el) {
     const R = daily("restingHR", "rhr");
     let res = { g: null, enoughR: false };
     try {
-      // Read twice, the second time without the week's most unusual morning (hrvRead, core.js).
+      // The shared tree, which never lets one unusual morning decide the week (hrvRead, core.js).
       res = Object.assign(res, hrvRead({ today: day, hrv: daily("hrv", "hrv"), restingHr: R,
         load: S.tree.load, sessions: S.tree.sessions, readiness: feel == null ? null : feel }));
     } catch (e) { console.warn("[companion] hrv tree", e); }
