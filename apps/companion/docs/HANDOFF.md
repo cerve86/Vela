@@ -136,3 +136,33 @@ their inline-SVG charts), `index.html` (3 new sections + nav buttons + `renderAp
 5. Seed content (routes, resources, each athlete's `movement_profiles` / `strength_items`);
    make the coach a `coaches` row; set each athlete's `intervals_icu_id`.
 6. Run the §4 coach-key live check.
+
+## 10. Round two: the coach's feedback (3 Nov 2026)
+Built on the Vela backend (see `../README.md`); this list is what changed.
+- **WhatsApp replaces in-app messaging.** The companion writes nothing to `messages` and
+  has no `vela://messages` links. The coach sets her link once in portal Settings →
+  WhatsApp (`profiles.whatsapp_url`; wa.me, api.whatsapp.com/send or a group invite,
+  checked in the database and in the form). Clients read it under
+  `profiles_client_reads_own_coach`. Per-run feedback goes in intervals.icu comments.
+  A group invite is never offered for running clips or the week summary (the whole group
+  would see them); its button reads "Open the WhatsApp group". Bare numbers need their
+  country code (+ or 00), or the form refuses them.
+- **Today's movements.** New RPC `companion_session_movements(p_session_ids uuid[])`:
+  the movements in the given sessions with the library card (domain, why, cues, video).
+  The caller's own sessions or her clients' only (42501 otherwise); gated movements she
+  isn't cleared for are left out. Matched to `exercises.json` by `exMatch()` in `core.js`,
+  which never matches across a variant (jumps, single leg vs both, an iso hold); the coach's
+  own name for a movement is always the one shown.
+- **Top-up day.** A rest or easy day before a long or KEY session becomes a top-up (more
+  carbs today, not race-week loading). Tomorrow is read from Vela, else intervals.icu
+  events: `/api/companion/intervals` takes `ahead=0–14` (events only) to look past today.
+  Today's line and Fuel decide it the same way (`fuelTopUpToday()`), and an intervals.icu
+  RACE event counts as a race whatever its name. Ships after the coach signs off the copy:
+  `FUEL_TOPUP = false` in `fuel.js` takes all of it away (day, picker option, plate bar,
+  guide section, Today's line) without a revert.
+- **RPE.** "Last session felt" is prefilled from the last session's logged effort
+  (intervals.icu `icu_rpe` from Garmin, else `sessions.session_rpe`), within 7 days;
+  without one she taps as before. Progress shows Training load (RPE × minutes by week).
+- **Routes.** A route with no link of its own, and the section itself, link to Strava's
+  run-map explorer.
+- RLS suite: 249 tests (`supabase test db`), including the WhatsApp link and the new RPC.

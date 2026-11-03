@@ -100,18 +100,6 @@ async function withdrawMove(sessionId) {
   } catch (e) { return { error: e }; }
 }
 
-// A message from her to her coach, into the same thread the Vela app shows. Returns {error}.
-// Other tabs may use it too (e.g. "Tell your coach the clip is on its way").
-async function sendMessageToCoach(body, sessionId) {
-  try {
-    const id = await myClientId(); if (!id) return { error: { message: "not a client" } };
-    const row = { client_id: id, sender: "client", body: String(body || "").trim() };
-    if (sessionId) row.session_id = sessionId;
-    const res = await withTimeout(window.db.from("messages").insert(row), 10000, "send");
-    return { error: res.error };
-  } catch (e) { return { error: e }; }
-}
-
 // When she last shared a nutrition check with her coach (ms), or null.
 async function lastNutritionShare() {
   const id = await myClientId(); if (!id) return null;

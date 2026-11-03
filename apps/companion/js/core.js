@@ -39,7 +39,7 @@ function withTimeout(promise, ms, label) {
 
 /* ============ who she is ============ */
 // Filled once per signed-in user by the shell (from data.js myIdentity), read by every tab.
-let _identity = { client: null, firstName: "", coachFirstName: "" };
+let _identity = { client: null, firstName: "", coachFirstName: "", coachWhatsApp: "" };
 let _uid = null;
 const userId = () => _uid;
 const client = () => _identity.client;
@@ -47,6 +47,81 @@ const firstName = () => _identity.firstName || "";
 // The app speaks as Vela and names the coach; "your coach" until we know her name.
 // coachName({start:true}) for the start of a sentence.
 const coachName = (o) => _identity.coachFirstName || (o && o.start ? "Your coach" : "your coach");
+
+/* ============ reaching her coach: WhatsApp ============ */
+// WhatsApp is the channel; the companion never writes a message itself. The coach sets her
+// link once in portal Settings (profiles.whatsapp_url). The same three shapes the database
+// accepts: a chat (wa.me/<digits>), the long form (api.whatsapp.com/send?phone=…) and a
+// group invite (chat.whatsapp.com/<code>).
+const _WA_CHAT = /^https:\/\/(wa\.me\/[0-9]+|api\.whatsapp\.com\/send\?phone=[0-9]+)/i;
+const _WA_GROUP = /^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]+/i;
+// Her coach's link, or "" when she hasn't set one (then there is no contact button at all).
+const coachWhatsApp = () => {
+  const u = String(_identity.coachWhatsApp || "").trim();
+  return _WA_CHAT.test(u) || _WA_GROUP.test(u) ? u : "";
+};
+// The link is a group invite: everyone in the group sees what she posts there, so nothing
+// private (her clips, her week) is ever sent to it, and its button says it's the group.
+const coachWhatsAppIsGroup = () => _WA_GROUP.test(coachWhatsApp());
+// The link with a message typed in for her (?text=…). A group invite can't carry one, so it
+// comes back as it is; "" when there is no link. A link that already carries a text keeps it.
+function whatsAppHref(text) {
+  const u = coachWhatsApp();
+  if (!u || !text || !_WA_CHAT.test(u) || /[?&]text=/i.test(u)) return u;
+  return u + (u.indexOf("?") >= 0 ? "&" : "?") + "text=" + encodeURIComponent(String(text));
+}
+
+/* ============ links out ============ */
+// Strava's run-map explorer: popular running lines, photos and points of interest. Not a
+// route of its own; the shared "see running maps" link when a route has no map.
+const STRAVA_RUN_MAPS = "https://www.strava.com/maps?sport=Run&style=standard&terrain=false&labels=true&poi=true&cPhotos=true&3d=true";
+
+/* ============ the exercise library (assets/exercises/exercises.json) ============ */
+// Movement name → {photo, domain, description, cues}. Fetched once; a failed fetch is an
+// empty library (text-only cards), never an error on screen. The photo stays hidden until it
+// has loaded, so a file not there yet never flashes a broken image.
+let _exLib;
+async function exerciseLibrary() {
+  if (_exLib) return _exLib;
+  try {
+    const r = await fetch("assets/exercises/exercises.json");
+    _exLib = r.ok ? await r.json() : {};
+  } catch (e) { _exLib = {}; }
+  if (!_exLib || typeof _exLib !== "object") _exLib = {};
+  return _exLib;
+}
+// "Split Squat (Dumbbell)" → "split squat": lowercase, no parenthetical qualifier, no
+// punctuation, dashes or arrows, single spaces.
+const _exNorm = (s) => String(s || "").toLowerCase()
+  .replace(/\([^)]*\)/g, " ")
+  .replace(/[→←↔⇒>\-–—_/\\.,;:!?'"’+&*•·]/g, " ")
+  .replace(/\s+/g, " ").trim();
+// The words that make a movement a different variant (jumping, one leg or both, a hold), in
+// the full name, qualifiers included, as one sorted string: "single-leg … hold" → "hold single".
+const _EX_VARIANT = /^(?:jump|jumps|jumping|hop|hops|bound|bounds|plyo|plyometric|single|one|unilateral|both|bilateral|double|iso|isometric|hold|holds|eccentric)$/;
+const _exVariants = (s) => String(s || "").toLowerCase().replace(/[^a-z]+/g, " ").trim().split(" ")
+  .filter((w) => _EX_VARIANT.test(w)).map((w) => w.replace(/^(jump|hop|bound|hold)(?:s|ing)$/, "$1").replace(/^isometric$/, "iso").replace(/^plyometric$/, "plyo"))
+  .filter((w, i, a) => a.indexOf(w) === i).sort().join(" ");
+// The library ENTRY (the {photo, description, cues} object) for a prescribed movement name,
+// or null. Tolerant, because the coach's names and the library's keys drift: the exact key,
+// then the same words without qualifiers ("Suitcase carry (heavy)" finds "Suitcase
+// carry"), then one name being the other's first whole words ("Copenhagen" finds
+// "Copenhagen plank"), never across a variant (_exVariants). "_note" is never a movement.
+function exMatch(lib, name) {
+  if (!lib || !name) return null;
+  const keys = Object.keys(lib).filter((k) => k !== "_note" && lib[k] && typeof lib[k] === "object");
+  if (keys.indexOf(name) >= 0) return lib[name];
+  const n = _exNorm(name); if (!n) return null;
+  // Never across a variant: "Split squat jumps" isn't "Split Squat (iso hold)", and "Hip
+  // thrust (single leg)" isn't "Hip thrust, both legs, heavy". Her own cues beat the wrong card.
+  const same = (x) => _exVariants(x) === _exVariants(name);
+  let k = keys.find((x) => _exNorm(x) === n && same(x));
+  if (k) return lib[k];
+  // A one-syllable fragment ("Hip") is too little to go on.
+  const prefix = (a, b) => a.length >= 5 && a.length < b.length && b.indexOf(a + " ") === 0;
+  k = keys.find((x) => { const m = _exNorm(x); return m && (prefix(n, m) || prefix(m, n)) && same(x); });
+  return k ? lib[k] : null;
+}
 // Vela's own fuelling switches (clients.calorie_tracking, clients.restrictive_pattern):
 // no kcal unless the coach turned it on; no amounts at all, grams included, when she has
 // flagged a restrictive pattern.
@@ -337,7 +412,7 @@ window.renderApp = async function (o) {
   const acct = $("acct");
   if (acct) { acct.hidden = !user; acct.open = false; }
   if ($("acctWho")) $("acctWho").textContent = user ? user.email || "" : "";
-  if (!user) { _identity = { client: null, firstName: "", coachFirstName: "" }; _rendered.state = "ok"; showScreen("login"); return; }
+  if (!user) { _identity = { client: null, firstName: "", coachFirstName: "", coachWhatsApp: "" }; _rendered.state = "ok"; showScreen("login"); return; }
 
   // Only show "getting ready" if the lookup is slow, so a quick one doesn't flash.
   const slow = setTimeout(() => { if (seq === _seq && _rendered.state === "pending") showScreen("booting"); }, 400);

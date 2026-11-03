@@ -33,15 +33,103 @@ function _fuelTypeFor(s) {
 // less. A day in her plan with no session is a recovery day.
 const _fuelDayOf = (type) => (/^(long|quality|double)/.test(type) ? "demanding" : "easy");
 
-// What today's plan says: {day, label, session} or null when there is no plan to go on
-// (no programme, a descriptive one, or a phone copy from another day).
-function _fuelFromPlan(data, t) {
+/* ---- Fuel for the work required: carbs follow the session coming up, not only today's.
+   A rest or easy day before a long or KEY run is a top-up day. ---- */
+// The coach's sign-off switch for all of it: false takes the top-up day, its picker option,
+// its plate bar, its guide section and Today's line away, and nothing else.
+const FUEL_TOPUP = true;
+// The day after a YYYY-MM-DD, by calendar arithmetic (no time zone or clock change can
+// shift it).
+function _fuelNextDay(ymd) {
+  const p = String(ymd || "").split("-").map(Number), d = new Date(Date.UTC(p[0], p[1] - 1, p[2] + 1));
+  return d.toISOString().slice(0, 10);
+}
+// Reads a session in either shape the companion holds: Fuel's own rows (scheduled_date,
+// program_days{fuel_type, notes}) or Today's (date, fuel_type, duration_sec), plus race:
+// true for an intervals.icu RACE event. Returns "race", "long", "key" or "" for anything
+// that doesn't need a top-up the day before.
+// Never one of those: the jog around a race ("Pre-race shakeout", "Post-race recovery jog").
+const _FUEL_LIGHT = /shake\s*-?\s*out|recovery|\bjog\b|\beasy\b|\bstrides\b|\bwalk/i;
+function _fuelBigKind(s) {
+  const title = String(s.title || "");
+  const pd = s.program_days || {}, ft = pd.fuel_type || s.fuel_type || "";
+  if (s.race) return "race";
+  const light = _FUEL_LIGHT.test(title);
+  // A race is a race: "Race day", "Milano race", not "pre-race", "post-race", "race week" or
+  // "race pace" reps.
+  if (!light && /(?:^|[^\w-])race\b(?![\s-]*(?:pace|rehearsal|sim|simulation|prep|specific|effort|week))/i.test(title) &&
+    !/\b(?:pre|post)\s*-?\s*race\b/i.test(title)) return "race";
+  let type = _fuelTypeFor(ft ? Object.assign({}, s, { program_days: { fuel_type: ft, notes: pd.notes } }) : s);
+  // Without the coach's type, a planned 75 minutes or more on the run is long.
+  if (!ft && s.discipline === "run" && Number(s.duration_sec) >= 75 * 60 && !/^(double|strength)/.test(type)) type = "long";
+  // A long run tomorrow; a long ride or hike only when the coach typed the day long.
+  if (/^long/.test(type) && (s.discipline === "run" || ft)) return "long";
+  // KEY as the coach's label ("KEY 1 Long run", "Key session"), not "Key West"; race-pace
+  // reps and a race rehearsal, but not easy running with a few strides at race pace.
+  if (/\bKEY\b/.test(title) || /\bkey\s+(?:session|workout|run)\b/i.test(title)) return "key";
+  if (!light && /\brace[\s-]*(?:pace|rehearsal|sim|simulation|specific|effort)\b/i.test(title) && !/\bno\s+race\b/i.test(title)) return "key";
+  return "";
+}
+// Tomorrow's top session when it calls for a top-up today: {title, date, kind, run} (kind is
+// "race", "long" or "key"; run is false for a long session that isn't a run), or null.
+// Pure. Null for everything while FUEL_TOPUP is off.
+function fuelTopUp(sessions, todayYmd) {
+  if (!FUEL_TOPUP || !Array.isArray(sessions) || !todayYmd) return null;
+  const tmr = _fuelNextDay(todayYmd), rank = { race: 3, long: 2, key: 1 };
+  let best = null;
+  sessions.forEach((s) => {
+    if (!s || (s.scheduled_date || s.date) !== tmr || s.status === "skipped") return;
+    const kind = _fuelBigKind(s);
+    if (kind && (!best || rank[kind] > rank[best.kind])) best = { title: String(s.title || "").trim(), date: tmr, kind, run: s.discipline === "run" };
+  });
+  return best;
+}
+// intervals.icu calendar events in the shape fuelTopUp reads, as Today reads them:
+// workouts and races, not notes. A run is long at 75 minutes or more, or when its name says
+// long; an event in a RACE category is a race whatever its name.
+function _fuelIcuRows(events) {
+  return (Array.isArray(events) ? events : [])
+    .filter((e) => e && e.start_date_local && e.name && /^(WORKOUT|RACE)/i.test(e.category || "WORKOUT")).map((e) => {
+      const name = String(e.name || ""), run = /^(Run|VirtualRun|TrailRun)$/.test(e.type || "");
+      const long = run && (Number(e.moving_time) >= 75 * 60 || _FUEL_LONG.test(name));
+      return { title: name, discipline: run ? "run" : e.type === "WeightTraining" ? "strength" : "cross",
+        scheduled_date: String(e.start_date_local).slice(0, 10), status: e.paired_activity_id ? "completed" : "planned",
+        race: /^RACE/i.test(e.category || ""), program_days: { fuel_type: long ? "long" : null, notes: e.description || "" } };
+    });
+}
+// "Long run tomorrow: Sunday long run. Top up today."
+function _fuelTopLabel(top) {
+  const lead = top.kind === "race" ? "Race tomorrow" : top.kind === "key" ? "KEY session tomorrow" : top.run === false ? "Long session tomorrow" : "Long run tomorrow";
+  return lead + (top.title ? ": " + top.title : "") + ". Top up today.";
+}
+const _fuelDayOk = (k) => _FUEL_DAYS.some((d) => d.k === k);
+
+// What today's plan says: {day, label, session, type, tomorrow} or null when there is no
+// plan to go on (no programme, a descriptive one, or a phone copy from another day).
+// tomorrow is fuelTopUp's answer (or icuTop, intervals.icu's, when Vela has nothing
+// tomorrow): it turns a rest or easy day into a top-up day, and adds "Tonight" to a
+// demanding one.
+function _fuelFromPlan(data, t, icuTop) {
   if (!data || data.date !== t || !data.sessions || !data.sessions.length) return null;
   const all = data.sessions.filter((s) => s.scheduled_date === t), todays = all.filter((s) => s.status !== "skipped");
-  if (!todays.length) return { day: "recovery", label: all.length ? "Today's session is marked as skipped" : "No session in your plan today", session: null };
-  const typed = todays.map((s) => ({ s, type: _fuelTypeFor(s) }));
-  const top = typed.filter((x) => _fuelDayOf(x.type) === "demanding")[0] || typed[0];
-  return { day: _fuelDayOf(top.type), label: "From your plan: " + todays.map((s) => s.title).join(" · "), session: top.s, type: top.type };
+  const tomorrow = fuelTopUp(data.sessions, t) || icuTop || null;
+  let p;
+  if (!todays.length) p = { day: "recovery", label: all.length ? "Today's session is marked as skipped" : "No session in your plan today", session: null };
+  else {
+    const typed = todays.map((s) => ({ s, type: _fuelTypeFor(s) }));
+    const top = typed.filter((x) => _fuelDayOf(x.type) === "demanding")[0] || typed[0];
+    p = { day: _fuelDayOf(top.type), label: "From your plan: " + todays.map((s) => s.title).join(" · "), session: top.s, type: top.type };
+  }
+  p.tomorrow = tomorrow;
+  if (tomorrow && (p.day === "recovery" || p.day === "easy")) { p.day = "topup"; p.label = _fuelTopLabel(tomorrow); }
+  return p;
+}
+// For Today: tomorrow's top session when Fuel's own reading of these rows (today's and
+// tomorrow's sessions) makes today a top-up day, else null. So Today's "top up carbs" line
+// only shows when the Fuel tab it links to says the same.
+function fuelTopUpToday(sessions, todayYmd) {
+  const p = _fuelFromPlan({ date: todayYmd, sessions: sessions || [] }, todayYmd);
+  return p && p.day === "topup" ? p.tomorrow : null;
 }
 
 const _FUEL_ITEMS = [
@@ -60,11 +148,15 @@ const _FUEL_DAYS = [
     carbs: "About 2 cupped hands of carbs at each main meal" },
   { k: "demanding", label: "Demanding", word: "a demanding", active: ["before", "during", "after", "protein", "enough"], target: 0.8,
     carbs: "About 3 cupped hands of carbs at each main meal" },
+  // The day before a long or KEY run: more carbs than the day alone asks for. "Recovered
+  // after" joins in when she also trains today (see curDay). Gone while FUEL_TOPUP is off.
+  { k: "topup", label: "Top-up", word: "a top-up", active: ["protein", "enough"], target: 0.75,
+    carbs: "About 3 cupped hands of carbs at each main meal" },
   { k: "recovery", label: "Recovery", word: "a recovery", active: ["protein", "enough"], target: 0.6,
     carbs: "1 to 2 cupped hands of carbs at each main meal" },
   { k: "unwell", label: "Unwell", word: "an unwell", active: ["protein", "enough"], target: 0.55,
     carbs: "" }
-];
+].filter((d) => FUEL_TOPUP || d.k !== "topup");
 const _FUEL_PHASES = [
   { k: "first", label: "First half", bump: 0,
     note: "First half of your cycle: you often handle carbs and harder efforts well. A good window for a big day." },
@@ -113,7 +205,7 @@ function _fuelHtml() {
         <i class="carb" style="flex-grow:${carb}">Carbs</i><i class="pro" style="flex-grow:20">Protein</i><i class="fat" style="flex-grow:18">Fat</i><i class="veg" style="flex-grow:14">Veg</i></div></div>`;
   return `
   <h2 class="section-h tab-h" tabindex="-1">How much to fuel today</h2>
-  <p class="section-s">Fuel follows the day. A big session needs plenty and a lighter day needs less. That's right, not a miss.</p>
+  <p class="section-s">Fuel follows the work: today's session, and tomorrow's. A lighter day means fewer carbs, never less food.</p>
   <div class="card fuelcard">
     <div class="fuel-top">
       <div class="viz"><div id="fuelsvg"></div><p class="cap" id="fuelcap"></p></div>
@@ -148,11 +240,18 @@ function _fuelHtml() {
       <p>Carbs are what moves up and down with training: that's the bottle. Protein, fat and fibre are the steady base. They barely change, and they're never the thing to cut.</p>
       <div class="plate">
         ${bar(48, "Demanding day", "About 3 cupped hands of carbs", "about half")}
+        ${FUEL_TOPUP ? bar(38, "Top-up day (before a long or KEY run)", "About 3 cupped hands of carbs", "about two fifths") : ""}
         ${bar(28, "Easy day", "About 2 cupped hands of carbs", "about a third")}
         ${bar(18, "Recovery or rest", "1 to 2 cupped hands of carbs", "about a quarter")}
       </div></details>
-    <details class="fg"><summary>Measure by hand, not by weighing</summary>
-      <p>Carbs: a cupped hand. Protein: your palm. Fat: a thumb. Veg and fibre: a fist. Only the carbs change with the day.</p></details>
+    ${FUEL_TOPUP ? `<details class="fg"><summary>Why carbs follow tomorrow's session</summary>
+      <p>Carbs are set by the work coming up, not only the work you've done. Starting a long or KEY run with a stocked tank makes it feel easier, all the way to the end.</p>
+      <p>A top-up isn't race-week carb-loading, and it isn't every rest day: only the day before a long or KEY session.</p></details>` : ""}
+    <details class="fg"><summary>Daily: measure by hand, not by weighing</summary>
+      <p>Carbs: a cupped hand. Protein: your palm. Fat: a thumb. Veg and fibre: a fist. Only the carbs change with the day.</p>
+      <p>${showAmounts()
+        ? "Grams and precise targets are a precision tool for later, when they're useful. They're not a daily routine."
+        : "Weighing isn't needed. Your hands are the measure."}</p></details>
     <details class="fg"><summary>Carbs on long runs</summary>
       <p>${_fuelDuring()}</p></details>
     <details class="fg"><summary>Timing around a hard session</summary>
@@ -187,6 +286,8 @@ function initFuel(el) {
     const s = JSON.parse(localStorage.getItem(_FUEL_KEY));
     if (s && s.date === t && s.vals) state = Object.assign(blank(), s, { vals: Object.assign(blank().vals, s.vals) });
   } catch (e) {}
+  // Any day type the picker offers, "topup" included; anything else reads as not picked.
+  if (!_fuelDayOk(state.day)) state.day = "";
   const persist = () => {
     // Open past midnight: start the new day rather than filing these taps under yesterday.
     if (today() !== t) { initFuel(el); return false; }
@@ -200,7 +301,11 @@ function initFuel(el) {
   const LABELS = ["Missed", "Some", "Nailed"];
   // Her own pick wins; otherwise the plan's.
   const dayKey = () => state.day || (plan && plan.day) || "";
-  const curDay = () => _FUEL_DAYS.filter((d) => d.k === dayKey())[0] || null;
+  const curDay = () => {
+    const d = _FUEL_DAYS.filter((x) => x.k === dayKey())[0] || null;
+    // A top-up day with a session today still needs the recovery after it.
+    return d && d.k === "topup" && plan && plan.session ? Object.assign({}, d, { active: ["after"].concat(d.active) }) : d;
+  };
   const curPhase = () => _FUEL_PHASES.filter((p) => p.k === state.phase)[0] || null;
   const targetPct = () => { const d = curDay(); if (!d) return 0.7; const p = curPhase(); return Math.min(0.95, d.target + (p ? p.bump : 0)); };
   const answered = () => { const d = curDay(); return d ? d.active.filter((k) => state.vals[k] != null) : []; };
@@ -262,16 +367,25 @@ function initFuel(el) {
   function renderPlan() {
     const d = curDay();
     if (!d) { planEl.innerHTML = ""; return; }
-    const steps = [];
+    const steps = [], tmr = plan && plan.tomorrow;
+    let note = "";
     if (d.k === "demanding") {
       steps.push(["Before", "A carb-based meal or snack 2–3 hours before, low in fibre and fat so nothing sits heavy."]);
       steps.push(["During", _fuelDuring()]);
       steps.push(["After", "Carbs and protein within about an hour."]);
+      // Back to back: tonight's dinner is tomorrow's fuel.
+      if (tmr) steps.push(["Tonight", "Keep carbs generous" + (tmr.title ? ": " + tmr.title + " is tomorrow." : ". Tomorrow is a big one.")]);
+    } else if (d.k === "topup") {
+      steps.push(["Today", "Top up carbs to stock glycogen for tomorrow's " + (tmr && tmr.title ? tmr.title : "long or KEY run") +
+        ": a carb-based snack between meals and a generous carb portion at dinner. Keep fibre and fat moderate tonight so nothing sits heavy."]);
+      if (plan && plan.session) steps.push(["After", "Carbs and protein within about an hour of today's session."]);
+      // Not the day before a race: race week has its own fuelling, and this mustn't argue with it.
+      if (!tmr || tmr.kind !== "race") note = "This is a top-up, not race-week carb-loading.";
     } else if (d.k === "easy") {
       steps.push(["During", "Water's fine. A little electrolyte helps in the heat."]);
       steps.push(["After", "Carbs and protein within about an hour."]);
     } else if (d.k === "recovery") {
-      steps.push(["Today", "No run to fuel, but don't under-eat. Protein and a full day's food are how you adapt."]);
+      steps.push(["Today", "Maintain: no run to fuel today, but don't under-eat. Protein and a full day's food are how you adapt."]);
     } else {
       steps.push(["Today", "No performance pressure. Eat what you can, keep fluids up and rest."]);
     }
@@ -279,6 +393,7 @@ function initFuel(el) {
     const p = curPhase();
     planEl.innerHTML = (d.carbs ? '<p class="fuel-carbs">' + d.carbs + "</p>" : "") +
       '<ul class="fuel-steps">' + steps.map((s) => "<li><b>" + s[0] + "</b> " + esc(s[1]) + "</li>").join("") + "</ul>" +
+      (note ? '<p class="fuel-note">' + esc(note) + "</p>" : "") +
       (p && p.note ? '<p class="fuel-phase">' + esc(p.note) + "</p>" : "");
   }
 
@@ -363,7 +478,7 @@ function initFuel(el) {
   if (!state.day && !state.phase) {
     try {
       const o = JSON.parse(localStorage.getItem("rb-fuel-v2"));
-      if (o && o.date === t) { if (o.day === "easy" || o.day === "demanding" || o.day === "recovery" || o.day === "unwell") state.day = o.day;
+      if (o && o.date === t) { if (_fuelDayOk(o.day)) state.day = o.day;
         state.phase = { foll: "first", lut: "second", skip: "skip" }[o.phase] || ""; persist(); }
       localStorage.removeItem("rb-fuel-v2");
     } catch (e) {}
@@ -375,13 +490,35 @@ function initFuel(el) {
   // Today's plan pre-fills the day (and the estimate's session) when it arrives; a slow or
   // failed read just leaves the picker. Read again when the signal comes back, in case the
   // first try found no copy or only an old one.
+  // With nothing in Vela tomorrow, intervals.icu's calendar (when connected) can still say
+  // tomorrow is a long or KEY run. With no Vela sessions at all, the calendar is her plan,
+  // as on Today. Asked once; not connected or failed just means no top-up.
+  let icuTop = null, icuAsked = false;
   const loadPlan = () => cached("fuel-plan", fuelPlanSessions).then((r) => {
     if (!live() || today() !== t) return;
-    const p = _fuelFromPlan(r.data, t);
-    if (!p) return;
-    plan = p;
-    renderAll();
-    if (est && plan.session) est.prefill(plan.session, plan.type);
+    const p = _fuelFromPlan(r.data, t, icuTop);
+    if (p) {
+      plan = p;
+      renderAll();
+      if (est && plan.session) est.prefill(plan.session, plan.type);
+    }
+    const tmr = _fuelNextDay(t), none = !r.data || r.data.date !== t || !(r.data.sessions || []).length;
+    if (icuAsked || typeof fuelTomorrowEvents !== "function" || (!p && !none) || (p && r.data.sessions.some((s) => s.scheduled_date === tmr))) return;
+    icuAsked = true;
+    fuelTomorrowEvents().then((events) => {
+      if (!live() || today() !== t) return;
+      // Nothing back (offline, or not connected): ask again when the signal returns.
+      if (!events.length) { icuAsked = false; return; }
+      const rows = _fuelIcuRows(events);
+      // No Vela plan: today and tomorrow straight from the calendar.
+      const q2 = p ? null : _fuelFromPlan({ date: t, sessions: rows }, t);
+      if (q2) { plan = q2; renderAll(); if (est && plan.session) est.prefill(plan.session, plan.type); return; }
+      const top = p && fuelTopUp(rows, t);
+      if (!top) return;
+      icuTop = top;
+      const q3 = _fuelFromPlan(r.data, t, icuTop);
+      if (q3) { plan = q3; renderAll(); }
+    }).catch((e) => console.warn("[companion] fuel tomorrow", e));
   }).catch((e) => console.warn("[companion] fuel plan", e));
   loadPlan();
   onReconnect("fuel", () => { if (live() && !plan) loadPlan(); });

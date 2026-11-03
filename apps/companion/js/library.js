@@ -17,6 +17,7 @@ function libMarkup() {
     <h3 class="section-h3" id="lib-routes-h">Routes</h3>
     <p class="section-s">Routes ${coach} has run and trusts, with where to start.</p>
     <div id="routesout"></div>
+    <p class="rexplore"><a class="btn-secondary" href="${esc(STRAVA_RUN_MAPS)}" target="_blank" rel="noopener noreferrer"><span>Explore running maps on Strava<span class="sr-only"> (opens in a new tab)</span></span></a></p>
   </section>
   <section id="library-learn" class="libsec" aria-labelledby="lib-learn-h">
     <h3 class="section-h3" id="lib-learn-h">Learn</h3>
@@ -52,9 +53,12 @@ function libRoutes() {
     const maps = safeUrl(r.map_url, true), strava = safeUrl(r.strava_url, true);
     // The route's name rides along for a screen reader, so ten "Open in Maps" links differ.
     const name = `<span class="sr-only"> ${esc(r.name)}</span>`;
+    // A loop with its own link keeps it. One with neither gets Strava's run-map explorer
+    // (popular lines, photos, points of interest): not this route, so it says so.
     const links = [
       maps ? `<a class="btn-secondary" href="${esc(maps)}" target="_blank" rel="noopener noreferrer"><span>Open${name} in Maps</span></a>` : "",
-      strava ? `<a class="btn-secondary" href="${esc(strava)}" target="_blank" rel="noopener noreferrer"><span>Open${name} in Strava</span></a>` : ""
+      strava ? `<a class="btn-secondary" href="${esc(strava)}" target="_blank" rel="noopener noreferrer"><span>Open${name} in Strava</span></a>` : "",
+      !maps && !strava ? `<a class="btn-secondary" href="${esc(STRAVA_RUN_MAPS)}" target="_blank" rel="noopener noreferrer"><span>See running maps on Strava<span class="sr-only"> (Strava's general run-map explorer, not this route; opens in a new tab)</span></span></a>` : ""
     ].filter(Boolean).join("");
     return `<li class="routecard">
       <div class="rhead"><h4 class="rname">${esc(r.name)}</h4>${bits ? `<span class="rmeta">${bits}</span>` : ""}</div>
@@ -119,6 +123,10 @@ function libLearn() {
    (sleep/load/cycle -> next-day HRV) is COACH-ONLY and deliberately not in this bundle
    (see BUILD-SPEC + IP strategy). */
 
+// Training load (effort × minutes) is read over 6 Monday-start weeks, this week last, and
+// shown only once at least 3 sessions in them carry an effort she logged.
+const LIB_LOAD_WEEKS = 6, LIB_LOAD_MIN = 3;
+
 // The HRV baseline is the last 42 days, by the calendar rather than the last 42 readings,
 // so a fortnight without the watch doesn't stretch it back months.
 const LIB_HRV_DAYS = 42;
@@ -142,13 +150,15 @@ async function libPlanned() {
 
 // Everything Progress reads, as one bundle so the phone can keep a copy for offline.
 async function libProgressData() {
-  const [acts, plan, w, profile] = await Promise.all([
+  const [acts, plan, w, profile, loads] = await Promise.all([
     intervalsActivities(56), libPlanned(), intervalsWellness(LIB_HRV_DAYS),
     // The race strip is a nicety: no race row, or no signal for it, never blocks Progress.
-    myProfile().catch(() => null)
+    myProfile().catch(() => null),
+    // So is training load: without it, the panel just doesn't show.
+    sessionLoads(LIB_LOAD_WEEKS * 7).catch(() => [])
   ]);
   const wells = w.length ? w : await myVitalsByDays(LIB_HRV_DAYS);
-  return { acts, plan, wells, race: profile ? { name: profile.race_name || "", date: profile.race_date || "" } : null };
+  return { acts, plan, wells, loads, race: profile ? { name: profile.race_name || "", date: profile.race_date || "" } : null };
 }
 
 function libProgress() {
@@ -272,6 +282,32 @@ function libProgressHtml(d) {
     ${libNumbers("Longest run each week, last 8 weeks", ["Week starting", "Longest run"], weeks.map(w => [fmtDay(w.k) + (w.now ? " (so far)" : ""), w.long.toFixed(1) + " km"]))}
   </div>` : "";
 
+  // ---- training load: effort × minutes, summed by week ----
+  // RPE × minutes per session (sRPE). Only sessions with both count, toward the bars and
+  // the wait for 3 logged efforts (so two taps don't read as a trend): an effort logged
+  // without the timer has no minutes, and a week of those would chart as zero.
+  const lFrom = libShift(thisWeek, -7 * (LIB_LOAD_WEEKS - 1));
+  const logged = (d.loads || []).filter(x => x && x.date >= lFrom && x.date <= now && x.rpe != null && Number(x.minutes) > 0);
+  let loadPanel = "";
+  if (logged.length >= LIB_LOAD_MIN) {
+    const lw = [];
+    for (let i = LIB_LOAD_WEEKS - 1; i >= 0; i--) { const k = libShift(thisWeek, -7 * i); lw.push({ k, load: 0, n: 0, now: k === thisWeek }); }
+    logged.forEach(x => {
+      const w = lw.find(y => y.k === weekKey(x.date)); if (!w) return;
+      w.n++;
+      w.load += Number(x.rpe) * Number(x.minutes);
+    });
+    lw.forEach(w => { w.load = Math.round(w.load); });
+    const lNow = lw[lw.length - 1], lPrev = lw[lw.length - 2];
+    loadPanel = `<div class="card pcard">
+      <h4 class="pgh">Training load</h4>
+      ${libBarChart(lw, { val: w => w.load, unit: "load", what: "Training load each week (effort × minutes)" })}
+      <p class="pgnote">Effort × minutes, from what you log after each session.</p>
+      <p class="pgnote">This week so far ${lNow.load} · last week ${lPrev.load}.</p>
+      ${libNumbers(`Training load each week, last ${LIB_LOAD_WEEKS} weeks`, ["Week starting", "Load", "Sessions with effort"], lw.map(w => [fmtDay(w.k) + (w.now ? " (so far)" : ""), String(w.load), String(w.n)]))}
+    </div>`;
+  }
+
   // ---- recovery trend: the same 7-day average and normal range as Today's read ----
   const t = libHrvTrend(d.wells, now);
   let hrvPanel;
@@ -299,7 +335,7 @@ function libProgressHtml(d) {
       <p class="hintline">Building your recovery baseline. It needs about two weeks of readings. Until then, how you feel and your resting heart rate carry most of the same signal.</p></div>`;
   }
 
-  return strip + adherence + volPanel + longPanel + hrvPanel;
+  return strip + adherence + volPanel + longPanel + loadPanel + hrvPanel;
 }
 
 /* ---- charts: inline SVG, theme colours from CSS variables ---- */
@@ -326,13 +362,17 @@ function libWeekLabel(w, i, n, x, out) {
 }
 
 // Weekly km as bars; this week is a dashed outline labelled "so far", not a sliver that
-// reads like a bad week.
-function libBarChart(weeks) {
-  const n = weeks.length, { step, top } = libNiceAxis(Math.max(...weeks.map(w => w.km)));
+// reads like a bad week. o (optional) charts something else by week:
+//   o.val(w) the bar's value, o.unit the axis title, o.what the chart's accessible name.
+function libBarChart(weeks, o) {
+  o = o || {};
+  const val = o.val || (w => w.km), unit = o.unit || "km";
+  const fmt = o.val ? (v => String(Math.round(v))) : (v => v.toFixed(1));
+  const n = weeks.length, { step, top } = libNiceAxis(Math.max(...weeks.map(val)));
   const y = v => LIB_T + (LIB_H - LIB_T - LIB_B) * (1 - v / top), gap = (LIB_W - LIB_L - LIB_R) / n, bw = gap * 0.62;
-  const out = []; libGrid(top, step, y, out, "km");
+  const out = []; libGrid(top, step, y, out, unit);
   weeks.forEach((w, i) => {
-    const h = (LIB_H - LIB_T - LIB_B) * (w.km / top), x = LIB_L + i * gap + (gap - bw) / 2, yt = LIB_H - LIB_B - h;
+    const h = (LIB_H - LIB_T - LIB_B) * (val(w) / top), x = LIB_L + i * gap + (gap - bw) / 2, yt = LIB_H - LIB_B - h;
     if (w.now) {
       const hh = Math.max(h, 3);
       out.push(`<rect x="${x.toFixed(1)}" y="${(LIB_H - LIB_B - hh).toFixed(1)}" width="${bw.toFixed(1)}" height="${hh.toFixed(1)}" rx="3" fill="var(--base-fill)" stroke="var(--base)" stroke-width="1.4" stroke-dasharray="4 3"/>`);
@@ -342,8 +382,8 @@ function libBarChart(weeks) {
     }
     libWeekLabel(w, i, n, x + bw / 2, out);
   });
-  const said = weeks.map(w => (w.now ? "this week so far " : "week of " + fmtDay(w.k) + " ") + w.km.toFixed(1)).join(", ");
-  return `<svg class="pgchart" viewBox="0 0 ${LIB_W} ${LIB_H}" role="img" aria-label="Kilometres run each week, last ${n} weeks: ${esc(said)}.">${out.join("")}</svg>`;
+  const said = weeks.map(w => (w.now ? "this week so far " : "week of " + fmtDay(w.k) + " ") + fmt(val(w))).join(", ");
+  return `<svg class="pgchart" viewBox="0 0 ${LIB_W} ${LIB_H}" role="img" aria-label="${esc(o.what || "Kilometres run each week")}, last ${n} weeks: ${esc(said)}.">${out.join("")}</svg>`;
 }
 
 // Longest run per week as a line building up, this week's point hollow and dashed in (it

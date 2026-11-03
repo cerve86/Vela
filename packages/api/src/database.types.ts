@@ -1736,6 +1736,7 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
           timezone: string
           updated_at: string
+          whatsapp_url: string | null
         }
         Insert: {
           avatar_path?: string | null
@@ -1747,6 +1748,7 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
           timezone?: string
           updated_at?: string
+          whatsapp_url?: string | null
         }
         Update: {
           avatar_path?: string | null
@@ -1758,6 +1760,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           timezone?: string
           updated_at?: string
+          whatsapp_url?: string | null
         }
         Relationships: []
       }
@@ -2268,6 +2271,23 @@ export type Database = {
           dose: string
           movement: string
           tag: string
+          video_url: string
+          why: string
+        }[]
+      }
+      companion_session_movements: {
+        Args: { p_session_ids: string[] }
+        Returns: {
+          block: string
+          cues: string[]
+          domain: string
+          exercise_name: string
+          notes: string
+          order_index: number
+          reps: string
+          session_id: string
+          sets: number
+          tempo: string
           video_url: string
           why: string
         }[]

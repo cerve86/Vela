@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import { clientIdFor, notAClient, requireUser } from '@/lib/apiRoute';
 
 /**
- * GET /api/companion/intervals?metric=wellness|activities|events&days=N
+ * GET /api/companion/intervals?metric=wellness|activities|events&days=N[&ahead=M]
+ *
+ * `ahead` (events only, 0–14, default 0) reaches M days past tomorrow, so the companion's
+ * fuel plan can see tomorrow's long run (and a little beyond) on the calendar.
  *
  * The companion's window onto intervals.icu, for the signed-in athlete only. intervals.icu
  * takes HTTP Basic auth with the COACH's API key, which must never reach a browser — so
@@ -54,6 +57,11 @@ export async function GET(req: Request) {
   const metricParam = params.get('metric') ?? 'wellness';
   const metric = METRICS.has(metricParam) ? metricParam : 'wellness';
   const days = Math.min(Math.max(parseInt(params.get('days') ?? '30', 10) || 30, 1), 120);
+  // Only the calendar has a future; wellness and activities stop at today.
+  const ahead =
+    metric === 'events'
+      ? Math.min(Math.max(parseInt(params.get('ahead') ?? '0', 10) || 0, 0), 14)
+      : 0;
   const now = Date.now();
 
   // intervals.icu files each day under the athlete's own date, and this server runs in UTC:
@@ -61,7 +69,7 @@ export async function GET(req: Request) {
   // out the reading she took this morning. Pad the window by a day at both ends; the
   // companion keys everything on her local date, so the extra day costs nothing.
   const oldest = ymd(now - (days + 1) * 864e5);
-  const newest = ymd(now + 864e5);
+  const newest = ymd(now + (1 + ahead) * 864e5);
   const r = await fetch(
     `${ICU}/athlete/${icuId}/${metric}?oldest=${oldest}&newest=${newest}`,
     {

@@ -1,6 +1,7 @@
-/* Today tab (js/today.js): today's session on top, the check-in and its suggestion right
-   under it, then the week strip and the cards that only show when they have something to
-   say (welcome back, first clip, the look-back, the nutrition check, add to home screen).
+/* Today tab (js/today.js): today's session on top (with its movements, and a top-up line
+   before a long run), the check-in and its suggestion right under it, then the week strip
+   and the cards that only show when they have something to say (welcome back, first clip,
+   the look-back, the nutrition check, add to home screen).
    Shared pieces (.card, .seg, .frows, fields, buttons) are in styles.css. */
 
 /* every card on the tab sits on the same rhythm */
@@ -18,6 +19,28 @@
 .tdsess .tdmin{font-family:var(--d-body);font-weight:600;font-size:var(--fs-3);color:var(--muted)}
 .tdsess .st{vertical-align:.2em;margin-left:var(--sp-1)}
 .tdapp{font-size:var(--fs-2);padding-left:0}
+/* a rest or easy day before a long run, KEY session or race */
+.tdtopup{margin-top:var(--sp-2)}
+.tdtopup a{display:inline-flex;align-items:center;min-height:var(--tap);color:var(--fuel-ink);font-weight:700;font-size:var(--fs-2);text-underline-offset:3px}
+/* today's movements, under the session: compact, a photo only when there is one */
+.tdmoves{margin-top:var(--sp-2);border-top:1px solid var(--line);padding-top:var(--sp-2)}
+.tdmoves>summary{cursor:pointer;min-height:var(--tap);display:flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-2);font-weight:700;color:var(--ink);list-style:none}
+.tdmoves>summary::-webkit-details-marker{display:none}
+.tdmoves>summary::before{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);margin-right:4px;flex:none}
+.tdmoves[open]>summary::before{transform:rotate(45deg) translate(-2px,-2px)}
+.tdmoves .tdmovesn{font-weight:600;color:var(--muted)}
+.tdmovelist{list-style:none;margin:0;padding:0}
+.tdmove{padding:var(--sp-2) 0;display:flow-root}
+.tdmove+.tdmove{border-top:1px solid var(--line)}
+.tdmovephoto{float:right;width:56px;height:56px;object-fit:cover;border-radius:var(--r-sm);margin:0 0 var(--sp-1) var(--sp-3);border:1px solid var(--line)}
+.tdmovename{font-size:var(--fs-3);font-weight:600;line-height:1.3}
+.tdmove .tddose{display:inline-block;margin-left:var(--sp-1);padding:1px 8px;border-radius:999px;background:var(--base-soft);font-size:var(--fs-1);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+#today .card .tdmovedesc,#today .card .tdmovenote{margin-top:2px;font-size:var(--fs-2);color:var(--muted);line-height:1.45}
+#today .card .tdmovenote{color:var(--ink)}
+.tdcues{margin:var(--sp-1) 0 0;padding-left:var(--sp-4)}
+.tdcues li{font-size:var(--fs-2);line-height:1.45}
+.tdmovevid{font-size:var(--fs-2);padding-left:0}
+.tdmoves>.tdapp{margin-top:var(--sp-1)}
 .tdmeta{font-size:var(--fs-2);color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
 .tdmeta .tdgoal{font-weight:400;color:var(--ink)}
 .st{display:inline-block;font-size:var(--fs-1);font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:999px;padding:2px 8px;white-space:nowrap;border:1px solid currentColor}
@@ -57,14 +80,16 @@ a.tdnudge:hover,a.qcard:hover{border-color:var(--accent)}
   .readout:not([hidden]),.tdfold:not([hidden]){animation:tdIn .2s ease-out}
 }
 
-/* under the suggestion: rest today, message the coach */
+/* "Last session felt", filled in from the effort she logged */
+.tdeffort{margin:var(--sp-1) 0 0}
+
+/* under the suggestion: rest today, WhatsApp the coach. Nothing to show (no free day, no
+   link set): no empty gap. */
 .tdacts{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2)}
 .tdactswrap{display:flex;flex-direction:column;gap:var(--sp-3)}
+.tdactswrap .tdacts:not(:has(a,button)){display:none}
+.tdactswrap:not([hidden]):not(:has(a,button,.tdactout:not(:empty))){display:none}
 .tdpend{font-size:var(--fs-2);color:var(--ink)}
-.tdcompose{display:flex;flex-direction:column;gap:var(--sp-2)}
-.tdcompose label{font-size:var(--fs-2);font-weight:600}
-.tdcompose textarea{width:100%;min-height:96px;resize:vertical;font-size:var(--fs-3);line-height:1.45;padding:var(--sp-2) var(--sp-3);border:1px solid var(--field-line);border-radius:var(--r-sm);background:var(--surface);color:var(--ink)}
-.tdcomposebtns{display:flex;flex-direction:column;align-items:stretch;gap:var(--sp-1)}
 .tdactout{font-size:var(--fs-2);color:var(--ink)}
 .tdactout:empty,.tdsave:empty{display:none}
 .tdsaved{font-size:var(--fs-1);color:var(--muted)}

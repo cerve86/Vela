@@ -33,23 +33,31 @@ async function myClient() {
 }
 async function myClientId() { const c = await myClient(); return c ? c.id : null; }
 
-// Who she is, for the shell: {client, firstName, coachFirstName}. Her coach's first name is
-// read the way the Vela app reads it (profiles, under profiles_client_reads_own_coach);
-// both names are niceties, so a failed name read falls back to "" rather than failing.
+// Who she is, for the shell: {client, firstName, coachFirstName, coachWhatsApp}. Her
+// coach's first name and WhatsApp link are read the way the Vela app reads her coach
+// (profiles, under profiles_client_reads_own_coach); all three are niceties, so a failed
+// read falls back to "" rather than failing.
 async function myIdentity() {
+  const none = { client: null, firstName: "", coachFirstName: "", coachWhatsApp: "" };
   const user = await currentUser();
-  if (!user) return { client: null, firstName: "", coachFirstName: "" };
+  if (!user) return none;
   const client = await myClient();
-  if (!client) return { client: null, firstName: "", coachFirstName: "" };
-  let names = {};
+  if (!client) return none;
+  let names = {}, wa = "";
   try {
-    const rows = await q(window.db.from("profiles").select("id, first_name").in("id", [user.id, client.coach_id]), 6000);
-    (rows || []).forEach((p) => { names[p.id] = (p.first_name || "").trim(); });
+    const read = (cols) => q(window.db.from("profiles").select(cols).in("id", [user.id, client.coach_id]), 6000);
+    // A Vela without the WhatsApp column yet must still give her the names.
+    const rows = await read("id, first_name, whatsapp_url").catch(() => read("id, first_name"));
+    (rows || []).forEach((p) => {
+      names[p.id] = (p.first_name || "").trim();
+      if (p.id === client.coach_id) wa = (p.whatsapp_url || "").trim();
+    });
   } catch (e) { console.warn("[companion] names", e); }
   return {
     client,
     firstName: names[user.id] || (client.first_name_hint || "").trim(),
-    coachFirstName: names[client.coach_id] || ""
+    coachFirstName: names[client.coach_id] || "",
+    coachWhatsApp: wa
   };
 }
 
@@ -151,12 +159,14 @@ async function shareNutritionResults(results) {
 // --- intervals.icu via the server proxy (apps/web: /api/companion/intervals) ---
 // Returns [] when intervals.icu is not connected for her (no coach key, no id on file), is
 // slow (4 s) or fails, so each caller falls back to what Vela already holds rather than
-// waiting on a third party.
-async function intervals(metric, days) {
+// waiting on a third party. `ahead` (events only, 0–14) reaches that many days past
+// tomorrow, for the fuel plan's look at tomorrow's session.
+async function intervals(metric, days, ahead) {
   try {
     const { data: s } = await window.db.auth.getSession();
     const token = s && s.session ? s.session.access_token : "";
-    const r = await withTimeout(fetch(`/api/companion/intervals?metric=${metric}&days=${days}`, {
+    const more = ahead ? `&ahead=${Math.max(0, Math.min(14, Math.round(Number(ahead) || 0)))}` : "";
+    const r = await withTimeout(fetch(`/api/companion/intervals?metric=${metric}&days=${days}${more}`, {
       headers: { Authorization: "Bearer " + token }
     }), 4000, "intervals.icu");
     if (!r.ok) return [];
@@ -195,12 +205,13 @@ async function velaActivities(days) {
     start_date_local: a.local_date, distance: a.distance_m, type: a.sport_type, name: a.name
   }));
 }
-// Her planned sessions up to today: [{category, start_date_local, paired_activity_id}].
-async function velaPlanned(days) {
+// Her planned sessions up to today (or `ahead` days past it):
+// [{category, start_date_local, paired_activity_id}].
+async function velaPlanned(days, ahead) {
   const id = await myClientId(); if (!id) return [];
   const data = await q(window.db.from("sessions")
     .select("id,scheduled_date,status").eq("client_id", id)
-    .not("program_day_id", "is", null).gte("scheduled_date", daysAgo(days)).lte("scheduled_date", today())
+    .not("program_day_id", "is", null).gte("scheduled_date", daysAgo(days)).lte("scheduled_date", daysAgo(-(ahead || 0)))
     .order("scheduled_date"));
   return (data || []).map(s => ({
     category: "WORKOUT", start_date_local: s.scheduled_date,
@@ -219,8 +230,78 @@ async function intervalsActivities(days = 42) {
   const icu = await intervals("activities", days);
   return icu.length ? icu : velaActivities(days);
 }
-// PLANNED sessions: the intervals.icu calendar if connected, else her Vela programme.
-async function intervalsEvents(days = 42) {
-  const icu = await intervals("events", days);
-  return icu.length ? icu : velaPlanned(days);
+// PLANNED sessions: the intervals.icu calendar if connected, else her Vela programme. Up to
+// today, or with `ahead` up to that many days past tomorrow.
+async function intervalsEvents(days = 42, ahead = 0) {
+  const icu = await intervals("events", days, ahead);
+  return icu.length ? icu : velaPlanned(days, ahead ? ahead + 1 : 0);
+}
+
+// --- effort she logged after a session (RPE), for Today and Progress ---
+// Her watch's Perceived Effort reaches intervals.icu as icu_rpe (1–10) and feel (1–5); the
+// Vela app's own after-session tap is sessions.session_rpe. intervals.icu when it has her
+// activities, else Vela: the athlete who logs in the Vela app and has no watch still counts.
+const _rpe = (v) => { const n = Number(v); return v != null && v !== "" && isFinite(n) && n > 0 ? Math.min(10, Math.round(n * 10) / 10) : null; };
+
+// Her completed sessions/activities in the last `days` days up to today:
+// [{date, rpe|null, minutes|null, feel|null, title, source}], newest first.
+async function _effortRows(days) {
+  const from = daysAgo(days), to = today();
+  const icu = await intervals("activities", days);
+  if (icu.length) {
+    return icu.map((a) => ({
+      date: String(a.start_date_local || a.start_date || "").slice(0, 10),
+      at: String(a.start_date_local || a.start_date || ""),
+      rpe: _rpe(a.icu_rpe),
+      feel: a.feel != null && isFinite(Number(a.feel)) && Number(a.feel) >= 1 ? Math.min(5, Math.round(Number(a.feel))) : null,
+      minutes: Number(a.moving_time) > 0 ? Math.round(Number(a.moving_time) / 60) : null,
+      title: a.name || "",
+      source: "watch"
+    })).filter((x) => x.date && x.date >= from && x.date <= to)
+      .sort((a, b) => b.at.localeCompare(a.at));
+  }
+  const id = await myClientId(); if (!id) return [];
+  // Her own rows only: programme sessions and the Strava runs Vela could not match.
+  const data = await q(window.db.from("sessions")
+    .select("scheduled_date,completed_at,title,session_rpe,duration_sec").eq("client_id", id)
+    .eq("status", "completed").gte("scheduled_date", from).lte("scheduled_date", to)
+    .order("scheduled_date", { ascending: false }).order("completed_at", { ascending: false, nullsFirst: false }));
+  return (data || []).map((s) => ({
+    date: s.scheduled_date,
+    at: s.scheduled_date + (s.completed_at || ""),
+    rpe: _rpe(s.session_rpe),
+    feel: null,
+    minutes: Number(s.duration_sec) > 0 ? Math.round(Number(s.duration_sec) / 60) : null,
+    title: s.title || "",
+    source: "vela"
+  }));
+}
+
+// The effort she logged after her most recent session before today, within the last week:
+// {rpe 1–10, feel 1–5|null, date, title, minutes, source:"watch"|"vela"}. null when there
+// was no session, or that last one has no RPE: then she taps "last session felt" herself.
+// Never throws: a prefill is a nicety, and the manual tap is always there.
+async function lastSessionEffort() {
+  try {
+    const rows = (await _effortRows(7)).filter((x) => x.date < today());
+    const last = rows[0];
+    if (!last || last.rpe == null) return null;
+    return { rpe: last.rpe, feel: last.feel, date: last.date, title: last.title, minutes: last.minutes, source: last.source };
+  } catch (e) { console.warn("[companion] last effort", e); return null; }
+}
+
+// Session load (sRPE = RPE × minutes) inputs over the last `days` days:
+// [{date, rpe|null, minutes|null}], oldest first. A session without an RPE is still listed,
+// so Progress can tell "too few logged" apart from "no sessions". Throws like any read.
+async function sessionLoads(days = 42) {
+  return (await _effortRows(days)).map((x) => ({ date: x.date, rpe: x.rpe, minutes: x.minutes })).reverse();
+}
+
+// The movements in the given Vela sessions, with the library card: [{session_id,
+// exercise_name, block, sets, reps, tempo, notes, order_index, domain, why, cues,
+// video_url}]. Gated movements she isn't cleared for are left out by the database.
+async function sessionMovements(ids) {
+  const list = (ids || []).filter(Boolean);
+  if (!list.length) return [];
+  return (await q(window.db.rpc("companion_session_movements", { p_session_ids: list }))) || [];
 }
