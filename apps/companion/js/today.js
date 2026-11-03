@@ -71,14 +71,27 @@ function tdCtx(week, day) {
   return { plan: true, rest: false, done: ss.every((s) => s.status === "completed"), kind, title, prevHard, swap, strides: /strides/i.test(title), sessions: ss };
 }
 
-// The suggestion. Leads with how she feels; watch numbers and a return after a gap adjust
-// it. Neutral answers are "Good to go": "Ease in" needs at least one low answer (or a clear
-// signal from her numbers), and the advice is about today's actual session. Never tells
-// her to downgrade a session that is already easy; easing off is a smart call, not an alarm.
+// What the HRV tree's stance says, in the companion's voice (the Vela app's own sentences
+// name a physio; here it is her coach).
+const TD_STANCE = {
+  push: () => "Your body is coping well with training.",
+  hold: () => "Tracking as expected for this stretch of training.",
+  ease: () => "Your body is asking for a little less this week.",
+  rest: () => "Your body is asking for a proper rest. Worth letting " + coachName() + " know.",
+  check: () => "HRV and resting HR are both unusually low: fine if you're feeling and performing well; if not, tell " + coachName() + "."
+};
+
+// The suggestion: the full read, never a single number. Her morning check-in leads (sleep,
+// legs, energy, last session); then her HRV week through the Vela app's decision tree (this
+// week against the three before, the day-to-day swing, resting HR, training load) can make
+// it gentler: "ease" turns Good to go into Ease in, "rest" turns it into Keep it easy. It
+// never makes it harder than she feels. With no HRV baseline yet, a resting-HR trend that
+// is clearly up does the "ease" part. Neutral answers are "Good to go", the advice is
+// about today's actual session, and an already-easy session is never downgraded.
 //   o.st    {sleep, legs, energy, last_session}: 0–2, or -1 unanswered
 //   o.keys  the questions asked today (TD_REST_KEYS on a rest day)
 //   o.ctx   tdCtx(...) or null
-//   o.hrv   readHrvRhr() result, or {}
+//   o.hrv   readHrvRhr() result {g: hrvGuidance or null, firm, oneOff, enoughR, rUp, rbase}, or {}
 //   o.back  null, "pending", "fresh", "busy" or "unwell" (back after more than 4 days)
 //   o.vela  the Vela app's readiness 0–4 when that is all there is today, else null
 // → {band: "go"|"ease"|"easy", cls, pill, msg, note}
@@ -99,20 +112,23 @@ function tdVerdict(o) {
     const feel = keys.reduce((s, k) => s + Math.max(st[k], 0), 0);
     b = lows === 0 ? 2 : lows >= 3 || (lows >= 2 && feel <= max * 0.375) ? 0 : 1;
   }
-  // HRV, per the 'Reading HRV' card: the 7-day trend against her own range, read together
-  // with resting HR, and forgiving when there's an obvious cause.
+  // How she feels, before her numbers: a rough morning opens with empathy (below).
+  const felt = b;
   let note = "";
-  const cause = st.sleep === 0 || st.last_session === 0;
-  if (v.enoughH) {
-    if (v.pos === "above") { if (b === 2) note = "Your HRV is above your usual range too: well recovered."; }
-    else if (v.pos === "below") {
-      if (cause) note = "Your HRV has dipped, which is expected after " + (st.last_session === 0 ? "a hard session" : "a short night") + ". It usually bounces back. Not a warning.";
-      else if (v.enoughR && v.rUp) {
-        if (b === 2) { b = 1; reasons.push("your HRV is down and resting HR is up"); }
-        note = "HRV is below your usual range and resting HR is up, with no obvious reason. Keep the effort easy today. Easy running is still fine.";
-      } else note = "HRV is a little below your usual range but resting HR is normal. Usually a passing dip, so go by feel.";
-    } else if (v.enoughR && v.rUp) note = "Resting HR is a little up on your usual. Worth an easy start.";
-  } else if (v.enoughR && v.rUp && b === 2) { b = 1; reasons.push("your resting HR is up on your usual"); }
+  const g = v.g;
+  if (g) {
+    // With only four readings this week the read can't be checked without its odd morning:
+    // shown, but it doesn't change the suggestion.
+    const firm = v.firm !== false;
+    let moved = false;
+    if (firm && g.stance === "rest" && b > 0) { b = 0; moved = true; reasons.push("your HRV trend points to real fatigue"); }
+    else if (firm && g.stance === "ease" && b === 2) { b = 1; moved = true; reasons.push("your HRV trend is asking for a little less"); }
+    // The tree's own summary of her week: "HRV below your range · steady day to day · a usual week".
+    note = "Your 7-day trend" + (v.oneOff ? ", leaving out one unusual morning" : "") + ": " + g.summary.replace(/ · /g, ", ") + "." +
+      (moved && g.stance === "ease" ? "" : " " + TD_STANCE[g.stance]()) +
+      (firm ? "" : " Only four readings this week, so take it as a hint.");
+    if (v.enoughR && v.rUp) note += " Resting HR is up on your usual too.";
+  } else if (v.enoughR && v.rUp && b === 2) { b = 1; reasons.push("your resting HR trend is up on your usual"); }
   // Back after a gap: the first day back starts gently, whatever the taps say.
   if (o.back === "unwell" && b > 0) { b = 0; reasons.unshift("you've been unwell"); }
   else if ((o.back === "busy" || o.back === "pending") && b === 2) { b = 1; reasons.unshift("it's your first day back"); }
@@ -122,10 +138,19 @@ function tdVerdict(o) {
   const lead = reasons.length ? reasons.join(", ").replace(/^./, (x) => x.toUpperCase()) + ". " : "";
   const T = c.title || "today's session";
   const smart = " A smart call, not a setback.";
+  // A rough morning (how she feels, not her numbers) is met with empathy, never "enjoy":
+  // rest and gentle mobilisation come first, and the coach can swap the intensity (the
+  // coach's words, 3 Nov 2026).
+  const rough = "Some days don't start the way we wished for. ";
+  const swap = " If you need to, ask " + coachName() + " to swap the intensity.";
   let msg;
   if (c.rest) {
     // The pill already says "Rest day".
-    msg = "Enjoy it." + (st.sleep === 0 ? " Sleep was short, so an early night will do more than anything." : st.energy === 0 ? " Low energy is worth a proper meal and an early night." : b < 2 ? " Take it properly easy: a good meal and an early night." : "");
+    msg = felt < 2
+      ? rough + "Prioritise rest and gentle mobilisation today" +
+        (st.sleep === 0 ? ", and an early night: it will do more than anything." : st.energy === 0 ? ", with a proper meal and an early night." : ".") +
+        " If the next sessions feel like too much, ask " + coachName() + " to swap the intensity."
+      : "Enjoy it.";
     return { band, cls: "rest", pill: "Rest day", msg, note };
   }
   if (c.done) {
@@ -153,14 +178,14 @@ function tdVerdict(o) {
       run: "Take " + T + " a little shorter or slower and see how it feels."
     }[k] || "Trim today a little: a bit shorter, or a bit easier.");
   } else {
-    msg = lead + ({
-      quality: "Leave the hard work in " + T + " for another day: run easy instead, or rest." + smart,
-      long: "Make " + T + " a short, easy run today, or rest." + smart,
+    msg = (felt < 2 ? rough : "") + lead + ({
+      quality: "Leave the hard work in " + T + " for another day: prioritise rest or gentle mobilisation, or an easy run." + swap,
+      long: "Make " + T + " a short, easy run today, or rest and do some gentle mobilisation." + swap,
       easy: T + " is already easy. Keep it truly relaxed" + (c.strides ? " and skip the strides" : "") + ", or rest if you'd rather." + smart,
       gentle: T + " is gentle, a good fit for today. Or rest if you'd rather.",
-      strength: "Keep " + T + " light, or rest." + smart,
-      run: "Run easy and a little shorter today, or rest." + smart
-    }[k] || "Keep today easy and low-impact, or rest." + smart);
+      strength: "Keep " + T + " light, or rest and do some gentle mobilisation." + swap,
+      run: "Prioritise rest or gentle mobilisation, or run easy and a little shorter." + swap
+    }[k] || "Prioritise rest and gentle mobilisation, or keep today easy and low-impact." + swap);
   }
   return { band, cls: band, pill: PILL[b], msg, note };
 }
@@ -351,45 +376,61 @@ async function initToday(el) {
     // The effort logged after her last session, and whether "Last session felt" is still the
     // answer filled in from it (lsAuto) and not yet saved (lsUnsaved).
     effort: null, readyLoaded: false, lsAuto: false, lsUnsaved: false,
-    moves: {}, topUp: null
+    moves: {}, topUp: null, tree: { load: [], sessions: [] }
   };
   const segs = {};
   const keys = () => (S.ctx && S.ctx.rest ? TD_REST_KEYS : TD_AM.map((a) => a.k));
   const answered = () => keys().every((k) => st[k] >= 0);
 
-  /* ---- HRV and resting HR against her own range ---- */
+  /* ---- HRV and resting HR: her week against her own trend, never a single morning ---- */
   const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;
   const sd = (a) => { const m = mean(a); return Math.sqrt(mean(a.map((v) => (v - m) * (v - m)))); };
-  // Her baseline is the last 42 days, by date rather than by count of readings.
-  const series = (key, since) => S.hist.filter((d) => d.date >= (since || daysAgo(41)) && d.date < day).map((d) => d[key]).filter((v) => v != null && !isNaN(v));
-  // 'Reading HRV' card method: judge the 7-day rolling average against a personal normal band
-  // (mean ± 0.75·SD), not a single morning. A noisier device just gives a wider band. The
-  // week is the last 7 calendar days, today's number included, with at least 3 readings,
-  // exactly as Progress draws it, so the two never disagree when she skips days.
-  function readHrvRhr() {
-    const wk = daysAgo(6);
-    const H = series("hrv"), Hw = series("hrv", wk);
-    if (S.watch.hrv != null) { H.push(S.watch.hrv); Hw.push(S.watch.hrv); }
-    const R = series("restingHR"), Rw = series("restingHR", wk);
-    if (S.watch.rhr != null) { R.push(S.watch.rhr); Rw.push(S.watch.rhr); }
-    const res = { enoughH: H.length >= 14, enoughR: R.length >= 14 };
-    if (res.enoughH) { const m = mean(H), s = sd(H);
-      res.base = m; res.lo = m - 0.75 * s; res.hi = m + 0.75 * s;
-      res.roll7 = Hw.length >= 3 ? mean(Hw) : null;
-      res.pos = res.roll7 == null ? null : res.roll7 < res.lo ? "below" : res.roll7 > res.hi ? "above" : "inside"; }
-    if (res.enoughR) { const m = mean(R), s = sd(R);
-      res.rbase = m; res.rUp = Rw.length >= 3 && mean(Rw) > m + Math.max(0.75 * s, 3); } // 3-bpm floor
+  // One value per day; today's is the number she typed, else the one her watch synced.
+  function daily(key, watchKey) {
+    const out = S.hist.filter((d) => d.date < day && d[key] != null && isFinite(d[key]) && d[key] > 0).map((d) => ({ day: d.date, value: Number(d[key]) }));
+    const synced = S.hist.find((d) => d.date === day && d[key] != null && isFinite(d[key]) && d[key] > 0);
+    const t = S.watch[watchKey] != null ? S.watch[watchKey] : synced ? Number(synced[key]) : null;
+    if (t != null) out.push({ day, value: t });
+    return out;
+  }
+  // HRV goes through the Vela app's own decision tree (js/hrv-guidance.js, generated from
+  // packages/shared hrvGuidance.ts), so the companion, the app and the coach's portal read
+  // her week the same way: this week's HRV against the three weeks before it, how much it
+  // swings day to day, resting HR, and whether the training is bigger or lighter than usual.
+  // Null until there is a baseline: 10 readings in the three weeks before this one and 4
+  // this week; one unusual morning never decides it (hrvRead). Resting HR up is read the same way, as a trend: the last 7 days' mean against
+  // her 6-week normal (3-bpm floor).
+  //   feel  her check-in as the Vela app's 0–4, or null
+  function readHrvRhr(feel) {
+    const R = daily("restingHR", "rhr");
+    let res = { g: null, enoughR: false };
+    try {
+      // Read twice, the second time without the week's most unusual morning (hrvRead, core.js).
+      res = Object.assign(res, hrvRead({ today: day, hrv: daily("hrv", "hrv"), restingHr: R,
+        load: S.tree.load, sessions: S.tree.sessions, readiness: feel == null ? null : feel }));
+    } catch (e) { console.warn("[companion] hrv tree", e); }
+    const base = R.filter((r) => r.day >= daysAgo(41)).map((r) => r.value), wk = R.filter((r) => r.day >= daysAgo(6)).map((r) => r.value);
+    if (base.length >= 14) {
+      const m = mean(base), s = sd(base);
+      res.enoughR = true; res.rbase = m; res.rUp = wk.length >= 3 && mean(wk) > m + Math.max(0.75 * s, 3);
+    }
     return res;
   }
   function updBase(v) {
-    // Rounded as Progress rounds: a value below the range rounds down and the range's edge
-    // up (and the reverse above), so the numbers never contradict the verdict.
-    let lo = Math.round(v.lo), hi = Math.round(v.hi), avg = v.roll7 == null ? null : Math.round(v.roll7);
-    if (v.pos === "below") { avg = Math.floor(v.roll7); lo = Math.ceil(v.lo); }
-    if (v.pos === "above") { avg = Math.ceil(v.roll7); hi = Math.floor(v.hi); }
-    $("tdBase").textContent = v.enoughH
-      ? "Your usual HRV is about " + Math.round(v.base) + " ms (range " + lo + " to " + hi + " ms)" + (v.roll7 != null ? ", and your 7-day average is " + avg + " ms" : "") + (v.enoughR ? ". Resting HR about " + Math.round(v.rbase) + " bpm" : "") + ". Read against your own trend, never a single morning or another person."
-      : "Building your HRV baseline. It needs about 2 weeks of readings. Until then the suggestion leans on how you feel, your sleep and resting HR, which carry most of the same signal.";
+    const g = v.g, rhr = v.enoughR ? " Resting HR about " + Math.round(v.rbase) + " bpm." : "";
+    if (!g) {
+      $("tdBase").textContent = "Building your HRV baseline: it needs readings on 10 days in the three weeks before this one, and 4 this week. Until then the suggestion leans on how you feel and your resting HR trend." + rhr;
+      return;
+    }
+    // In ms, rounded so the numbers never contradict the reading: below the range, the
+    // average rounds down and the range's edge up (and the reverse above).
+    const f = g.figures, avg0 = Math.exp(f.weekMean), lo0 = Math.exp(f.rangeLow), hi0 = Math.exp(f.rangeHigh);
+    let avg = Math.round(avg0), lo = Math.round(lo0), hi = Math.round(hi0);
+    if (g.hrv === "below") { avg = Math.floor(avg0); lo = Math.ceil(lo0); }
+    if (g.hrv === "above") { avg = Math.ceil(avg0); hi = Math.floor(hi0); }
+    const left = v.oneOff ? " (leaving out one unusual morning, " + Math.round(v.oneOff.value) + " ms on " + tdFullDay(v.oneOff.day) + ")" : "";
+    $("tdBase").textContent = "Your HRV over the last 7 days averages about " + avg + " ms" + left + "; your usual range, from the three weeks before, is " + lo + " to " + hi + " ms." + rhr +
+      " Read against your own trend, never a single morning or another person.";
   }
 
   /* ---- the check-in ---- */
@@ -478,7 +519,10 @@ async function initToday(el) {
       if (add) add.addEventListener("click", () => { S.editing = true; render(); const f = rows.querySelector('[role="radio"][tabindex="0"]'); if (f) f.focus(); });
     } else vbox.innerHTML = "";
 
-    const v = readHrvRhr(); updBase(v);
+    // Her check-in as the Vela app's 0–4, for the HRV tree (the Vela app's own read stands in
+    // when that is all she has done today).
+    const feel = done ? tdReadiness(st, ks, "go") : S.vela;
+    const v = readHrvRhr(feel); updBase(v);
     if (!done && !useVela) { out.hidden = true; $("tdActs").hidden = true; S.lastBand = null; updNudge(); return; }
     const r = tdVerdict({ st, keys: ks, ctx: S.ctx, hrv: v, back: S.back ? S.back.how || "pending" : null, vela: done ? null : S.vela });
     out.hidden = false;
@@ -952,12 +996,15 @@ async function initToday(el) {
   Promise.all([weekP, profP]).then(() => lastNutritionShare().catch(() => null)).then((at) => { S.shareAt = at; if (alive()) renderNut(at); });
 
   // History: intervals.icu wellness if wired (gives up after 4 s), else Apple Health via
-  // Vela, else the manual logs.
+  // Vela, else the manual logs; with the training load and sessions the HRV tree reads. Both
+  // are in before the verdict counts as settled, so opening the app never saves it twice.
   (async () => {
+    const treeP = todayTreeInputs().catch(() => ({ load: [], sessions: [] }));
     try { S.hist = await intervalsWellness(42); } catch (e) { S.hist = []; }
     if (!S.hist.length) {
       try { const v = await recentVitals(42); S.hist = v.map((x) => ({ date: x.log_date, hrv: x.hrv, restingHR: x.rhr })); } catch (e) {}
     }
+    S.tree = await treeP;
     S.histReady = true;
     if (alive()) render();
   })();

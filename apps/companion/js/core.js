@@ -128,6 +128,30 @@ function exMatch(lib, name) {
 const showAmounts = () => !(_identity.client && _identity.client.restrictive_pattern);
 const showCalories = () => !!(_identity.client && _identity.client.calorie_tracking) && showAmounts();
 
+/* ============ her HRV week: the Vela app's tree, never one morning ============ */
+// VelaHrv.hrvGuidance (js/hrv-guidance.js, generated from packages/shared) reads the week's
+// mean, so one very low or high morning can tip it on its own: in simulated steady weeks, a
+// single morning 25% under her usual turned the read to "ease" or "rest" almost every time.
+// So the week is read again without its single most unusual morning (furthest from her
+// usual, in log HRV), and the gentler of the two reads stands: a call needs the trend
+// behind it. With only 4 readings this week (the tree's minimum) there is nothing to leave
+// out, so that read is shown but is only a hint (firm: false).
+// → {g: hrvGuidance result or null, firm, oneOff: {day, value} | null}
+const _HRV_RANK = { push: 0, hold: 0, check: 1, ease: 2, rest: 3 };
+function hrvRead(input) {
+  if (typeof VelaHrv === "undefined") return { g: null };
+  const g = VelaHrv.hrvGuidance(input);
+  if (!g) return { g: null };
+  const d = new Date(input.today + "T12:00:00"); d.setDate(d.getDate() - 6);
+  const from = ymdLocal(d), mid = (g.figures.rangeLow + g.figures.rangeHigh) / 2;
+  const week = input.hrv.filter((v) => v.day >= from && v.day <= input.today && v.value > 0);
+  const far = (v) => Math.abs(Math.log(v.value) - mid);
+  const odd = week.reduce((a, v) => (far(v) > far(a) ? v : a), week[0]);
+  const g2 = VelaHrv.hrvGuidance(Object.assign({}, input, { hrv: input.hrv.filter((v) => v !== odd) }));
+  if (!g2) return { g, firm: false, oneOff: null };
+  return _HRV_RANK[g2.stance] < _HRV_RANK[g.stance] ? { g: g2, firm: true, oneOff: odd } : { g, firm: true, oneOff: null };
+}
+
 /* ============ offline-aware cache ============ */
 // Fresh data when Vela answers, and a copy on the phone for when it doesn't. Keys are
 // per user, so a shared iPad never shows one athlete another's plan; signOut clears them.

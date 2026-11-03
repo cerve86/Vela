@@ -73,12 +73,17 @@ functions are globals.
   "not an athlete" and "couldn't reach Vela" screens, one empty `<section>` per tab
   (`#today`, `#fuel`, `#strength`, `#library`) and the tab bar.
 - Load order: supabase-js → `js/config.js` → `js/supabaseClient.js` → `js/core.js` →
-  `js/data.js` and `js/data-*.js` → `js/auth.js` → the four tab files → `js/signin.js`; the
+  `js/hrv-guidance.js` → `js/data.js` and `js/data-*.js` → `js/auth.js` → the four tab files → `js/signin.js`; the
   shell boots on `DOMContentLoaded`. A top-level `const` with the same name in two files
   stops the later file, so module-private names carry a prefix (`_fuel…`, `TD_…`, `lib…`).
+- `js/hrv-guidance.js` is GENERATED: the Vela app's HRV decision tree
+  (`packages/shared/src/hrvGuidance.ts`), transpiled by `apps/web/scripts/copy-companion.mjs`
+  on every dev and build run. Change the source, never this file; Today and Progress read
+  it through `hrvRead()`, so the companion, the app and the portal agree.
 - `js/core.js` holds the shared helpers and the shell: `esc`, local-date helpers, who she
   is (`firstName()`, `coachName()`, `coachWhatsApp()`, `showCalories()`), the exercise
-  library (`exerciseLibrary()`, `exMatch()`), `STRAVA_RUN_MAPS`, `cached()` for offline copies,
+  library (`exerciseLibrary()`, `exMatch()`), `STRAVA_RUN_MAPS`, `hrvRead()` (her HRV week
+  through the tree, read again without its most unusual morning), `cached()` for offline copies,
   `loadInto()` for loading / empty / error states, `segmented()` (the one pick-one
   control), `announce()`, the "today changed" hook and the hash router (`#today`,
   `#library-routes`, …), so the phone's back gesture moves between tabs.
