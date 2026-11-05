@@ -1,11 +1,12 @@
 // Offline shell: the pages, styles and scripts work with no signal. Her data is not cached
 // here — Supabase and /api always go to the network, and the app keeps its own per-user
 // copy (cached() in js/core.js), which signOut clears. Bump CACHE when SHELL changes.
-const CACHE = "vela-companion-v7";
+const CACHE = "vela-companion-v8";
 const SHELL = [
   "./",
   "./index.html",
   "./nutrition.html",
+  "./connect.html",
   "./manifest.webmanifest",
   "./styles.css",
   "./css/today.css",
@@ -13,6 +14,7 @@ const SHELL = [
   "./css/strength.css",
   "./css/library.css",
   "./css/nutrition.css",
+  "./css/connect.css",
   "./js/config.js",
   "./js/supabaseClient.js",
   "./js/core.js",
@@ -29,6 +31,7 @@ const SHELL = [
   "./js/library.js",
   "./js/signin.js",
   "./js/nutrition.js",
+  "./js/connect.js",
   "./assets/exercises/exercises.json",
   "./icons/icon-192.png",
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"

@@ -135,3 +135,5 @@ a.tdnudge:hover,a.qcard:hover{border-color:var(--accent)}
 .qcard .qt span{font-size:var(--fs-2);color:var(--muted)}
 .tdquiet{margin:var(--sp-4) 0 0;font-size:var(--fs-2);color:var(--muted)}
 .tdquiet a{display:inline-flex;align-items:center;min-height:var(--tap);color:var(--accent);font-weight:600;text-underline-offset:3px}
+/* "Connect your watch" inside the watch fold: a link with room to tap. */
+#tdConnect a{display:inline-flex;align-items:center;min-height:var(--tap);color:var(--accent);font-weight:600;text-underline-offset:3px}

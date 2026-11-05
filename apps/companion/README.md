@@ -59,7 +59,16 @@ additively.
     `ahead`).
   - Progress and Today's HRV read intervals.icu first, through
     `apps/web/src/app/api/companion/intervals/route.ts`, and fall back to her Strava runs,
-    Apple Health HRV / resting HR and her programme's sessions in Vela.
+    Apple Health HRV / resting HR and her programme's sessions in Vela. HRV comes from
+    one source, never a mix: whichever has more mornings in the window (`intervalsWellness`).
+    The route drops what intervals.icu withholds (Strava activities come back as empty
+    stubs) and wellness days with no reading, so neither hides what Vela holds.
+  - **Connect your watch** (`connect.html`, `js/connect.js`) walks her through it: a free
+    intervals.icu account, her watch connected to it directly, a coaching request to her
+    coach, then a live check (`intervalsStatus()`, the route's `metric=status`). It works
+    signed out too, so the coach can send the link first; the portal's Companion card has
+    a Copy link for it. Linked from the account menu and from Today's watch fold when no
+    readings arrive by themselves.
 - **Config is served, not filled in.** `js/config.js` comes from the portal
   (`apps/web/src/app/companion/js/config.js/route.ts`) with the portal's own Supabase URL
   and anon key.
@@ -117,8 +126,9 @@ touch as a signature: "Buongiorno, Marta", marked `lang="it"`.
 
 ## Coach content
 
-The race and what she shares are on the athlete's page in the portal (`/clients/<id>`, the
-Companion card): the coach sets the race name and date there, and sees the companion
+The race, her intervals.icu link and what she shares are on the athlete's page in the
+portal (`/clients/<id>`, the Companion card): the coach sets the race name and date and
+links her intervals.icu there, and sees the companion
 check-ins (her four answers and the verdict she was shown) and any nutrition check she
 shared. A shared energy flag also shows on the clients list for four weeks. The rest still
 goes in through the Supabase table editor:
@@ -130,10 +140,12 @@ goes in through the Supabase table editor:
 | WhatsApp link | `profiles.whatsapp_url` (the coach's own row) | set in portal Settings → WhatsApp: a wa.me link, a group invite or her number; empty clears it and the companion shows no contact button |
 | Routes | `companion_routes` | `coach_id` = the coach's user id; links must be `https://`. A route with neither `map_url` nor `strava_url` links to Strava's run-map explorer, and the section always offers it |
 | Learn tiles | `companion_resources` | same; `audience` is `client` or `public` |
-| intervals.icu | `companion_profiles.intervals_icu_id` | once she has accepted the coaching request |
+| intervals.icu | `companion_profiles.intervals_icu_id` | set in the portal: the Companion card lists the coach's intervals.icu athletes (the email match first) and checks each link live, saying what is and isn't arriving |
 
 To use intervals.icu, set `INTERVALS_API_KEY` (the coach's key) in the Vercel project.
-Until then everything runs on Vela's data.
+Until then everything runs on Vela's data, and the Companion card says how to switch it
+on. Locally, `INTERVALS_API_BASE` can point at a stand-in for intervals.icu's API (see
+`apps/web/src/lib/intervals.ts`).
 
 ## Running it locally
 

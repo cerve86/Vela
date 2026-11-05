@@ -175,6 +175,24 @@ async function intervals(metric, days, ahead) {
   } catch (e) { return []; }
 }
 
+// Is her watch reaching Vela through intervals.icu? The setup guide's live answer:
+// {state: "signed-out" | "no-key" | "no-athlete-id" | "denied" | "bad-key" | "error" |
+//  "connected", conn?} with conn as packages/shared intervalsConnection.ts reads it (HRV
+// days, activities by device, anything Strava keeps back). Never throws.
+async function intervalsStatus() {
+  try {
+    const { data: s } = await window.db.auth.getSession();
+    if (!s || !s.session) return { state: "signed-out" };
+    // Three reads on intervals.icu behind this one: slower than the others, so more time.
+    const r = await withTimeout(fetch("/api/companion/intervals?metric=status", {
+      headers: { Authorization: "Bearer " + s.session.access_token }
+    }), 15000, "intervals.icu");
+    if (!r.ok) return { state: "error" };
+    const data = await withTimeout(r.json(), 4000, "intervals.icu");
+    return data && typeof data.state === "string" ? data : { state: "error" };
+  } catch (e) { return { state: "error" }; }
+}
+
 // --- Vela's own records, in the shapes the views already read ---
 
 // HRV and resting HR from Apple Health, one value per day: [{date, hrv, restingHR}].
@@ -226,11 +244,24 @@ async function velaPlanned(days, ahead) {
   }));
 }
 
-// Recent wellness (HRV, resting HR, sleep): intervals.icu if connected, else Apple Health
-// through Vela. The Today card falls back to manual entries when both are empty.
+// Recent wellness (HRV, resting HR, sleep): intervals.icu or Apple Health through Vela,
+// whichever has more mornings with a reading in the window; a tie goes to intervals.icu.
+// One source, never a mix: two devices measure HRV differently, and a baseline built from
+// both would read the switch as a change in her. So a watch she has just connected takes
+// over once it has more mornings than the Vela app had. The Today card falls back to
+// manual entries when both are empty.
 async function intervalsWellness(days = 30) {
-  const icu = await intervals("wellness", days);
-  return icu.length ? icu : velaWellness(days);
+  let velaErr = null;
+  const [icu, vela] = await Promise.all([
+    intervals("wellness", days),
+    velaWellness(days).catch((e) => { velaErr = e; return []; })
+  ]);
+  const mornings = (rows) => rows.filter((r) => Number(r.hrv) > 0 || Number(r.restingHR) > 0).length;
+  const n = mornings(icu);
+  if (n > 0 && n >= mornings(vela)) return icu;
+  // Vela couldn't be reached and intervals.icu had nothing: the caller's error, as before.
+  if (velaErr) throw velaErr;
+  return vela;
 }
 // Recent COMPLETED activities: intervals.icu if connected, else Strava through Vela.
 async function intervalsActivities(days = 42) {

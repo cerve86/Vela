@@ -166,3 +166,29 @@ Built on the Vela backend (see `../README.md`); this list is what changed.
 - **Routes.** A route with no link of its own, and the section itself, link to Strava's
   run-map explorer.
 - RLS suite: 249 tests (`supabase test db`), including the WhatsApp link and the new RPC.
+
+## 11. intervals.icu as the hub (connect guide + portal link)
+
+Watches and rings connect to intervals.icu (Garmin, Coros, Polar, Suunto, Huawei, Amazfit,
+Wahoo, Oura, WHOOP; Apple Watch through an iPhone app such as HealthFit), and Vela reads
+intervals.icu with the coach's key. Three facts about its API shape the design:
+
+- **Strava's activities are withheld.** An activity that reached intervals.icu through
+  Strava comes back as a stub (`source: "STRAVA"`, a `_note`, no data). The coach still
+  sees it on intervals.icu; Vela can't. So the guide tells her to connect her watch
+  directly, the route drops the stubs (they would otherwise stand in for the Strava runs
+  Vela holds), and both the portal and the guide say when runs arrive only through Strava.
+  Garmin's new terms may make intervals.icu withhold Garmin data the same way; a withheld
+  activity carrying the note is read the same way (`icuWithheld`).
+- **A wellness row is not a reading.** intervals.icu writes one for every training day.
+  The route keeps only days with HRV, resting HR, sleep or weight, and the companion takes
+  HRV from one source, whichever has more mornings (`intervalsWellness`).
+- **`GET /api/v1/athletes`** (API key) lists the athletes the key's owner coaches. The
+  portal's Companion card uses it so the coach picks her athlete (the email match is
+  suggested) instead of typing an id. The athlete never sets her own id: with one coach
+  key, an id she typed could be another athlete's.
+
+Pieces: `packages/shared/src/intervalsConnection.ts` (pure read, tested),
+`apps/web/src/lib/intervals.ts` (server fetch, `icuCheck`, `icuAthletes`), the route's
+`metric=status`, the portal's `IntervalsPanel.tsx` with `checkIntervalsAction` /
+`linkIntervalsAction` / `unlinkIntervalsAction`, and `connect.html` + `js/connect.js`.

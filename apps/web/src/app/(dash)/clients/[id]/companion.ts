@@ -29,6 +29,8 @@ export interface CompanionData {
   share: NutritionShare | null;
   raceName: string | null;
   raceDate: string | null;
+  /** Her intervals.icu athlete id, once the coach has linked her. */
+  icuId: string | null;
   /** A read failed: the card says so rather than showing "nothing yet" for data it never got. */
   failed: boolean;
 }
@@ -39,7 +41,8 @@ const result = (v: string): ShareResult => (RESULTS.has(v) ? (v as ShareResult) 
 
 /**
  * What she has told the companion, as her coach may read it: the morning checks since
- * `since`, the latest nutrition results she chose to share, and the race the coach set.
+ * `since`, the latest nutrition results she chose to share, and what the coach set (her
+ * race, her intervals.icu link).
  *
  * RLS decides all three — the coach reads only her own athletes' rows — so nothing here
  * filters on coach. A failed read degrades this one card, never the whole overview.
@@ -65,7 +68,7 @@ export async function loadCompanion(
       .maybeSingle(),
     supabase
       .from('companion_profiles')
-      .select('race_name, race_date')
+      .select('race_name, race_date, intervals_icu_id')
       .eq('client_id', clientId)
       .maybeSingle(),
   ]);
@@ -92,6 +95,7 @@ export async function loadCompanion(
       : null,
     raceName: profile.data?.race_name ?? null,
     raceDate: profile.data?.race_date ?? null,
+    icuId: profile.data?.intervals_icu_id?.trim() || null,
     failed: Boolean(checks.error || share.error || profile.error),
   };
 }
