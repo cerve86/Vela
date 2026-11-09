@@ -21,6 +21,13 @@ import {
 } from '@vela/api';
 import { parseIcuId, type IcuConnection } from '@vela/shared';
 import { icuAthletes, icuCheck, icuKey, type IcuAthlete } from '@/lib/intervals';
+import {
+  intervalsPushStatus,
+  setIntervalsPush,
+  syncIntervalsLater,
+  type PushOutcome,
+  type PushStatus,
+} from '@/lib/intervalsPush';
 import { createServerSupabase } from '@/lib/supabase/server';
 
 export interface Result {
@@ -241,11 +248,23 @@ export type IntervalsCheck =
   /** intervals.icu refused the key itself. */
   | { state: 'bad-key'; icuId: string | null }
   /** No id on file: the athletes she could be, with the likely one first. */
-  | { state: 'unlinked'; athletes: IntervalsAthlete[]; suggested: string | null; listFailed: boolean }
+  | {
+      state: 'unlinked';
+      athletes: IntervalsAthlete[];
+      suggested: string | null;
+      listFailed: boolean;
+    }
   /** An id on file that intervals.icu won't share: the coaching request isn't accepted yet. */
   | { state: 'denied'; icuId: string }
   | { state: 'error'; icuId: string | null }
-  | { state: 'connected'; icuId: string; name: string | null; conn: IcuConnection };
+  | {
+      state: 'connected';
+      icuId: string;
+      name: string | null;
+      conn: IcuConnection;
+      /** Whether her sessions go to her intervals.icu calendar, and how that last went. */
+      push: PushStatus;
+    };
 
 const lower = (s: string | null | undefined) => (s ?? '').trim().toLowerCase();
 
@@ -281,8 +300,14 @@ export async function checkIntervalsAction(clientId: string): Promise<IntervalsC
   if (!key) return { state: 'no-key', icuId };
 
   if (icuId) {
-    const check = await icuCheck(key, icuId);
-    if (check.state === 'connected') return { ...check, icuId };
+    const [check, push] = await Promise.all([
+      icuCheck(key, icuId),
+      intervalsPushStatus(supabase, clientId),
+    ]);
+    // The calendar runs nine weeks ahead; a day without changes moves that edge on.
+    if (push.sending && (!push.syncedAt || Date.now() - Date.parse(push.syncedAt) > 20 * 3600_000))
+      syncIntervalsLater(supabase, clientId);
+    if (check.state === 'connected') return { ...check, icuId, push };
     if (check.state === 'denied') return { state: 'denied', icuId };
     return { state: check.state, icuId };
   }
@@ -300,7 +325,10 @@ export async function checkIntervalsAction(clientId: string): Promise<IntervalsC
         p.clients?.first_name_hint?.trim() || p.clients?.email?.split('@')[0] || 'another client',
       ]),
   );
-  const athletes = list.athletes.map((a) => ({ ...a, linkedTo: takenBy.get(a.id.toLowerCase()) ?? null }));
+  const athletes = list.athletes.map((a) => ({
+    ...a,
+    linkedTo: takenBy.get(a.id.toLowerCase()) ?? null,
+  }));
   const free = athletes.filter((a) => !a.linkedTo);
   const full = lower(`${client.first_name_hint ?? ''} ${client.last_name_hint ?? ''}`);
   const first = lower(client.first_name_hint);
@@ -322,7 +350,7 @@ export async function linkIntervalsAction(clientId: string, input: string): Prom
   if (!icuId)
     return {
       ok: false,
-      error: 'That doesn\'t look like an intervals.icu athlete ID. It looks like i12345.',
+      error: "That doesn't look like an intervals.icu athlete ID. It looks like i12345.",
     };
   const supabase = await createServerSupabase();
   const { data: other } = await supabase
@@ -343,18 +371,44 @@ export async function linkIntervalsAction(clientId: string, input: string): Prom
       { onConflict: 'client_id' },
     );
   if (error) return { ok: false, error: friendlyError(error.message) };
+  // Already sending? Her sessions move to the newly linked calendar.
+  syncIntervalsLater(supabase, clientId);
   revalidatePath(`/clients/${clientId}`);
   return { ok: true };
 }
 
-/** Unlinks her: the companion goes back to what Vela itself holds (Strava, Apple Health). */
+/**
+ * Unlinks her: the companion goes back to what Vela itself holds (Strava, Apple Health),
+ * sending stops, and the upcoming sessions Vela put on her intervals.icu calendar come
+ * off it.
+ */
 export async function unlinkIntervalsAction(clientId: string): Promise<Result> {
   const supabase = await createServerSupabase();
   const { error } = await supabase
     .from('companion_profiles')
-    .update({ intervals_icu_id: null, updated_at: new Date().toISOString() })
+    .update({
+      intervals_icu_id: null,
+      intervals_push: false,
+      updated_at: new Date().toISOString(),
+    })
     .eq('client_id', clientId);
   if (error) return { ok: false, error: friendlyError(error.message) };
+  await setIntervalsPush(supabase, clientId, false);
   revalidatePath(`/clients/${clientId}`);
   return { ok: true };
+}
+
+/**
+ * Starts or stops sending her sessions to her intervals.icu calendar, and syncs at once:
+ * the outcome says what happened, the status what is there now.
+ */
+export async function setIntervalsPushAction(
+  clientId: string,
+  send: boolean,
+): Promise<{ outcome: PushOutcome; push: PushStatus }> {
+  const supabase = await createServerSupabase();
+  const outcome = await setIntervalsPush(supabase, clientId, send);
+  const push = await intervalsPushStatus(supabase, clientId);
+  revalidatePath(`/clients/${clientId}`);
+  return { outcome, push };
 }

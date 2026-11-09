@@ -1,19 +1,23 @@
 import { NextResponse } from 'next/server';
 import { addDay, getProgram, logAudit, notifyProgramEdited } from '@vela/api';
 import { requireCoach } from '@/lib/apiRoute';
+import { syncIntervalsLater } from '@/lib/intervalsPush';
 import {
   DAY_NOTES_MAX,
   DAY_TITLE_MAX,
   DISCIPLINE_LIST,
   parseDayNo,
   parseDiscipline,
+  parseWatchSteps,
   parseWeekNo,
+  WATCH_STEPS_MAX,
 } from '@/lib/programInput';
 
 /**
  * POST /api/programs/{id}/days — add a day to a programme.
  *
- * Body: `{ weekNo, dayNo, title, discipline?, notes? }`. dayNo is the weekday, 1 = Monday.
+ * Body: `{ weekNo, dayNo, title, discipline?, notes?, watchSteps? }`. dayNo is the weekday,
+ * 1 = Monday; watchSteps is a run's steps in intervals.icu workout text, for her watch.
  * A day may be notes only — a bike ladder, a long run described in words — and gets its
  * movements with POST …/items. Every client on the programme gets the session on her
  * calendar at once, if its date is still ahead. 201 with the day's id.
@@ -37,6 +41,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const discipline = parseDiscipline(b.discipline);
   const title = typeof b.title === 'string' ? b.title.trim() : '';
   const notes = typeof b.notes === 'string' ? b.notes.trim() : null;
+  const watchSteps = parseWatchSteps(b.watchSteps);
   if (weekNo === undefined || weekNo === 'invalid')
     return NextResponse.json({ error: 'weekNo must be 1–52.' }, { status: 400 });
   if (dayNo === undefined || dayNo === 'invalid')
@@ -56,6 +61,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       { error: `notes may be up to ${DAY_NOTES_MAX} characters.` },
       { status: 400 },
     );
+  if (watchSteps === 'invalid')
+    return NextResponse.json(
+      { error: `watchSteps is text, up to ${WATCH_STEPS_MAX} characters.` },
+      { status: 400 },
+    );
 
   const { id: dayId, error } = await addDay(supabase, id, {
     weekNo,
@@ -63,6 +73,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     title,
     discipline: discipline ?? 'strength',
     notes,
+    watchSteps,
   });
   if (error || !dayId)
     return NextResponse.json(
@@ -71,6 +82,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     );
 
   await notifyProgramEdited(supabase, { programId: id, programName: program.name, via });
+  syncIntervalsLater(supabase);
   await logAudit(supabase, {
     actorId: userId,
     action: 'program.day_added',

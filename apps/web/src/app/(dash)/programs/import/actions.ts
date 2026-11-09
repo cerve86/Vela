@@ -22,6 +22,7 @@ import {
   type ImportProgram,
   type ImportRowError,
 } from '@vela/shared';
+import { syncIntervalsLater } from '@/lib/intervalsPush';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { readSpreadsheet } from '@/lib/spreadsheet';
 import { toWrite } from '@/lib/programImport';
@@ -228,6 +229,7 @@ export async function commitImportAction(
       startDate,
       via: 'portal',
     });
+    syncIntervalsLater(supabase, clientId);
     revalidatePath(`/clients/${clientId}`);
     revalidatePath('/clients');
     return { ok: true, id, assigned: true };

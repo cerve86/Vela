@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 // The subpath rather than the barrel: Node's own test runner loads this file unbundled,
 // and it resolves a .ts subpath but not the barrel's extensionless internal imports.
-import { importProgramShape } from '@vela/shared/programImport';
+import { importProgramShape, WATCH_STEPS_HELP, WATCH_STEPS_MAX } from '@vela/shared/programImport';
 import { VelaApi, VelaApiError } from './api.ts';
 import {
   formatExercises,
@@ -28,6 +28,7 @@ How to work:
 6. The week's plan for one client — what to do this week, in the coach's words — is send_weekly_plan: call list_clients for the client's id, then send the text as she wrote or approved it. It lands on her phone at once with a message saying it is there. Use this for the weekly note; use a programme for a block that runs for weeks.
 7. To reason about a client, call get_client_report: her profile, programme and weekly plans, every session with pain and RPE, adherence, her daily reads, vitals by day, the week's HRV read through the training decision tree, recorded activities, meals and the last messages. Read it before recommending anything, and change nothing the coach has not agreed to.
 8. When the coach wants to send instructions as prose, use create_descriptive_program with the text as she wrote or approved it. Do not turn prose into a structured programme, or the other way round, unless she asks.
+9. Sessions can reach a client's watch through intervals.icu. A run (or ride or swim) day may carry watchSteps (watch_steps on add_program_day and update_program_day): the session as steps in intervals.icu workout text, which becomes a structured workout on her Garmin, Coros or Suunto. Write steps from the day's prescription, keep the notes in words as well, and prefer heart-rate targets. send_to_intervals starts sending one client's sessions to her intervals.icu calendar (the next nine weeks, kept in step with every later change) or stops it; call it only when the coach asks. She must already be linked to intervals.icu in the portal. Strength, mobility and rehab sessions show on her intervals.icu calendar with their movements as text; her watch gets no sets or reps.
 
 Be exact with prescriptions: sets, reps, load and rest are clinical instructions, not suggestions to round.`;
 
@@ -58,7 +59,7 @@ async function guarded(
 }
 
 export function buildServer(api: VelaApi): McpServer {
-  const server = new McpServer({ name: 'vela', version: '0.2.4' }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: 'vela', version: '0.3.0' }, { instructions: INSTRUCTIONS });
   const portal = api.portalUrl;
 
   server.registerTool(
@@ -421,10 +422,11 @@ export function buildServer(api: VelaApi): McpServer {
         title: z.string().trim().min(1).max(80),
         discipline: disciplineEnum.optional(),
         notes: z.string().trim().max(4000).optional().describe('What to do, in words.'),
+        watch_steps: z.string().trim().max(WATCH_STEPS_MAX).optional().describe(WATCH_STEPS_HELP),
       },
       annotations: writeAnnotations,
     },
-    ({ program_id, week_no, day_no, title, discipline, notes }) =>
+    ({ program_id, week_no, day_no, title, discipline, notes, watch_steps }) =>
       guarded(async () => {
         const day = await api.addProgramDay(program_id, {
           weekNo: week_no,
@@ -432,6 +434,7 @@ export function buildServer(api: VelaApi): McpServer {
           title,
           discipline,
           notes,
+          watchSteps: watch_steps,
         });
         return text(`Added "${title}", week ${week_no} day ${day_no} · day id ${day.id}`);
       }),
@@ -442,24 +445,32 @@ export function buildServer(api: VelaApi): McpServer {
     {
       title: 'Change a day',
       description:
-        "Renames a day, changes its discipline or notes, or moves it to another week or weekday. day_id comes from get_program. Clients' upcoming sessions follow; completed ones never change. Only after the coach agreed.",
+        "Renames a day, changes its discipline, notes or watch steps, or moves it to another week or weekday. day_id comes from get_program. Clients' upcoming sessions follow, on their intervals.icu calendars too; completed ones never change. Only after the coach agreed.",
       inputSchema: {
         program_id: z.string().uuid(),
         day_id: z.string().uuid(),
         title: z.string().trim().min(1).max(80).optional(),
         discipline: disciplineEnum.optional(),
         notes: z.string().trim().max(4000).nullable().optional(),
+        watch_steps: z
+          .string()
+          .trim()
+          .max(WATCH_STEPS_MAX)
+          .nullable()
+          .optional()
+          .describe(`${WATCH_STEPS_HELP} null removes them.`),
         week_no: z.number().int().min(1).max(52).optional(),
         day_no: z.number().int().min(1).max(7).optional().describe('Weekday: 1 = Monday.'),
       },
       annotations: { ...writeAnnotations, idempotentHint: true },
     },
-    ({ program_id, day_id, title, discipline, notes, week_no, day_no }) =>
+    ({ program_id, day_id, title, discipline, notes, watch_steps, week_no, day_no }) =>
       guarded(async () => {
         const day = await api.updateProgramDay(program_id, day_id, {
           title,
           discipline,
           notes,
+          watchSteps: watch_steps,
           weekNo: week_no,
           dayNo: day_no,
         });
@@ -540,6 +551,60 @@ export function buildServer(api: VelaApi): McpServer {
           `Moved "${r.session.title}" from ${r.session.from} to ${r.session.to}` +
             (r.moved > 1 ? `, and ${r.moved - 1} later sessions of the block with it.` : '.') +
             ' She sees the new day in the app and her calendar feed.',
+        );
+      }),
+  );
+
+  server.registerTool(
+    'send_to_intervals',
+    {
+      title: "Send a client's sessions to intervals.icu",
+      description:
+        "Starts (send: true) or stops (send: false) putting one client's Vela sessions on her intervals.icu calendar, from where intervals.icu passes the coming week to her Garmin, Coros or Suunto. Starting puts the next nine weeks there at once, and from then on every change in Vela follows by itself; stopping takes the upcoming ones Vela made off again. Runs with watch steps arrive as structured workouts; the rest as text. With no send given, says where it stands. Change it only when the coach asks.",
+      inputSchema: {
+        client_id: z.string().uuid().describe('From list_clients.'),
+        send: z
+          .boolean()
+          .optional()
+          .describe('true to start (or update now), false to stop. Leave out to only check.'),
+      },
+      annotations: { ...writeAnnotations, idempotentHint: true, openWorldHint: true },
+    },
+    ({ client_id, send }) =>
+      guarded(async () => {
+        const r =
+          send === undefined
+            ? await api.intervalsStatus(client_id)
+            : await api.setIntervalsPush(client_id, send);
+        const o = r.outcome;
+        if (send === undefined) {
+          if (r.linked === false) return text('She is not linked to intervals.icu yet.');
+          return text(
+            r.sending
+              ? `Sending: ${r.onCalendar} sessions on her intervals.icu calendar` +
+                  (r.syncedAt ? `, last updated ${r.syncedAt}` : '') +
+                  (r.error ? `. The last update failed: ${r.error}` : '.')
+              : 'Not sending her sessions to intervals.icu.',
+          );
+        }
+        if (o?.state === 'busy')
+          return text('Vela is already updating her calendar; this change is included.');
+        if (!send)
+          return text(
+            `Stopped. ${o?.removed ?? 0} upcoming sessions came off her intervals.icu calendar; what she has done stays.`,
+          );
+        const changed = [
+          o?.created ? `${o.created} new` : '',
+          o?.updated ? `${o.updated} changed` : '',
+          o?.removed ? `${o.removed} taken off` : '',
+        ].filter(Boolean);
+        return text(
+          `Sending. ${o?.onCalendar ?? r.onCalendar} sessions are on her intervals.icu calendar for the next nine weeks` +
+            (changed.length ? ` (${changed.join(', ')})` : '') +
+            (o?.withSteps
+              ? `; ${o.withSteps} of them go to her watch as structured workouts`
+              : '') +
+            '. Her watch gets the coming week once she has switched on planned workouts in her intervals.icu connection.',
         );
       }),
   );

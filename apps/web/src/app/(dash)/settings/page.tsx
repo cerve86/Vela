@@ -21,10 +21,11 @@ export default async function SettingsPage() {
 
       <Card title="API keys">
         <p className="mb-4 text-sm ink-2">
-          A key lets a tool — Claude with the Vela extension, a script, a spreadsheet pipeline —
-          read your library and create programmes in your account. It can do what you can do in
-          Programmes and nothing else: a programme it creates is not assigned to anyone until you
-          assign it. Keys expire after six months; revoke one the moment you stop using it.
+          A key lets a tool — Claude with the Vela extension, a script, a spreadsheet pipeline — act
+          in your account as you: read your library and your clients&rsquo; reports, build and
+          change programmes, and, when you ask it to, assign one, move a session or send a
+          client&rsquo;s sessions to her intervals.icu calendar. Keys expire after six months;
+          revoke one the moment you stop using it.
         </p>
         <ApiKeys keys={keys} />
       </Card>

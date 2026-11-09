@@ -8,6 +8,7 @@ import {
   unassignProgram,
 } from '@vela/api';
 import { requireCoach } from '@/lib/apiRoute';
+import { syncIntervalsLater } from '@/lib/intervalsPush';
 import { isIsoDate } from '@/lib/programInput';
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -55,6 +56,7 @@ export async function POST(req: Request, { params }: Ctx) {
     );
 
   await notifyProgramAssigned(supabase, { clientId, programName: program.name, startDate, via });
+  syncIntervalsLater(supabase, clientId);
   await logAudit(supabase, {
     actorId: userId,
     action: 'program.assigned',
@@ -98,6 +100,7 @@ export async function DELETE(req: Request, { params }: Ctx) {
   if (error) return NextResponse.json({ error }, { status: 500 });
   const name = (active.programs as unknown as { name: string } | null)?.name ?? 'her programme';
   await notifyProgramUnassigned(supabase, { clientId, programName: name, via });
+  syncIntervalsLater(supabase, clientId);
   await logAudit(supabase, {
     actorId: userId,
     action: 'program.unassigned',

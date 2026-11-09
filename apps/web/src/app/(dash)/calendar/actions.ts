@@ -9,6 +9,7 @@ import {
   moveSession,
   type SessionPlanItem,
 } from '@vela/api';
+import { syncIntervalsLater } from '@/lib/intervalsPush';
 import { createServerSupabase } from '@/lib/supabase/server';
 
 /** The prescription behind one session, for the panel's detail. RLS decides what she may see. */
@@ -37,6 +38,7 @@ export async function moveSessionAction(
   if (error) return { ok: false, error: friendlyError(error) };
   revalidatePath('/calendar');
   revalidatePath('/clients', 'layout');
+  syncIntervalsLater(supabase);
   return { ok: true, moved };
 }
 
@@ -47,6 +49,7 @@ export async function decideMoveAction(sessionId: string, accept: boolean): Prom
   if (error) return { ok: false, error: friendlyError(error) };
   revalidatePath('/calendar');
   revalidatePath('/clients', 'layout');
+  syncIntervalsLater(supabase);
   return { ok: true };
 }
 
@@ -60,5 +63,6 @@ export async function decideDeloadAction(
   if (error) return { ok: false, error: friendlyError(error) };
   revalidatePath('/calendar');
   revalidatePath('/clients', 'layout');
+  syncIntervalsLater(supabase);
   return { ok: true };
 }

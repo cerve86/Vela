@@ -69,7 +69,7 @@ describe('configFromEnv', () => {
 });
 
 describe('tools', () => {
-  it('publishes the twenty-one tools with the programme schema described field by field', async () => {
+  it('publishes the twenty-two tools with the programme schema described field by field', async () => {
     const client = await connect(fakePortal({}).fetchImpl);
     const { tools } = await client.listTools();
     assert.deepEqual(tools.map((t) => t.name).sort(), [
@@ -89,6 +89,7 @@ describe('tools', () => {
       'preview_program',
       'remove_program_day',
       'remove_program_item',
+      'send_to_intervals',
       'send_weekly_plan',
       'unassign_program',
       'update_program_day',
@@ -138,6 +139,92 @@ describe('tools', () => {
       firstText(res),
       /Week 1 starts Monday 2026-10-26; her first session is from 2026-10-28/,
     );
+  });
+
+  it('teaches the watch-steps syntax where days are written', async () => {
+    const client = await connect(fakePortal({}).fetchImpl);
+    const { tools } = await client.listTools();
+    for (const name of ['create_program', 'add_program_day', 'update_program_day']) {
+      const schema = JSON.stringify(tools.find((t) => t.name === name)!.inputSchema);
+      assert.match(schema, /intervals\.icu workout text/, name);
+      assert.match(schema, /400mtr/, name);
+    }
+  });
+
+  it("sends a day's watch steps to the portal", async () => {
+    let sent: unknown = null;
+    const portal = fakePortal({
+      '/api/programs/00000000-0000-4000-8000-000000000002/days/00000000-0000-4000-8000-000000000004':
+        (init) => {
+          sent = JSON.parse(String(init?.body));
+          return {
+            status: 200,
+            body: { day: { title: 'Intervals', weekNo: 1, dayNo: 2, discipline: 'run' } },
+          };
+        },
+    });
+    const client = await connect(portal.fetchImpl);
+    await client.callTool({
+      name: 'update_program_day',
+      arguments: {
+        program_id: '00000000-0000-4000-8000-000000000002',
+        day_id: '00000000-0000-4000-8000-000000000004',
+        watch_steps: '- 10m Z1 HR\n\n6x\n- 1m Z4 HR\n- 2m Z1 HR',
+      },
+    });
+    assert.deepEqual(sent, { watchSteps: '- 10m Z1 HR\n\n6x\n- 1m Z4 HR\n- 2m Z1 HR' });
+  });
+
+  it('starts sending to intervals.icu and says what reached her calendar', async () => {
+    let sent: unknown = null;
+    const portal = fakePortal({
+      '/api/clients/00000000-0000-4000-8000-000000000001/intervals': (init) => {
+        sent = JSON.parse(String(init?.body));
+        return {
+          status: 200,
+          body: {
+            sending: true,
+            onCalendar: 14,
+            syncedAt: '2026-11-09T10:00:00Z',
+            error: null,
+            outcome: {
+              state: 'sent',
+              onCalendar: 14,
+              withSteps: 5,
+              created: 14,
+              updated: 0,
+              removed: 0,
+            },
+          },
+        };
+      },
+    });
+    const client = await connect(portal.fetchImpl);
+    const res = await client.callTool({
+      name: 'send_to_intervals',
+      arguments: { client_id: '00000000-0000-4000-8000-000000000001', send: true },
+    });
+    assert.deepEqual(sent, { send: true });
+    assert.match(
+      firstText(res),
+      /14 sessions are on her intervals\.icu calendar.*\(14 new\); 5 of them/,
+    );
+  });
+
+  it('relays why intervals.icu refused, as an error', async () => {
+    const portal = fakePortal({
+      '/api/clients/00000000-0000-4000-8000-000000000001/intervals': () => ({
+        status: 409,
+        body: { error: "Marta isn't linked to intervals.icu yet." },
+      }),
+    });
+    const client = await connect(portal.fetchImpl);
+    const res = await client.callTool({
+      name: 'send_to_intervals',
+      arguments: { client_id: '00000000-0000-4000-8000-000000000001', send: true },
+    });
+    assert.equal(res.isError, true);
+    assert.match(firstText(res), /isn't linked/);
   });
 
   it('moves a session with the rest of its block and says how many followed', async () => {

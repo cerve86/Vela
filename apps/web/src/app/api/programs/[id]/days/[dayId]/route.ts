@@ -1,20 +1,23 @@
 import { NextResponse } from 'next/server';
 import { deleteDay, getProgram, logAudit, notifyProgramEdited, updateDay } from '@vela/api';
 import { requireCoach } from '@/lib/apiRoute';
+import { syncIntervalsLater } from '@/lib/intervalsPush';
 import {
   DAY_NOTES_MAX,
   DAY_TITLE_MAX,
   DISCIPLINE_LIST,
   parseDayNo,
   parseDiscipline,
+  parseWatchSteps,
   parseWeekNo,
+  WATCH_STEPS_MAX,
 } from '@/lib/programInput';
 
 type Ctx = { params: Promise<{ id: string; dayId: string }> };
 
 /**
  * PATCH /api/programs/{id}/days/{dayId} — change a day in place: any of title,
- * discipline, notes, weekNo, dayNo. Her upcoming sessions follow: renamed, moved, or
+ * discipline, notes, watchSteps (null clears them), weekNo, dayNo. Her upcoming sessions follow: renamed, moved, or
  * re-disciplined; completed ones never change.
  */
 export async function PATCH(req: Request, { params }: Ctx) {
@@ -64,11 +67,26 @@ export async function PATCH(req: Request, { params }: Ctx) {
       );
   }
 
-  const { error } = await updateDay(supabase, dayId, { title, discipline, notes, weekNo, dayNo });
+  const watchSteps = parseWatchSteps(b.watchSteps);
+  if (watchSteps === 'invalid')
+    return NextResponse.json(
+      { error: `watchSteps is text, up to ${WATCH_STEPS_MAX} characters, or null.` },
+      { status: 400 },
+    );
+
+  const { error } = await updateDay(supabase, dayId, {
+    title,
+    discipline,
+    notes,
+    watchSteps,
+    weekNo,
+    dayNo,
+  });
   if (error)
     return NextResponse.json({ error }, { status: error.includes('already has') ? 409 : 500 });
 
   await notifyProgramEdited(supabase, { programId: id, programName: program.name, via });
+  syncIntervalsLater(supabase);
   await logAudit(supabase, {
     actorId: userId,
     action: 'program.day_updated',
@@ -96,6 +114,7 @@ export async function DELETE(req: Request, { params }: Ctx) {
   const { error } = await deleteDay(supabase, dayId);
   if (error) return NextResponse.json({ error }, { status: 500 });
   await notifyProgramEdited(supabase, { programId: id, programName: program.name, via });
+  syncIntervalsLater(supabase);
   await logAudit(supabase, {
     actorId: userId,
     action: 'program.day_removed',

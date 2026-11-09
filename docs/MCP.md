@@ -77,11 +77,46 @@ to `http://localhost:4310` against a local stack.
 | `assign_program` / `unassign_program`                           | Put a programme on a client's calendar from the Monday of the start week, or take it off. Only when the coach asks.                                                                                                                                  |
 | `move_session`                                                  | Move a planned session to another day, or with `ripple` the rest of its block after it. Records never move; a moved session keeps its day when the programme changes. Only when the coach asks.                                                      |
 | `create_exercise`                                               | Add a movement to her own library, once she has agreed the name. Duplicates are refused.                                                                                                                                                             |
+| `send_to_intervals`                                             | Start or stop sending one client's sessions to her intervals.icu calendar, or check where it stands. Only when the coach asks.                                                                                                                       |
+
+`add_program_day` and `update_program_day` also take `watch_steps`, and `create_program`
+takes `watchSteps` on a day: a run's steps for the watch (below).
 
 The programme shape is the one in [IMPORT.md](IMPORT.md): the server publishes the
 import schema, field by field, as the tool's input, so a draft that passes here is exactly
 a draft the upload form would accept. The server's instructions to Claude say to read the
 library first, preview before creating, and be exact with sets, reps, load and rest.
+
+## Sessions to the watch
+
+A coach who plans in Claude can have the plan arrive on her athletes' watches, through
+intervals.icu: Vela is where the plan lives, intervals.icu hands it to the watch.
+
+1. **Link the athlete** on the Companion card of her page in the portal, once she has
+   accepted the coach on intervals.icu (her side is the "Connect your watch" guide).
+2. **Send her sessions**: the card's "Send … sessions" button, or ask Claude
+   (`send_to_intervals`). Vela puts the next nine weeks of her planned sessions on her
+   intervals.icu calendar, one event per session, and from then on keeps them in step:
+   every assign, move, programme edit or removal — in the portal or through Claude —
+   updates her calendar once it is saved. "Stop sending" takes the upcoming ones off.
+3. **Her watch**: intervals.icu passes the coming week to a Garmin, Coros or Suunto once
+   she has switched on uploading planned workouts in its connection (step 3 of her guide).
+   Polar and Apple Watch don't take planned workouts.
+
+What arrives: a run whose day has **watch steps** becomes a structured workout (warm-up,
+intervals, targets). Write them in intervals.icu workout text — one step per line,
+`- 10m Z1 HR`; `m` is minutes and `mtr` metres; a `6x` line, with a blank line before and
+after, repeats the steps under it. Heart-rate targets are the safe default; pace targets
+need her threshold pace set in intervals.icu. Claude writes them from the day's
+prescription, and the builder shows and edits them under the day's notes. Everything else
+goes as a workout with the day's notes and movements as text; intervals.icu cannot send
+sets and reps to a watch, so strength stays ticked off in Vela.
+
+The writes use the coach's intervals.icu key (`INTERVALS_API_KEY` on Vercel), server-side.
+`intervals_events` records which event holds which session, so changes update in place;
+a per-athlete lock (`intervals_sync_claim`) keeps two syncs from running at once. The
+logic is `planIntervalsSync` in `packages/shared/src/intervalsPush.ts` (tested), the
+sending `apps/web/src/lib/intervalsPush.ts`.
 
 ## How it works
 

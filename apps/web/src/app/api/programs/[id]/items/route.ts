@@ -8,6 +8,7 @@ import {
   updateItem,
 } from '@vela/api';
 import { requireCoach } from '@/lib/apiRoute';
+import { syncIntervalsLater } from '@/lib/intervalsPush';
 import { ITEM_NOTES_MAX } from '@/lib/programInput';
 
 /**
@@ -85,6 +86,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { error } = await updateItem(supabase, created.id, patch);
   if (error) return NextResponse.json({ error }, { status: 500 });
   await notifyProgramEdited(supabase, { programId: id, programName: program.name, via });
+  syncIntervalsLater(supabase);
   await logAudit(supabase, {
     actorId: userId,
     action: 'program.item_added',

@@ -18,6 +18,7 @@ import {
   summariseImport,
 } from '@vela/shared';
 import { requireCoach } from '@/lib/apiRoute';
+import { syncIntervalsLater } from '@/lib/intervalsPush';
 import { readSpreadsheet } from '@/lib/spreadsheet';
 import { toWrite } from '@/lib/programImport';
 
@@ -192,6 +193,7 @@ export async function POST(req: Request) {
         startDate: assignTo.startDate,
         via: 'portal',
       });
+    syncIntervalsLater(supabase, assignTo.clientId);
   }
 
   return NextResponse.json({ id, summary, created: unmatched, assigned }, { status: 201 });

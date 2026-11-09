@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { deleteItem, getProgram, logAudit, notifyProgramEdited, updateItem } from '@vela/api';
 import { requireCoach } from '@/lib/apiRoute';
+import { syncIntervalsLater } from '@/lib/intervalsPush';
 import { ITEM_NOTES_MAX } from '@/lib/programInput';
 
 type Ctx = { params: Promise<{ id: string; itemId: string }> };
@@ -70,6 +71,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   const { error } = await updateItem(supabase, itemId, patch);
   if (error) return NextResponse.json({ error }, { status: 500 });
   await notifyProgramEdited(supabase, { programId: id, programName: program.name, via });
+  syncIntervalsLater(supabase);
   await logAudit(supabase, {
     actorId: userId,
     action: 'program.item_changed',
@@ -92,6 +94,7 @@ export async function DELETE(req: Request, { params }: Ctx) {
   const { error } = await deleteItem(supabase, itemId);
   if (error) return NextResponse.json({ error }, { status: 500 });
   await notifyProgramEdited(supabase, { programId: id, programName: program.name, via });
+  syncIntervalsLater(supabase);
   await logAudit(supabase, {
     actorId: userId,
     action: 'program.item_removed',

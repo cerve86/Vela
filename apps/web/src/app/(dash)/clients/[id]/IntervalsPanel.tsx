@@ -6,9 +6,11 @@ import { StatusPill } from '@/components/ui';
 import {
   checkIntervalsAction,
   linkIntervalsAction,
+  setIntervalsPushAction,
   unlinkIntervalsAction,
   type IntervalsCheck,
 } from './actions';
+import type { PushOutcome, PushStatus } from '@/lib/intervalsPush';
 
 const GUIDE_PATH = '/companion/connect.html';
 
@@ -64,12 +66,11 @@ export function IntervalsPanel({
       <h3 className="text-xs font-medium ink-2">intervals.icu</h3>
       <div className="mt-2 text-sm" aria-live="polite" aria-busy={check === null}>
         {check === null ? (
-          <p className="ink-3">
-            {icuId ? `Linked to ${icuId}. ` : ''}Checking intervals.icu…
-          </p>
+          <p className="ink-3">{icuId ? `Linked to ${icuId}. ` : ''}Checking intervals.icu…</p>
         ) : (
           <State
             check={check}
+            clientId={clientId}
             firstName={firstName}
             pending={pending}
             onLink={link}
@@ -93,6 +94,7 @@ export function IntervalsPanel({
 
 function State({
   check,
+  clientId,
   firstName,
   pending,
   onLink,
@@ -100,6 +102,7 @@ function State({
   onRetry,
 }: {
   check: IntervalsCheck;
+  clientId: string;
   firstName: string;
   pending: boolean;
   onLink: (id: string) => void;
@@ -152,9 +155,8 @@ function State({
         <>
           <p className="ink-2">
             intervals.icu didn&apos;t accept the API key Vela has. Copy it again from{' '}
-            <ExternalLink href="https://intervals.icu/settings">Settings</ExternalLink> →
-            Developer Settings and replace <code className="text-xs">INTERVALS_API_KEY</code> on
-            Vercel.
+            <ExternalLink href="https://intervals.icu/settings">Settings</ExternalLink> → Developer
+            Settings and replace <code className="text-xs">INTERVALS_API_KEY</code> on Vercel.
           </p>
           <RetryButton onRetry={onRetry} pending={pending} />
         </>
@@ -180,8 +182,8 @@ function State({
           </p>
           <p className="mt-2 ink-2">
             intervals.icu won&apos;t share {firstName}&apos;s data with you yet. She needs to send
-            you a coaching request (step 4 of her guide), or accept yours. If she has, check the
-            ID is hers.
+            you a coaching request (step 4 of her guide), or accept yours. If she has, check the ID
+            is hers.
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <RetryButton onRetry={onRetry} pending={pending} />
@@ -199,15 +201,18 @@ function State({
       return (
         <>
           <p>
-            <StatusPill tone={conn.issue === 'withheld-only' || conn.issue === 'no-wellness' ? 'warning' : 'good'}>
+            <StatusPill
+              tone={
+                conn.issue === 'withheld-only' || conn.issue === 'no-wellness' ? 'warning' : 'good'
+              }
+            >
               Connected
             </StatusPill>{' '}
             <span className="ml-1">{linkedLine(check.icuId, check.name)}</span>
           </p>
           <ul className="mt-2 space-y-0.5 ink-2 tnum">
             <li>
-              HRV on {conn.hrvDays} of the last {conn.days} days · resting HR on{' '}
-              {conn.restingDays}
+              HRV on {conn.hrvDays} of the last {conn.days} days · resting HR on {conn.restingDays}
             </li>
             <li>
               {conn.sharedCount + conn.withheldCount === 0
@@ -231,14 +236,186 @@ function State({
             </p>
           )}
           {issue?.warn && <GuideLink firstName={firstName} />}
+          <SessionsToWatch clientId={clientId} firstName={firstName} initial={check.push} />
         </>
       );
     }
   }
 }
 
+const when = (iso: string) =>
+  new Date(iso).toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+/** What a send or a stop did, in a line. */
+function outcomeLine(o: PushOutcome, firstName: string): { ok: boolean; text: string } {
+  switch (o.state) {
+    case 'sent': {
+      const changes = [
+        o.created ? `${o.created} new` : '',
+        o.updated ? `${o.updated} changed` : '',
+        o.removed ? `${o.removed} taken off` : '',
+      ].filter(Boolean);
+      return {
+        ok: true,
+        text: `${o.onCalendar} ${o.onCalendar === 1 ? 'session is' : 'sessions are'} on ${firstName}'s intervals.icu calendar${changes.length ? ` (${changes.join(', ')})` : ', as they were'}.`,
+      };
+    }
+    case 'stopped':
+      return {
+        ok: true,
+        text: o.removed
+          ? `Stopped. ${o.removed} upcoming ${o.removed === 1 ? 'session' : 'sessions'} came off her calendar.`
+          : 'Stopped.',
+      };
+    case 'busy':
+      return { ok: true, text: 'Vela is already updating her calendar. Check again in a moment.' };
+    default:
+      return { ok: false, text: o.message };
+  }
+}
+
+/**
+ * Her sessions on her watch: Vela mirrors the next nine weeks of her plan onto her
+ * intervals.icu calendar, which hands the coming week to her Garmin, Coros or Suunto.
+ * Changes follow by themselves; the buttons are for starting, stopping and nudging.
+ */
+function SessionsToWatch({
+  clientId,
+  firstName,
+  initial,
+}: {
+  clientId: string;
+  firstName: string;
+  initial: PushStatus;
+}) {
+  const [push, setPush] = useState(initial);
+  const [pending, startTransition] = useTransition();
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const button =
+    'display-face min-h-[40px] rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-40';
+
+  const send = (on: boolean) =>
+    startTransition(async () => {
+      setNotice(null);
+      try {
+        const res = await setIntervalsPushAction(clientId, on);
+        setPush(res.push);
+        setNotice(outcomeLine(res.outcome, firstName));
+      } catch {
+        setNotice({ ok: false, text: 'Couldn’t reach Vela just now.' });
+      }
+    });
+  const stop = () => {
+    if (
+      window.confirm(
+        `Stop sending, and take the upcoming Vela sessions off ${firstName}'s intervals.icu calendar? Sessions she has done stay.`,
+      )
+    )
+      send(false);
+  };
+
+  return (
+    <div className="mt-4 rounded-[10px] p-3" style={{ background: 'var(--ghost)' }}>
+      <h4 className="text-xs font-medium ink-2">Sessions on her watch</h4>
+      {push.sending ? (
+        <>
+          <p className="mt-1">
+            <StatusPill tone={push.error ? 'warning' : 'good'}>Sending</StatusPill>{' '}
+            <span className="ml-1 ink-2">
+              {push.onCalendar} {push.onCalendar === 1 ? 'session' : 'sessions'} on her
+              intervals.icu calendar, the next 9 weeks
+              {push.syncedAt ? ` · updated ${when(push.syncedAt)}` : ''}
+            </span>
+          </p>
+          {push.error && (
+            <p className="mt-1" style={{ color: palette.status.critical }}>
+              {push.error}
+            </p>
+          )}
+          <p className="mt-1 text-xs ink-3">
+            Changes you make in Vela follow by themselves: a moved, edited or removed session
+            changes on her calendar too.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => send(true)}
+              className={`${button} text-white`}
+              style={{ background: palette.brand[600] }}
+            >
+              {pending ? 'Updating…' : 'Update now'}
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={stop}
+              className="text-xs font-medium underline ink-2"
+            >
+              Stop sending
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="mt-1 ink-2">
+            Put {firstName}&apos;s Vela sessions on her intervals.icu calendar. Runs with watch
+            steps arrive on her watch as workouts; the rest show with their notes and movements.
+          </p>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => send(true)}
+            className={`${button} mt-2 text-white`}
+            style={{ background: palette.brand[600] }}
+          >
+            {pending ? 'Sending…' : `Send ${firstName}'s sessions`}
+          </button>
+          {push.onCalendar > 0 && (
+            // Stopping failed part-way: what Vela put there is still there.
+            <p className="mt-2" style={{ color: palette.status.critical }}>
+              {push.onCalendar} upcoming {push.onCalendar === 1 ? 'session' : 'sessions'} Vela put
+              on her calendar {push.onCalendar === 1 ? 'is' : 'are'} still there.
+              {push.error ? ` ${push.error}` : ''}{' '}
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => send(false)}
+                className="font-medium underline"
+              >
+                Take them off
+              </button>
+            </p>
+          )}
+        </>
+      )}
+      <p className="mt-2 text-xs ink-3">
+        intervals.icu passes the coming week to a Garmin, Coros or Suunto once she has switched on
+        planned workouts (step 3 of her guide). Polar and Apple Watch don&apos;t take them.
+      </p>
+      {notice && (
+        <p
+          className="mt-2 text-xs"
+          role="status"
+          style={{ color: notice.ok ? undefined : palette.status.critical }}
+        >
+          {notice.text}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** What to tell the coach about each issue; warn = she should act on it. */
-const ISSUES: Record<string, (firstName: string, n: number) => { text: string; warn: boolean } | null> = {
+const ISSUES: Record<
+  string,
+  (firstName: string, n: number) => { text: string; warn: boolean } | null
+> = {
   none: () => null,
   'withheld-only': (f) => ({
     warn: true,
@@ -382,7 +559,11 @@ function Unlinked({
           </button>
         </form>
       ) : (
-        <button type="button" onClick={() => setTyping(true)} className="mt-2 text-xs underline ink-3">
+        <button
+          type="button"
+          onClick={() => setTyping(true)}
+          className="mt-2 text-xs underline ink-3"
+        >
           Type an ID instead
         </button>
       )}

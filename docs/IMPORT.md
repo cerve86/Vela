@@ -153,6 +153,12 @@ Defaults apply as in the table: `discipline` strength, `block` A, `restSec` 60,
 A day may carry `notes` (up to 4,000 characters) and then an empty `items` list; a day
 needs one or the other. `discipline` also accepts `cross`.
 
+A run (or ride or swim) day may also carry `watchSteps`, up to 2,000 characters: the
+session as steps for the athlete's watch, in intervals.icu workout text ("- 10m Z1 HR",
+a "6x" line repeating the steps under it). It reaches her watch when her coach sends her
+sessions to intervals.icu; see [MCP.md](MCP.md#sessions-to-the-watch). The spreadsheet
+shapes have no column for it.
+
 **Multipart body** — the upload without the form: a `file` field holding the .xlsx or
 .csv (either shape), plus optional `name`, `description` and `isTemplate`
 (`true`/`1`/`on`). Query flags for either body: `addMissing=1` creates the exercises the
