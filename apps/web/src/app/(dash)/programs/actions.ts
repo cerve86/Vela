@@ -39,6 +39,7 @@ import {
   type ProgressionModel,
 } from '@vela/shared';
 import type { Phase } from '@vela/shared';
+import { syncIntervalsLater } from '@/lib/intervalsPush';
 import { createServerSupabase } from '@/lib/supabase/server';
 import type { FuelType } from '@vela/shared';
 
@@ -62,10 +63,14 @@ async function programName(supabase: Awaited<ReturnType<typeof ctx>>['supabase']
   return data?.name ?? null;
 }
 
-/** After any edit to a programme: tell the clients on it, once an hour at most. */
+/**
+ * After any edit to a programme: tell the clients on it, once an hour at most, and bring
+ * the intervals.icu calendars Vela sends to in line once the edit is saved.
+ */
 async function edited(supabase: Awaited<ReturnType<typeof ctx>>['supabase'], programId: string) {
   const name = await programName(supabase, programId);
   if (name) await notifyProgramEdited(supabase, { programId, programName: name, via: 'portal' });
+  syncIntervalsLater(supabase);
 }
 
 export async function loadArchivedPrograms() {
@@ -113,6 +118,7 @@ export async function unassignAction(programId: string, assignmentId: string): P
       entityId: target?.clientId ?? null,
       via: 'portal',
     });
+  syncIntervalsLater(supabase, target?.clientId);
   revalidatePath(`/programs/${programId}`);
   revalidatePath('/clients');
   return { ok: true };
@@ -177,7 +183,7 @@ export async function addDayAction(
   return { ok: true };
 }
 
-/** Rename a day, or change its discipline. Her upcoming sessions follow. */
+/** Rename a day, change its discipline or its watch steps. Her upcoming sessions follow. */
 export async function updateDayAction(
   programId: string,
   dayId: string,
@@ -186,6 +192,7 @@ export async function updateDayAction(
     discipline?: Discipline;
     heatFinish?: boolean;
     fuelType?: FuelType | null;
+    watchSteps?: string | null;
   },
 ): Promise<Result> {
   const { supabase } = await ctx();
@@ -301,6 +308,7 @@ export async function assignProgramAction(
       startDate,
       via: 'portal',
     });
+  syncIntervalsLater(supabase, clientId);
   revalidatePath(`/programs/${programId}`);
   revalidatePath('/clients');
   return { ok: true, id: assignmentId };
@@ -368,6 +376,7 @@ export async function createBundleAction(formData: FormData): Promise<Result> {
       // The programme is real and saved; only the assignment failed. Say which.
       return { ok: false, error: `Block saved, but assigning it failed: ${assignError}` };
     }
+    syncIntervalsLater(supabase, assignTo);
   }
 
   revalidatePath('/programs');
@@ -390,6 +399,7 @@ export async function setDeloadWeeksAction(programId: string, weeks: number[]): 
   const { supabase } = await ctx();
   const { error } = await setDeloadWeeks(supabase, programId, weeks);
   if (error) return { ok: false, error: friendlyError(error) };
+  syncIntervalsLater(supabase);
   revalidatePath(`/programs/${programId}`);
   return { ok: true };
 }

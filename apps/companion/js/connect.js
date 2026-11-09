@@ -187,12 +187,13 @@ function conStepMarkup(step) {
         "<li><p>Find <b>" + esc(dev ? dev.icu : "your watch") + "</b> and tap <b>Connect</b>. Sign in with your " + esc(dev ? dev.acct : "watch's") +
         " account and allow everything it asks for.</p></li>" +
         (wellness ? "<li><p>Back on intervals.icu, under " + esc(dev ? dev.icu : "your watch") + ", make sure the wellness data is ticked: <b>HRV, resting heart rate and sleep</b>.</p></li>" : "") +
+        (dev && dev.kind === "watch" ? "<li><p>If there's an option to <b>upload planned workouts</b>, switch it on too. The sessions " + esc(c) + " plans then arrive on your " + esc(name) + " a week ahead.</p></li>" : "") +
         "</ol>" + notes.map((n) => '<p class="inset con-note">' + n + "</p>").join("") + conNav();
     }
 
     case "coach":
       return '<h2 class="section-h3" id="conStepH" tabindex="-1">Let ' + esc(c) + " coach you on intervals.icu</h2>" +
-        "<p>This lets " + esc(c) + " see what your watch sends, and lets Vela read it for you.</p>" +
+        "<p>This lets " + esc(c) + " see what your watch sends and plan your sessions there, and lets Vela read it for you.</p>" +
         '<ol class="con-list">' +
         "<li><p>Open the <b>Athletes</b> page on intervals.icu.</p>" + conExt(CON_LINKS.athletes, "Open Athletes") + "</li>" +
         "<li><p>Tap <b>Add a coach</b>, find " + esc(c) + " and send the request.</p></li>" +

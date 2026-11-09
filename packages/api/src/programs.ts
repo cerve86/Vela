@@ -43,6 +43,8 @@ export interface ProgramDay {
   title: string;
   discipline: Discipline;
   notes: string | null;
+  /** The steps for her watch, in intervals.icu workout text; null for none. */
+  watchSteps: string | null;
   /** A sauna or 40 °C bath after it, on a run or cross-training day. */
   heatFinish: boolean;
   /** Long, quality, easy or strength fuelling; null to read it from the day. */
@@ -117,7 +119,7 @@ export async function getProgram(supabase: VelaClient, id: string): Promise<Prog
     .select(
       `id, name, description, duration_weeks, is_template, kind, body, phase, deload_weeks,
        program_days (
-         id, week_no, day_no, title, discipline, notes, heat_finish, fuel_type,
+         id, week_no, day_no, title, discipline, notes, watch_steps, heat_finish, fuel_type,
          program_items (
            id, exercise_id, order_index, block, sets, reps,
            target_load_kg, target_rpe, tempo, rest_sec, notes,
@@ -139,6 +141,7 @@ export async function getProgram(supabase: VelaClient, id: string): Promise<Prog
         title: string;
         discipline: Discipline;
         notes: string | null;
+        watch_steps?: string | null;
         heat_finish?: boolean | null;
         fuel_type?: string | null;
         program_items: unknown[];
@@ -184,6 +187,7 @@ export async function getProgram(supabase: VelaClient, id: string): Promise<Prog
         title: d.title,
         discipline: d.discipline,
         notes: d.notes,
+        watchSteps: d.watch_steps ?? null,
         heatFinish: d.heat_finish === true,
         fuelType: (d.fuel_type as ProgramDay['fuelType']) ?? null,
         items,
@@ -340,6 +344,7 @@ export async function addDay(
     title: string;
     discipline: Discipline;
     notes?: string | null;
+    watchSteps?: string | null;
   },
 ): Promise<{ id: string | null; error: string | null }> {
   const { data, error } = await supabase
@@ -351,6 +356,7 @@ export async function addDay(
       title: input.title.trim() || 'Session',
       discipline: input.discipline,
       notes: input.notes?.trim() || null,
+      watch_steps: input.watchSteps?.trim() || null,
     })
     .select('id')
     .single();
@@ -409,6 +415,7 @@ export async function updateDay(
     title?: string;
     discipline?: Discipline;
     notes?: string | null;
+    watchSteps?: string | null;
     weekNo?: number;
     dayNo?: number;
     heatFinish?: boolean;
@@ -419,6 +426,7 @@ export async function updateDay(
     title?: string;
     discipline?: string;
     notes?: string | null;
+    watch_steps?: string | null;
     week_no?: number;
     day_no?: number;
     heat_finish?: boolean;
@@ -429,6 +437,7 @@ export async function updateDay(
   if (patch.title !== undefined) row.title = patch.title.trim() || 'Session';
   if (patch.discipline !== undefined) row.discipline = patch.discipline;
   if (patch.notes !== undefined) row.notes = patch.notes?.trim() || null;
+  if (patch.watchSteps !== undefined) row.watch_steps = patch.watchSteps?.trim() || null;
   if (patch.weekNo !== undefined) row.week_no = patch.weekNo;
   if (patch.dayNo !== undefined) row.day_no = patch.dayNo;
   if (Object.keys(row).length === 0) return { error: null };
@@ -1010,6 +1019,7 @@ export interface ImportedProgramInput {
     title: string;
     discipline: Discipline;
     notes?: string | null;
+    watchSteps?: string | null;
     items: {
       exerciseId: string;
       block: string;
@@ -1068,6 +1078,7 @@ export async function importProgram(
         title: d.title,
         discipline: d.discipline,
         notes: d.notes ?? null,
+        watch_steps: d.watchSteps?.trim() || null,
       })),
     )
     .select('id, week_no, day_no');

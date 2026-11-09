@@ -75,7 +75,14 @@ export function formatProgram(p: Program, portalUrl: string): string {
       ].filter(Boolean);
       return `  ${parts.join(' · ')}`;
     });
-    return `Week ${d.weekNo}, day ${d.dayNo}: ${d.title} (${d.discipline}) · day id ${d.id}${d.notes ? `\n  ${d.notes}` : ''}\n${items.join('\n')}`;
+    const steps = d.watchSteps?.trim()
+      ? `\n  Watch steps:\n${d.watchSteps
+          .trim()
+          .split('\n')
+          .map((l) => `    ${l}`)
+          .join('\n')}`
+      : '';
+    return `Week ${d.weekNo}, day ${d.dayNo}: ${d.title} (${d.discipline}) · day id ${d.id}${d.notes ? `\n  ${d.notes}` : ''}${steps}\n${items.join('\n')}`;
   });
 
   return `${head}\n\n${days.join('\n\n')}`;

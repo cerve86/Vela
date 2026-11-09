@@ -205,6 +205,8 @@ export interface ProgramDay {
   title: string;
   discipline: string;
   notes: string | null;
+  /** The steps for her watch, in intervals.icu workout text. */
+  watchSteps?: string | null;
   items: ProgramItem[];
 }
 
@@ -234,6 +236,24 @@ export type ImportOutcome =
   | { kind: 'invalid'; errors: { row: number; message: string }[] }
   | { kind: 'unmatched'; unmatched: string[] }
   | { kind: 'failed'; message: string };
+
+/** A client's intervals.icu sending, as GET/POST /api/clients/{id}/intervals answer it. */
+export interface IntervalsPush {
+  linked?: boolean;
+  sending: boolean;
+  onCalendar: number;
+  syncedAt: string | null;
+  error: string | null;
+  outcome?: {
+    state: string;
+    onCalendar?: number;
+    withSteps?: number;
+    created?: number;
+    updated?: number;
+    removed?: number;
+    message?: string;
+  };
+}
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -371,7 +391,14 @@ export class VelaApi {
   /** Add a day to a programme; every client on it gets the session if it is still ahead. */
   async addProgramDay(
     programId: string,
-    input: { weekNo: number; dayNo: number; title: string; discipline?: string; notes?: string },
+    input: {
+      weekNo: number;
+      dayNo: number;
+      title: string;
+      discipline?: string;
+      notes?: string;
+      watchSteps?: string;
+    },
   ): Promise<{ id: string }> {
     const { status, body } = await this.request(
       'POST',
@@ -390,6 +417,7 @@ export class VelaApi {
       title?: string;
       discipline?: string;
       notes?: string | null;
+      watchSteps?: string | null;
       weekNo?: number;
       dayNo?: number;
     },
@@ -468,6 +496,22 @@ export class VelaApi {
   }): Promise<{ id: string | null; name: string }> {
     const { status, body } = await this.request('POST', '/api/exercises', input);
     if (status === 201) return (body as { exercise: { id: string | null; name: string } }).exercise;
+    throw new VelaApiError(status, body, explain(status, body));
+  }
+
+  /** Where sending her sessions to intervals.icu stands. */
+  async intervalsStatus(clientId: string): Promise<IntervalsPush> {
+    return this.read<IntervalsPush>(`/api/clients/${encodeURIComponent(clientId)}/intervals`);
+  }
+
+  /** Start (send: true) or stop sending her sessions to her intervals.icu calendar. */
+  async setIntervalsPush(clientId: string, send: boolean): Promise<IntervalsPush> {
+    const { status, body } = await this.request(
+      'POST',
+      `/api/clients/${encodeURIComponent(clientId)}/intervals`,
+      { send },
+    );
+    if (status === 200) return body as IntervalsPush;
     throw new VelaApiError(status, body, explain(status, body));
   }
 

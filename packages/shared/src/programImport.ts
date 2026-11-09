@@ -74,6 +74,16 @@ export const importItemSchema = z.object({
     .describe('Coaching cue for this item, or null. Up to 1,000 characters.'),
 });
 
+/** A day's watch steps: intervals.icu workout text, sent with her session to her watch. */
+export const WATCH_STEPS_MAX = 2000;
+
+/**
+ * How to write them, said once: the MCP server's tool schemas and the JSON import both
+ * describe the field with it, so an assistant learns the syntax wherever it meets it.
+ */
+export const WATCH_STEPS_HELP =
+  'Optional, for a run (or a ride or swim): the session as steps for her watch, in intervals.icu workout text. One step per line, starting with "- ", then a duration or a distance, then a target. Durations: 10m (minutes), 30s, 1h. Distances: 400mtr (metres; "m" means minutes), 2km. Targets: "Z2 HR", "75-80% LTHR", or "Z2 Pace", "5:00/km Pace" (pace needs her threshold pace set in intervals.icu, so prefer heart rate). Words before the duration are the step\'s cue on the watch ("- Strides 20s Z4 HR"). A line "6x" repeats the steps under it; leave a blank line before and after a repeat, and do not nest repeats. Example: "- 10m Z1 HR\n\n6x\n- 1m Z4 HR\n- 2m Z1 HR\n\n- 10m Z1 HR". It reaches her watch only when the coach sends this client\'s sessions to intervals.icu. Leave it out for strength, mobility and rehab days.';
+
 export const importDayShape = {
   weekNo: z.number().int().min(1).max(52).describe('Week of the programme, from 1.'),
   dayNo: z
@@ -103,6 +113,13 @@ export const importDayShape = {
     .describe(
       'What to do that day, in words — the prescription for a run or a session with no listed movements. Shown to the client above the movements.',
     ),
+  watchSteps: z
+    .string()
+    .trim()
+    .max(WATCH_STEPS_MAX)
+    .nullable()
+    .optional()
+    .describe(WATCH_STEPS_HELP),
   items: z
     .array(importItemSchema)
     .describe('The movements. May be empty when notes say what the day is.'),

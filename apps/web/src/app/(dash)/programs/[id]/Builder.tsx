@@ -360,6 +360,18 @@ export function Builder({
                 run(() => updateDayNotesAction(program.id, day.id, notes), 'Saved.')
               }
             />
+            {(day.discipline === 'run' || day.discipline === 'cross' || day.watchSteps) && (
+              <WatchSteps
+                steps={day.watchSteps}
+                pending={pending}
+                onSave={(steps) =>
+                  run(
+                    () => updateDayAction(program.id, day.id, { watchSteps: steps || null }),
+                    'Saved. Athletes you send sessions for get the new steps on intervals.icu.',
+                  )
+                }
+              />
+            )}
             {day.items.length === 0 ? (
               <p className="mb-3 text-sm ink-3">
                 {day.notes
@@ -679,6 +691,86 @@ function DayNotes({
           className="text-xs font-medium underline disabled:opacity-40"
         >
           Save notes
+        </button>
+        <button type="button" onClick={() => setEditing(false)} className="text-xs underline ink-3">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The run as steps for her watch, in intervals.icu workout text. Sent with the session
+ * when the coach sends an athlete's sessions to intervals.icu (the Companion card), where
+ * it becomes a structured workout on a Garmin, Coros or Suunto. Usually written by the
+ * coach's Claude; editable here so what goes to the watch is never out of sight.
+ */
+function WatchSteps({
+  steps,
+  pending,
+  onSave,
+}: {
+  steps: string | null;
+  pending: boolean;
+  onSave: (steps: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(steps ?? '');
+
+  if (!editing) {
+    return (
+      <div className="mb-3 flex items-start gap-3">
+        {steps ? (
+          <div className="min-w-0">
+            <p className="text-xs font-medium ink-3">Watch steps</p>
+            <pre className="mt-0.5 whitespace-pre-wrap font-mono text-xs ink-2">{steps}</pre>
+          </div>
+        ) : (
+          <p className="text-xs ink-3">No watch steps: it reaches her watch as a note.</p>
+        )}
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => {
+            setDraft(steps ?? '');
+            setEditing(true);
+          }}
+          className="ml-auto shrink-0 text-xs underline ink-2 disabled:opacity-40"
+        >
+          {steps ? 'Edit steps' : 'Add watch steps'}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="mb-3 space-y-2">
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        rows={6}
+        maxLength={2000}
+        spellCheck={false}
+        aria-label="Watch steps, in intervals.icu workout text"
+        placeholder={'- 10m Z1 HR\n\n6x\n- 1m Z4 HR\n- 2m Z1 HR\n\n- 10m Z1 HR'}
+        className={`${input} w-full font-mono text-xs`}
+        style={inputStyle}
+      />
+      <p className="text-xs ink-3">
+        One step per line, starting with “- ”: 10m is minutes, 400mtr metres, then a target such as
+        Z2 HR. A line like “6x” repeats the steps below it, with a blank line before and after.
+      </p>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => {
+            onSave(draft.trim());
+            setEditing(false);
+          }}
+          className="text-xs font-medium underline disabled:opacity-40"
+        >
+          Save steps
         </button>
         <button type="button" onClick={() => setEditing(false)} className="text-xs underline ink-3">
           Cancel

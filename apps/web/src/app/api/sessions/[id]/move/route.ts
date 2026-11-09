@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession, moveSession } from '@vela/api';
 import { requireCoach } from '@/lib/apiRoute';
+import { syncIntervalsLater } from '@/lib/intervalsPush';
 import { isIsoDate } from '@/lib/programInput';
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -33,6 +34,7 @@ export async function POST(req: Request, { params }: Ctx) {
 
   const { moved, error } = await moveSession(supabase, id, b.to, ripple);
   if (error) return NextResponse.json({ error }, { status: /not found/i.test(error) ? 404 : 422 });
+  syncIntervalsLater(supabase, session.clientId);
   return NextResponse.json({
     moved,
     session: { id, title: session.title, from: session.scheduledDate, to: b.to },

@@ -20,6 +20,7 @@ export function toWrite(program: ImportProgram, byName: Map<string, string>): Im
       title: d.title,
       discipline: d.discipline as Discipline,
       notes: d.notes,
+      watchSteps: d.watchSteps ?? null,
       items: d.items.map((i) => ({
         exerciseId: byName.get(normaliseExerciseName(i.exercise))!,
         block: i.block,

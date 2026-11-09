@@ -55,6 +55,37 @@ export async function icuGet<T = unknown>(key: string, path: string): Promise<Ic
   }
 }
 
+/**
+ * A write: POST, PUT or DELETE with a JSON body. The answer is parsed when there is one;
+ * a write that answers with nothing is still ok.
+ */
+export async function icuSend<T = unknown>(
+  key: string,
+  method: 'POST' | 'PUT' | 'DELETE',
+  path: string,
+  body?: unknown,
+): Promise<IcuResult<T | null>> {
+  try {
+    const r = await fetch(`${ICU}${path}`, {
+      method,
+      headers: {
+        Authorization: 'Basic ' + Buffer.from('API_KEY:' + key).toString('base64'),
+        'User-Agent': UA,
+        Accept: 'application/json',
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!r.ok) return { ok: false, status: r.status };
+    const text = await r.text();
+    return { ok: true, data: text ? (JSON.parse(text) as T) : null };
+  } catch {
+    return { ok: false, status: 0 };
+  }
+}
+
 const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 /**
@@ -85,10 +116,7 @@ export type IcuCheck =
 export async function icuCheck(key: string, icuId: string): Promise<IcuCheck> {
   const [athlete, wellness, activities] = await Promise.all([
     icuGet<{ name?: string | null }>(key, `/athlete/${icuId}`),
-    icuGet<IcuWellnessLike[]>(
-      key,
-      `/athlete/${icuId}/wellness?${icuWindow(CHECK_WELLNESS_DAYS)}`,
-    ),
+    icuGet<IcuWellnessLike[]>(key, `/athlete/${icuId}/wellness?${icuWindow(CHECK_WELLNESS_DAYS)}`),
     icuGet<IcuActivityLike[]>(
       key,
       `/athlete/${icuId}/activities?${icuWindow(CHECK_ACTIVITY_DAYS)}`,
@@ -96,7 +124,9 @@ export async function icuCheck(key: string, icuId: string): Promise<IcuCheck> {
   ]);
   if (!athlete.ok) {
     if (athlete.status === 401) return { state: 'bad-key' };
-    return athlete.status === 403 || athlete.status === 404 ? { state: 'denied' } : { state: 'error' };
+    return athlete.status === 403 || athlete.status === 404
+      ? { state: 'denied' }
+      : { state: 'error' };
   }
   if (!wellness.ok || !activities.ok) return { state: 'error' };
   return {

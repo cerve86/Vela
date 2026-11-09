@@ -788,6 +788,11 @@ export type Database = {
         Row: {
           client_id: string
           intervals_icu_id: string | null
+          intervals_push: boolean
+          intervals_sync_again: boolean
+          intervals_sync_error: string | null
+          intervals_sync_lock: string | null
+          intervals_synced_at: string | null
           race_date: string | null
           race_name: string | null
           updated_at: string
@@ -796,6 +801,11 @@ export type Database = {
         Insert: {
           client_id: string
           intervals_icu_id?: string | null
+          intervals_push?: boolean
+          intervals_sync_again?: boolean
+          intervals_sync_error?: string | null
+          intervals_sync_lock?: string | null
+          intervals_synced_at?: string | null
           race_date?: string | null
           race_name?: string | null
           updated_at?: string
@@ -804,6 +814,11 @@ export type Database = {
         Update: {
           client_id?: string
           intervals_icu_id?: string | null
+          intervals_push?: boolean
+          intervals_sync_again?: boolean
+          intervals_sync_error?: string | null
+          intervals_sync_lock?: string | null
+          intervals_synced_at?: string | null
           race_date?: string | null
           race_name?: string | null
           updated_at?: string
@@ -1467,6 +1482,44 @@ export type Database = {
           },
         ]
       }
+      intervals_events: {
+        Row: {
+          client_id: string
+          event_date: string
+          icu_athlete_id: string
+          icu_event_id: number | null
+          session_id: string
+          signature: string
+          synced_at: string
+        }
+        Insert: {
+          client_id: string
+          event_date: string
+          icu_athlete_id: string
+          icu_event_id?: number | null
+          session_id: string
+          signature: string
+          synced_at?: string
+        }
+        Update: {
+          client_id?: string
+          event_date?: string
+          icu_athlete_id?: string
+          icu_event_id?: number | null
+          session_id?: string
+          signature?: string
+          synced_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intervals_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body: string
@@ -1774,6 +1827,7 @@ export type Database = {
           notes: string | null
           program_id: string
           title: string
+          watch_steps: string | null
           week_no: number
         }
         Insert: {
@@ -1785,6 +1839,7 @@ export type Database = {
           notes?: string | null
           program_id: string
           title: string
+          watch_steps?: string | null
           week_no: number
         }
         Update: {
@@ -1796,6 +1851,7 @@ export type Database = {
           notes?: string | null
           program_id?: string
           title?: string
+          watch_steps?: string | null
           week_no?: number
         }
         Relationships: [
@@ -2366,6 +2422,11 @@ export type Database = {
       has_health_consent: { Args: { p_client: string }; Returns: boolean }
       hidden_fuel_cards: { Args: never; Returns: string[] }
       import_health_metrics: { Args: { p_samples: Json }; Returns: number }
+      intervals_sync_claim: { Args: { p_client_id: string }; Returns: boolean }
+      intervals_sync_release: {
+        Args: { p_client_id: string; p_error?: string; p_ok: boolean }
+        Returns: boolean
+      }
       is_client_of_coach: { Args: { p_coach: string }; Returns: boolean }
       is_coach_of: { Args: { target_client: string }; Returns: boolean }
       is_the_client: { Args: { target_client: string }; Returns: boolean }

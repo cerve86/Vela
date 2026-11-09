@@ -2,10 +2,12 @@
   "manifest_version": "0.3",
   "name": "vela",
   "display_name": "Vela",
-  "version": "0.2.4",
-  "description": "Draft training programmes straight into your Vela coaching account.",
-  "long_description": "Lets Claude read your exercise library, check a programme draft against it, and create the programme in your Vela account. It never assigns a programme to a client — that stays a deliberate step you take in the portal.\n\nYou need a personal API key: in Vela, open Settings → API keys, create one, and paste it here.",
-  "author": { "name": "Vela" },
+  "version": "0.3.0",
+  "description": "Plan in Claude, straight into your Vela coaching account — and onto your athletes' watches through intervals.icu.",
+  "long_description": "Lets Claude read your exercise library and your clients' reports, draft and create programmes in your Vela account, and change them day by day. It assigns a programme, moves a session or sends a client's sessions to her intervals.icu calendar only when you ask it to.\n\nRuns can carry watch steps, so they reach a Garmin, Coros or Suunto as structured workouts through intervals.icu.\n\nYou need a personal API key: in Vela, open Settings → API keys, create one, and paste it here.",
+  "author": {
+    "name": "Vela"
+  },
   "homepage": "https://www.vela-coaching.com",
   "icon": "icon.png",
   "server": {
@@ -21,14 +23,96 @@
     }
   },
   "tools": [
-    { "name": "whoami", "description": "The coach this key acts as." },
-    { "name": "list_exercises", "description": "The exercise library, shipped plus your own." },
-    { "name": "list_programs", "description": "Your programmes and templates." },
-    { "name": "get_program", "description": "One programme in full." },
-    { "name": "preview_program", "description": "Validate a draft without creating anything." },
-    { "name": "create_program", "description": "Create a programme in your account." }
+    {
+      "name": "whoami",
+      "description": "The coach this key acts as."
+    },
+    {
+      "name": "list_exercises",
+      "description": "The exercise library, shipped plus your own."
+    },
+    {
+      "name": "list_programs",
+      "description": "Your programmes and templates."
+    },
+    {
+      "name": "get_program",
+      "description": "One programme in full."
+    },
+    {
+      "name": "preview_program",
+      "description": "Validate a draft without creating anything."
+    },
+    {
+      "name": "create_program",
+      "description": "Create a programme in your account."
+    },
+    {
+      "name": "create_descriptive_program",
+      "description": "Create a written programme."
+    },
+    {
+      "name": "delete_program",
+      "description": "Archive a programme."
+    },
+    {
+      "name": "add_program_day",
+      "description": "Add a day to a programme."
+    },
+    {
+      "name": "update_program_day",
+      "description": "Change a day, its notes or its watch steps."
+    },
+    {
+      "name": "remove_program_day",
+      "description": "Remove a day."
+    },
+    {
+      "name": "add_program_item",
+      "description": "Add a movement to a day."
+    },
+    {
+      "name": "update_program_item",
+      "description": "Change one prescription."
+    },
+    {
+      "name": "remove_program_item",
+      "description": "Take a movement off a day."
+    },
+    {
+      "name": "create_exercise",
+      "description": "Add a movement to your own library."
+    },
+    {
+      "name": "list_clients",
+      "description": "Your active clients."
+    },
+    {
+      "name": "get_client_report",
+      "description": "Everything about one client, as a page."
+    },
+    {
+      "name": "send_weekly_plan",
+      "description": "This week's plan for one client."
+    },
+    {
+      "name": "assign_program",
+      "description": "Put a programme on a client's calendar."
+    },
+    {
+      "name": "unassign_program",
+      "description": "Take a client's programme off."
+    },
+    {
+      "name": "move_session",
+      "description": "Move a planned session."
+    },
+    {
+      "name": "send_to_intervals",
+      "description": "Send a client's sessions to her intervals.icu calendar, or stop."
+    }
   ],
-  "keywords": ["physiotherapy", "coaching", "training", "programme"],
+  "keywords": ["physiotherapy", "coaching", "training", "programme", "intervals.icu"],
   "user_config": {
     "api_key": {
       "type": "string",
@@ -48,6 +132,8 @@
   "compatibility": {
     "claude_desktop": ">=0.10.0",
     "platforms": ["darwin", "win32", "linux"],
-    "runtimes": { "node": ">=20.0.0" }
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
   }
 }

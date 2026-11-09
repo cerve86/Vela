@@ -63,6 +63,10 @@ additively.
     one source, never a mix: whichever has more mornings in the window (`intervalsWellness`).
     The route drops what intervals.icu withholds (Strava activities come back as empty
     stubs) and wellness days with no reading, so neither hides what Vela holds.
+  - **Sessions to her watch** go the other way: when her coach turns sending on (the
+    portal's Companion card, or her Claude), Vela puts her planned sessions on her
+    intervals.icu calendar and keeps them in step, and intervals.icu hands the coming week
+    to her Garmin, Coros or Suunto. See [`docs/MCP.md`](../../docs/MCP.md#sessions-to-the-watch).
   - **Connect your watch** (`connect.html`, `js/connect.js`) walks her through it: a free
     intervals.icu account, her watch connected to it directly, a coaching request to her
     coach, then a live check (`intervalsStatus()`, the route's `metric=status`). It works
@@ -133,14 +137,14 @@ check-ins (her four answers and the verdict she was shown) and any nutrition che
 shared. A shared energy flag also shows on the clients list for four weeks. The rest still
 goes in through the Supabase table editor:
 
-| What | Table | Notes |
-|------|-------|-------|
-| Race | `companion_profiles.race_name`, `race_date` | set in the portal; drives the countdown on Today and Progress, and the 21.1 km line for a half |
-| Movement profile | `companion_movement_profiles` | `scores` (0–5) for feet and ankles, side hips, twisting, glutes and back of the legs, core and pelvic floor, upper body. Keys are matched by their words, so `Foot & ankle`, `Lateral hip`, `Side hips`, `Trunk / pelvic floor` and `Trunk & pelvic floor` all work; `focus` is the line above the bars |
-| WhatsApp link | `profiles.whatsapp_url` (the coach's own row) | set in portal Settings → WhatsApp: a wa.me link, a group invite or her number; empty clears it and the companion shows no contact button |
-| Routes | `companion_routes` | `coach_id` = the coach's user id; links must be `https://`. A route with neither `map_url` nor `strava_url` links to Strava's run-map explorer, and the section always offers it |
-| Learn tiles | `companion_resources` | same; `audience` is `client` or `public` |
-| intervals.icu | `companion_profiles.intervals_icu_id` | set in the portal: the Companion card lists the coach's intervals.icu athletes (the email match first) and checks each link live, saying what is and isn't arriving |
+| What             | Table                                         | Notes                                                                                                                                                                                                                                                                                                   |
+| ---------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Race             | `companion_profiles.race_name`, `race_date`   | set in the portal; drives the countdown on Today and Progress, and the 21.1 km line for a half                                                                                                                                                                                                          |
+| Movement profile | `companion_movement_profiles`                 | `scores` (0–5) for feet and ankles, side hips, twisting, glutes and back of the legs, core and pelvic floor, upper body. Keys are matched by their words, so `Foot & ankle`, `Lateral hip`, `Side hips`, `Trunk / pelvic floor` and `Trunk & pelvic floor` all work; `focus` is the line above the bars |
+| WhatsApp link    | `profiles.whatsapp_url` (the coach's own row) | set in portal Settings → WhatsApp: a wa.me link, a group invite or her number; empty clears it and the companion shows no contact button                                                                                                                                                                |
+| Routes           | `companion_routes`                            | `coach_id` = the coach's user id; links must be `https://`. A route with neither `map_url` nor `strava_url` links to Strava's run-map explorer, and the section always offers it                                                                                                                        |
+| Learn tiles      | `companion_resources`                         | same; `audience` is `client` or `public`                                                                                                                                                                                                                                                                |
+| intervals.icu    | `companion_profiles.intervals_icu_id`         | set in the portal: the Companion card lists the coach's intervals.icu athletes (the email match first) and checks each link live, saying what is and isn't arriving                                                                                                                                     |
 
 To use intervals.icu, set `INTERVALS_API_KEY` (the coach's key) in the Vercel project.
 Until then everything runs on Vela's data, and the Companion card says how to switch it

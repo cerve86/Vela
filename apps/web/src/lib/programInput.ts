@@ -1,4 +1,5 @@
 import { DISCIPLINES, type Discipline } from '@vela/api';
+import { WATCH_STEPS_MAX } from '@vela/shared';
 
 /**
  * Field checks the day and item routes share, so the limits are said once and an
@@ -7,6 +8,17 @@ import { DISCIPLINES, type Discipline } from '@vela/api';
 export const ITEM_NOTES_MAX = 1000;
 export const DAY_NOTES_MAX = 4000;
 export const DAY_TITLE_MAX = 80;
+export { WATCH_STEPS_MAX };
+
+/** watchSteps: absent, null to clear, or text up to the limit. */
+export function parseWatchSteps(v: unknown): string | null | undefined | 'invalid' {
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  if (typeof v !== 'string') return 'invalid';
+  const s = v.trim();
+  if (s.length > WATCH_STEPS_MAX) return 'invalid';
+  return s || null;
+}
 
 export function parseDiscipline(v: unknown): Discipline | 'invalid' | undefined {
   if (v === undefined) return undefined;
