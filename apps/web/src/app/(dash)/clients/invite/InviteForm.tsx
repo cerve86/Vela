@@ -61,8 +61,8 @@ export function InviteForm() {
           placeholder="client@example.com"
         />
         <p className="mt-1.5 text-xs ink-3">
-          They&apos;ll get a six-digit code by email. Entering it in Vela verifies their address, so
-          only the person who controls this inbox can accept.
+          They&apos;ll get an email from Vela to accept your invitation and choose a password. Only
+          the person with access to this inbox can accept.
         </p>
       </div>
 

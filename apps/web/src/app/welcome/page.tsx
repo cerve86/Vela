@@ -9,7 +9,7 @@ export const metadata = { title: 'Welcome — Vela' };
  * One page for both because they ask the same thing: choose a password. The link that
  * brought her here already proved she owns the address, so nothing else is asked. When
  * an invitation is waiting for her it is accepted here too, and the next thing she does
- * is open the app and sign in.
+ * is open the companion (or the iPhone app) and sign in.
  */
 export default function WelcomePage() {
   return (

@@ -101,7 +101,7 @@ export function WelcomeForm() {
       result = await supabase.auth.verifyOtp({ email: address, token, type: 'email' });
     if (result.error || !result.data.user) {
       setError(
-        'That code did not work. Codes last an hour; ask your physiotherapist to send a new invitation.',
+        'That code did not work. Codes last an hour; ask your coach to send a new invitation.',
       );
       setStage('code');
       return;
@@ -226,8 +226,8 @@ export function WelcomeForm() {
       <div className="surface rounded-[20px] p-6" style={{ background: 'var(--surface)' }}>
         <h1 className="display-face text-xl font-bold">This link has expired</h1>
         <p className="mt-2 text-sm ink-2">
-          Invitation links work once and for a limited time. Ask your physiotherapist to send a new
-          one, or use “Forgot your password?” in the app for a fresh link.
+          Invitation links work once and for a limited time. Ask your coach to send a new one, or
+          tap “Forgot password?” on Vela’s sign-in screen for a fresh link.
         </p>
         <button
           type="button"
@@ -281,9 +281,19 @@ export function WelcomeForm() {
           {joined ? 'You’re in' : 'Password saved'}
         </h1>
         <p className="mt-2 text-sm ink-2">
-          {joined ? 'Your physiotherapist’s programme is waiting for you. ' : ''}
-          Open the Vela app on your phone and sign in with{' '}
+          {joined ? 'Your coach’s programme is waiting for you. ' : ''}
+          Open the Vela companion on your phone and sign in with{' '}
           <span className="font-medium ink-1">{email}</span> and the password you just chose.
+        </p>
+        <a
+          href="/companion"
+          className="display-face mt-5 block w-full rounded-full px-4 py-3 text-center text-sm font-semibold text-white"
+          style={{ background: palette.brand[600] }}
+        >
+          Open the Vela companion
+        </a>
+        <p className="mt-3 text-center text-xs ink-3">
+          Use the Vela iPhone app? Sign in there with the same email and password.
         </p>
         {error && (
           <p className="mt-3 text-sm" style={{ color: palette.status.critical }}>
@@ -302,8 +312,8 @@ export function WelcomeForm() {
     >
       <h1 className="display-face text-xl font-bold">Welcome to Vela</h1>
       <p className="mt-1 mb-4 text-sm ink-2">
-        Choose a password for <span className="font-medium ink-1">{email}</span>. It is the one you
-        will use in the app.
+        Choose a password for <span className="font-medium ink-1">{email}</span>. You will use it to
+        sign in to Vela.
       </p>
 
       <label htmlFor="password" className="mb-1.5 block text-xs font-medium ink-2">
