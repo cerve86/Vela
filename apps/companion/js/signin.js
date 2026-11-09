@@ -118,7 +118,7 @@ const signinBreakable = (email) => esc(email).replace(/([@.])/g, "<wbr>$1");
     ev.preventDefault();
     if (busy) return;
     const email = norm($("pwEmail").value), pw = $("pwPass").value, btn = $("pwSubmit");
-    if (!validEmail(email)) { say("Enter the email you use in the Vela app.", { err: true }); focus($("pwEmail")); return; }
+    if (!validEmail(email)) { say("Enter the email your invitation went to.", { err: true }); focus($("pwEmail")); return; }
     // Return in the email field just moves on to the password.
     if (!pw) {
       if (document.activeElement === $("pwEmail")) { focus($("pwPass")); return; }
@@ -191,7 +191,7 @@ const signinBreakable = (email) => esc(email).replace(/([@.])/g, "<wbr>$1");
     }
     const k = signinErrorKind(e);
     if (k === "notfound") {
-      say("That email isn't on file. Use the one you sign into the Vela app with. New to Vela? Ask " + coachName() + " to resend your invite.", { err: true });
+      say("That email isn't on file. Use the one your invitation went to, or ask " + coachName() + " to resend your invite.", { err: true });
       focus($("otpEmail"), true);
     } else if (k === "rate") {
       const wait = signinWaitSeconds(e);
@@ -212,7 +212,7 @@ const signinBreakable = (email) => esc(email).replace(/([@.])/g, "<wbr>$1");
   forms.email.addEventListener("submit", (ev) => {
     ev.preventDefault();
     const email = norm($("otpEmail").value);
-    if (!validEmail(email)) { say("Enter the email you use in the Vela app.", { err: true }); focus($("otpEmail")); return; }
+    if (!validEmail(email)) { say("Enter the email your invitation went to.", { err: true }); focus($("otpEmail")); return; }
     sendCode(email, false);
   });
   $("otpResend").addEventListener("click", () => { if (codeEmail) sendCode(codeEmail, true); });
@@ -290,7 +290,7 @@ const signinBreakable = (email) => esc(email).replace(/([@.])/g, "<wbr>$1");
       return;
     }
     endRecovery();
-    announce("Password saved. Use it here and in the Vela app.");
+    announce("Password saved. Use it next time you sign in to Vela.");
     await coreRender({ force: true });
     afterRender();
   });

@@ -107,8 +107,8 @@ async function emailInvitation(
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // No invite token here any more: the email carries a six-digit OTP and acceptance is
-  // keyed on the verified email address, so there is nothing secret to thread through.
+  // No invite token here: acceptance is keyed on the verified email address (the email's
+  // link to /welcome, or an older six-digit code), so there is nothing secret to thread through.
   const metadata = {
     coach_name: input.coachName,
     practice_name: input.practiceName,
